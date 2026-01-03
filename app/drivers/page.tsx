@@ -110,9 +110,8 @@ export default function DriversPage() {
     }
 
     async function fetchDrivers() {
+        setIsLoading(true)
         try {
-            setIsLoading(true)
-
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 

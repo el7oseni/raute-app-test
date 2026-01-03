@@ -16,6 +16,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 import { PushService } from '@/lib/push-service'
 import { offlineManager } from '@/lib/offline-manager' // Auto-inits
+import { DriverSetupGuide } from '@/components/driver-setup-guide'
+import { useToast } from '@/components/toast-provider'
+import { Power } from 'lucide-react'
 
 export function DriverDashboardView({ userId }: { userId: string }) {
     const router = useRouter()
@@ -31,6 +34,9 @@ export function DriverDashboardView({ userId }: { userId: string }) {
     const [onTimeRate, setOnTimeRate] = useState(100)
     const [weeklyData, setWeeklyData] = useState<any[]>([])
     const [ordersList, setOrdersList] = useState<any[]>([])
+    const [isOnline, setIsOnline] = useState(false)
+    const [driverId, setDriverId] = useState<string | null>(null)
+    const { toast } = useToast()
 
     useEffect(() => {
         // Initialize Background Services
@@ -47,14 +53,18 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             // Get Driver ID linked to this User ID
             const { data: driverData } = await supabase
                 .from('drivers')
-                .select('id, name')
+                .select('id, name, is_online')
                 .eq('user_id', userId)
                 .single()
+
 
             if (!driverData) {
                 setIsLoading(false)
                 return
             }
+
+            setDriverId(driverData.id)
+            setIsOnline(driverData.is_online || false)
 
             const dateStr = format(selectedDate, 'yyyy-MM-dd')
             const isToday = isSameDay(selectedDate, new Date())
@@ -163,6 +173,30 @@ export function DriverDashboardView({ userId }: { userId: string }) {
         }
     }
 
+    async function toggleOnlineStatus() {
+        if (!driverId) return
+
+        const newStatus = !isOnline
+        setIsOnline(newStatus) // Optimistic
+
+        try {
+            await supabase.from('drivers').update({ is_online: newStatus }).eq('id', driverId)
+
+            // Log Activity
+            await supabase.from('driver_activity_logs').insert({
+                driver_id: driverId,
+                status: newStatus ? 'online' : 'offline',
+                timestamp: new Date().toISOString()
+            })
+
+            toast({ title: newStatus ? "You are ONLINE 🟢" : "You are OFFLINE ⚫", type: "success" })
+        } catch (error) {
+            console.error(error)
+            setIsOnline(!newStatus) // Revert
+            toast({ title: "Failed to update status", type: "error" })
+        }
+    }
+
     if (isLoading) return <DriverDashboardSkeleton />
 
     const completionPercentage = stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0
@@ -198,6 +232,34 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                     </PopoverContent>
                 </Popover>
             </div>
+
+            {/* STATUS TOGGLE & GUIDE */}
+            <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${isOnline ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <Power size={20} />
+                    </div>
+                    <div>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Status: {isOnline ? 'Online' : 'Offline'}</p>
+                        <p className="text-xs text-slate-500">{isOnline ? 'You are receiving orders' : 'You are currently hidden'}</p>
+                    </div>
+                </div>
+                <Button
+                    variant={isOnline ? "default" : "secondary"}
+                    className={isOnline ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                    onClick={toggleOnlineStatus}
+                >
+                    {isOnline ? 'Go Offline' : 'Go Online'}
+                </Button>
+            </div>
+
+            {/* Quick Setup Guide */}
+            <DriverSetupGuide
+                isOnline={isOnline}
+                hasTasks={stats.pending > 0}
+                onToggleOnline={toggleOnlineStatus}
+                onViewAssignments={() => router.push('/orders')}
+            />
 
             {/* Main Progress Card */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all">
@@ -292,15 +354,17 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             </div>
 
             {/* Action Button (Show only Current Day) */}
-            {isToday && (
-                <Button
-                    size="lg"
-                    className="w-full h-14 text-lg shadow-lg shadow-blue-200 dark:shadow-blue-900/50 rounded-xl"
-                    onClick={() => router.push('/orders')}
-                >
-                    Start Delivering <ArrowRight className="ml-2" />
-                </Button>
-            )}
+            {
+                isToday && (
+                    <Button
+                        size="lg"
+                        className="w-full h-14 text-lg shadow-lg shadow-blue-200 dark:shadow-blue-900/50 rounded-xl"
+                        onClick={() => router.push('/orders')}
+                    >
+                        Start Delivering <ArrowRight className="ml-2" />
+                    </Button>
+                )
+            }
 
             {/* Orders List */}
             <div>
@@ -348,7 +412,7 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }
 

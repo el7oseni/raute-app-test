@@ -55,12 +55,21 @@ export default function DispatchersPage() {
     }, [])
 
     async function fetchDispatchers() {
+        setIsLoading(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
+            if (!user) {
+                console.warn("No auth user")
+                return
+            }
 
-            const { data: currentUser } = await supabase.from('users').select('company_id').eq('id', user.id).single()
-            if (!currentUser) return
+            const { data: currentUser, error: userError } = await supabase.from('users').select('company_id').eq('id', user.id).single()
+
+            if (userError || !currentUser) {
+                console.error("Profile Fetch Error:", userError)
+                // Don't toast here to avoid spam on initial load if auth is initializing
+                return
+            }
 
             const { data, error } = await supabase
                 .from('users')
@@ -73,6 +82,7 @@ export default function DispatchersPage() {
             setDispatchers((data as unknown as AppUser[]) || [])
         } catch (error) {
             console.error('Error fetching dispatchers:', error)
+            toast({ title: 'Error loading team', type: 'error' })
         } finally {
             setIsLoading(false)
         }
@@ -237,7 +247,43 @@ export default function DispatchersPage() {
      *  For now, permissions are set on create. Updating them would require an update API or direct DB call.)
      */
 
-    if (isLoading) return <div className="p-8"><Skeleton className="h-10 w-48 mb-4" /><Skeleton className="h-64 w-full" /></div>
+    // LOADING SKELETON
+    if (isLoading) {
+        return (
+            <div className="p-6 max-w-7xl mx-auto space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <Skeleton className="h-8 w-48 mb-2" />
+                        <Skeleton className="h-4 w-64" />
+                    </div>
+                    <Skeleton className="h-10 w-32" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="border rounded-xl p-6 bg-card space-y-4">
+                            <div className="flex justify-between items-center">
+                                <Skeleton className="h-6 w-32" />
+                                <Skeleton className="h-5 w-16 rounded-full" />
+                            </div>
+                            <Skeleton className="h-4 w-48" />
+                            <div className="space-y-2 pt-4">
+                                <Skeleton className="h-3 w-20" />
+                                <div className="flex gap-2">
+                                    <Skeleton className="h-5 w-16" />
+                                    <Skeleton className="h-5 w-24" />
+                                </div>
+                            </div>
+                            <div className="pt-4 flex gap-2">
+                                <Skeleton className="h-8 flex-1" />
+                                <Skeleton className="h-8 w-8" />
+                                <Skeleton className="h-8 w-8" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6 pb-20">

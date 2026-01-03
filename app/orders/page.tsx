@@ -129,8 +129,9 @@ export default function OrdersPage() {
     }, [driverId])
 
     async function fetchData() {
+        setIsLoading(true)
         try {
-            setIsLoading(true)
+            // Get current user
 
             // Get current user
             const { data: { user } } = await supabase.auth.getUser()

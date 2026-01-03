@@ -16,6 +16,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { offlineManager } from '@/lib/offline-manager'
@@ -209,7 +210,49 @@ export default function ClientOrderDetails() {
         })
     }
 
-    if (isLoading) return <div className="p-4 flex items-center justify-center h-screen"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-50 pb-20">
+                {/* Header Skeleton */}
+                <div className="bg-white p-4 shadow-sm space-y-2">
+                    <div className="flex justify-between items-start">
+                        <Skeleton className="h-6 w-32" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <Skeleton className="h-4 w-48" />
+                </div>
+
+                {/* Map Skeleton */}
+                <div className="h-64 w-full bg-slate-200 animate-pulse relative">
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                    </div>
+                </div>
+
+                {/* Timeline Skeleton */}
+                <div className="p-4 space-y-6">
+                    <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+                        <Skeleton className="h-5 w-40" />
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-4">
+                                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                                <div className="space-y-2 flex-1">
+                                    <Skeleton className="h-4 w-24" />
+                                    <Skeleton className="h-3 w-full" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Action Bar Skeleton */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-2">
+                        <Skeleton className="h-12 flex-1 rounded-xl" />
+                        <Skeleton className="h-12 flex-1 rounded-xl" />
+                    </div>
+                </div>
+            </div>
+        )
+    }
     if (!order) return <div className="p-4 flex flex-col items-center justify-center h-screen"><Package className="h-12 w-12 text-slate-300 mb-3" /><p className="text-slate-500">Order not found</p><Button onClick={() => router.push('/orders')} className="mt-4">Back to Orders</Button></div>
 
     return (
