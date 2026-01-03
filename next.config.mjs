@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enabled for Capacitor mobile build
-  output: 'export',
+  // output: 'export',
 };
 
 export default withNextIntl(nextConfig);
