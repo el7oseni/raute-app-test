@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
         console.log("✅ Auth User Created:", userId)
 
         try {
-            // Step 2: Create User Profile (using admin client to bypass RLS)
+            // Step 2: Create User Profile (using upsert to handle potential auto-triggers)
             const { error: userInsertError } = await supabaseAdmin
                 .from('users')
-                .insert({
+                .upsert({
                     id: userId,
                     email,
                     full_name: name,
