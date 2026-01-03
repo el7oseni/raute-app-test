@@ -1,24 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Server-side Admin Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-)
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json()
+        console.log("🚀 [API] Create Driver Request Started")
+
+        // 1. Validate Environment Variables (Prevent Crash)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+        if (!supabaseUrl || !serviceKey) {
+            console.error("❌ Critical: Missing Supabase Environment Variables")
+            return NextResponse.json(
+                { error: 'Server Misconfigured: Missing Supabase Keys (Check Vercel Env Vars)' },
+                { status: 500 }
+            )
+        }
+
+        // 2. Initialize Admin Client Safely (Inside handler to catch errors)
+        const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        })
+
+        // 3. Parse Body
+        let body;
+        try {
+            body = await request.json()
+        } catch (e) {
+            return NextResponse.json({ error: 'Invalid JSON Body' }, { status: 400 })
+        }
+
         const { name, email, password, phone, vehicleType, companyId, customValues, defaultStartAddress, defaultStartLat, defaultStartLng } = body
 
-        // Validate inputs
+        console.log(`📦 Processing Creation for: ${email}`)
+
+        // 4. Validate Inputs
         if (!name || !email || !password || !companyId) {
             return NextResponse.json(
                 { error: 'Missing required fields' },
@@ -37,7 +58,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (authError || !newAuthUser.user) {
-            console.error('Auth creation error:', authError)
+            console.error('❌ Auth creation error:', authError)
             return NextResponse.json(
                 { error: authError?.message || 'Failed to create user account' },
                 { status: 500 }
@@ -45,6 +66,7 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = newAuthUser.user.id
+        console.log("✅ Auth User Created:", userId)
 
         try {
             // Step 2: Create User Profile (using admin client to bypass RLS)
@@ -59,8 +81,7 @@ export async function POST(request: NextRequest) {
                 })
 
             if (userInsertError) {
-                console.error('User profile creation error:', userInsertError)
-                // Cleanup: Delete auth user
+                console.error('❌ User profile creation error:', userInsertError)
                 await supabaseAdmin.auth.admin.deleteUser(userId)
                 return NextResponse.json(
                     { error: 'Failed to create user profile: ' + userInsertError.message },
@@ -87,8 +108,7 @@ export async function POST(request: NextRequest) {
                 })
 
             if (driverError) {
-                console.error('Driver creation error:', driverError)
-                // Cleanup: Delete user profile and auth user
+                console.error('❌ Driver creation error:', driverError)
                 await supabaseAdmin.from('users').delete().eq('id', userId)
                 await supabaseAdmin.auth.admin.deleteUser(userId)
                 return NextResponse.json(
@@ -98,6 +118,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Success!
+            console.log("✅ Driver Full Account Created Successfully")
             return NextResponse.json({
                 success: true,
                 message: 'Driver account created successfully',
@@ -108,8 +129,7 @@ export async function POST(request: NextRequest) {
             })
 
         } catch (dbError: any) {
-            console.error('Database error:', dbError)
-            // Cleanup
+            console.error('❌ Database error:', dbError)
             await supabaseAdmin.auth.admin.deleteUser(userId)
             return NextResponse.json(
                 { error: 'Database error: ' + dbError.message },
@@ -118,9 +138,9 @@ export async function POST(request: NextRequest) {
         }
 
     } catch (error: any) {
-        console.error('Unexpected error:', error)
+        console.error('🔥 Unexpected error:', error)
         return NextResponse.json(
-            { error: 'Internal server error: ' + error.message },
+            { error: 'Internal server error: ' + (error.message || error) },
             { status: 500 }
         )
     }
