@@ -188,43 +188,48 @@ export default function DriversPage() {
             const defaultStartLng = formData.get('default_start_lng') ? parseFloat(formData.get('default_start_lng') as string) : null
 
             // Call Server-Side API Route
+            // Call Server-Side API Route
+            console.log("🚀 Sending Request to /api/create-driver...")
+            const payload = {
+                name,
+                email,
+                phone,
+                vehicleType,
+                companyId: userProfile.company_id,
+                customValues,
+                defaultStartAddress,
+                defaultStartLat,
+                defaultStartLng,
+                password // Ensure password is sent!
+            }
+            console.log("📦 Payload:", JSON.stringify(payload, null, 2))
+
             const response = await fetch('/api/create-driver', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name,
-                    email,
-                    password,
-                    phone,
-                    vehicleType,
-                    companyId: userProfile.company_id,
-                    customValues,
-                    defaultStartAddress,
-                    defaultStartLat,
-                    defaultStartLng
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             })
 
             const result = await response.json()
+            console.log("📩 API Response:", result)
 
             if (!response.ok) {
-                alert(result.error || 'Failed to create driver account')
+                console.error("❌ API Error:", result)
+                alert(`Failed to create driver: ${result.error || result.details || 'Unknown error'}`)
                 return
             }
 
             // Success!
-            alert(`✅ Driver account created!\nEmail: ${result.credentials.email}\nPassword: ${result.credentials.password}\n\nShare these credentials with the driver.`)
+            alert(`✅ Driver account created successfully!\n\nEmail: ${result.credentials.email}\nPassword: ${result.credentials.password}\n\nPlease save these credentials.`)
             setIsAddDriverOpen(false)
             setPhoneValue(undefined)
             setDefaultStartLoc(null)
             setSelectedHubId("")
             setLocationMode('hub')
             fetchDrivers()
-        } catch (error) {
-            console.error('Error adding driver:', error)
-            alert('Error adding driver')
+        } catch (error: any) {
+            console.error('🔥 CRITICAL ERROR adding driver:', error)
+            alert(`Critical Error: ${error.message || 'Check console for details'}`)
         }
     }
 
