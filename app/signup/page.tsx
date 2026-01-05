@@ -70,16 +70,16 @@ export default function SignupPage() {
             if (companyError) throw companyError
             if (!companyData) throw new Error("Failed to create company")
 
-            // 3. Create the user profile
+            // 3. Create or Update the user profile (Upsert to handle trigger conflicts)
             const { error: profileError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: authData.user.id,
                     company_id: companyData.id,
                     email: email,
                     full_name: fullName,
-                    role: 'manager', // First user is the manager
-                    // phone: phone 
+                    role: 'manager', // Enforce manager role
+                    updated_at: new Date().toISOString()
                 })
 
             localStorage.setItem('raute-role', 'manager')
