@@ -105,6 +105,10 @@ export default function SignupPage() {
 
             localStorage.setItem('raute-role', 'manager')
 
+            // Small delay to ensure DB commit completes before redirect
+            console.log("⏳ Waiting for database to finalize...")
+            await new Promise(resolve => setTimeout(resolve, 500))
+
             // Success! Redirect
             console.log("🎉 Signup Complete! Redirecting to dashboard...")
             router.push("/dashboard")

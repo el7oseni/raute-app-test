@@ -255,27 +255,25 @@ export default function OrdersPage() {
         }
     }
 
-    async function geocodeAddress(address: string, city?: string, state?: string): Promise<{ lat: number, lng: number } | null> {
-        try {
-            // Build full address string
-            const fullAddress = [address, city, state].filter(Boolean).join(', ')
+    async function geocodeAddress(address: string, city?: string, state?: string): Promise<{ lat: number; lng: number } | null> {
+        const fullAddress = [address, city, state].filter(Boolean).join(', ')
+        if (!fullAddress.trim()) return null
 
-            // Use Nominatim (OpenStreetMap) free geocoding API
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
-                {
-                    headers: {
-                        'User-Agent': 'RouteApp/1.0' // Required by Nominatim
-                    }
-                }
+        try {
+            // Add timeout to prevent hanging
+            const geocodePromise = fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=AIzaSyBHLett8djYW0CC-rg7jZULT3RINQH57-k`
+            ).then(res => res.json())
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Geocoding timeout')), 5000)
             )
 
-            const data = await response.json()
-            if (data && data.length > 0) {
-                return {
-                    lat: parseFloat(data[0].lat),
-                    lng: parseFloat(data[0].lon)
-                }
+            const data = await Promise.race([geocodePromise, timeoutPromise]) as any
+
+            if (data.status === 'OK' && data.results?.[0]) {
+                const location = data.results[0].geometry.location
+                return { lat: location.lat, lng: location.lng }
             }
             return null
         } catch (error) {
