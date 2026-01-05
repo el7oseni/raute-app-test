@@ -26,7 +26,7 @@ export function MobileNav() {
         let mounted = true
         let timeoutId: NodeJS.Timeout
 
-        const fetchRole = async (userId: string, retries = 3) => {
+        const fetchRole = async (userId: string, retries = 1) => {
             try {
                 // Fetch role with timeout safely
                 const { data: userProfile, error } = await supabase
@@ -43,7 +43,7 @@ export function MobileNav() {
                     } else if (retries > 0) {
                         // Retry if profile not found yet (race condition on signup/signin)
                         console.warn(`Role not found, retrying... (${retries} left)`)
-                        setTimeout(() => fetchRole(userId, retries - 1), 500 * (4 - retries))
+                        setTimeout(() => fetchRole(userId, retries - 1), 800)
                     } else {
                         // Final failure
                         setLoading(false)
@@ -53,7 +53,7 @@ export function MobileNav() {
                 console.error('Error fetching role:', error)
                 if (mounted) {
                     if (retries > 0) {
-                        setTimeout(() => fetchRole(userId, retries - 1), 500 * (4 - retries))
+                        setTimeout(() => fetchRole(userId, retries - 1), 800)
                     } else {
                         setLoading(false)
                     }
@@ -67,7 +67,7 @@ export function MobileNav() {
                 console.warn('Role fetch timed out, defaulting to safe view.')
                 setLoading(false)
             }
-        }, 5000) // Increased to 5s for slow networks
+        }, 2000) // Reduced for faster loading
 
         // Auth Logic
         supabase.auth.getSession().then(({ data: { session } }) => {
