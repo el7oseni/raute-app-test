@@ -101,41 +101,47 @@ export default function DashboardPage() {
                 .eq('id', session.user.id)
                 .single()
 
-            // 🛠️ AUTO-REPAIR: If profile is missing (broken signup), fix it now.
-            if (!profile) {
-                console.warn("⚠️ Profile missing! Attempting auto-repair...")
+            // 🛠️ AUTO-REPAIR: If profile is missing OR incomplete (Trigger created empty row), fix it.
+            if (!profile || !profile.role || !profile.company_id) {
+                console.warn("⚠️ Profile incomplete! Attempting auto-repair...")
                 try {
-                    // 1. Create a Default Company
-                    const { data: newCompany } = await supabase
-                        .from('companies')
-                        .insert({ name: 'My Company' })
-                        .select()
-                        .single()
+                    let targetCompanyId = profile?.company_id
 
-                    if (newCompany) {
-                        // 2. Create the User Profile
-                        const { error: createError } = await supabase
+                    // 1. If Company Missing, Create One
+                    if (!targetCompanyId) {
+                        const { data: newCompany } = await supabase
+                            .from('companies')
+                            .insert({ name: 'My Company' })
+                            .select()
+                            .single()
+
+                        if (newCompany) targetCompanyId = newCompany.id
+                    }
+
+                    if (targetCompanyId) {
+                        // 2. Update/Create User Profile
+                        const { error: updateError } = await supabase
                             .from('users')
-                            .insert({
+                            .upsert({
                                 id: session.user.id,
                                 email: session.user.email,
-                                full_name: 'Manager',
-                                role: 'manager',
-                                company_id: newCompany.id,
+                                full_name: profile?.full_name || 'Manager',
+                                role: 'manager', // Enforce Manager
+                                company_id: targetCompanyId,
                                 updated_at: new Date().toISOString()
                             })
 
-                        if (!createError) {
-                            // Success! Use this new profile
+                        if (!updateError) {
+                            // Apply fixes to local state immediately
                             profile = {
-                                full_name: 'Manager',
+                                full_name: profile?.full_name || 'Manager',
                                 role: 'manager',
-                                company_id: newCompany.id
+                                company_id: targetCompanyId
                             } as any
 
                             toast({
-                                title: "Account Repaired",
-                                description: "Missing profile data was automatically restored.",
+                                title: "Account Configured",
+                                description: "Your profile has been automatically set up.",
                                 type: "success"
                             })
                         }
