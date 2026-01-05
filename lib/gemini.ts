@@ -59,50 +59,76 @@ If a field is missing, use "".
 RETURN ONLY THE RAW JSON.
 `;
 
-export async function parseOrderAI(input: string | File | File[]): Promise<ParsedOrder[] | null> {
+export async function parseOrderAI(input: string | File | File[]): Promise<ParsedOrder[]> {
   if (!apiKey) {
     console.error("Gemini API Key is missing");
-    throw new Error("API Key missing");
+    throw new Error("Configuration Error: Gemini API Key is missing. Please check your .env settings.");
   }
 
-  // Using gemini-2.5-pro (Latest 2025 SOTA Model)
+  // Reverting to User's preferred model
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
   try {
-    let result;
+    let resultPromise;
     const prompt = `${SYSTEM_PROMPT}\nCurrent Date: ${new Date().toISOString().split('T')[0]}`;
 
     if (typeof input === 'string') {
-      result = await model.generateContent([prompt, `Input Text:\n"${input}"`]);
+      resultPromise = model.generateContent([prompt, `Input Text:\n"${input}"`]);
     } else if (Array.isArray(input)) {
       // Handle multiple files
       const imageParts = await Promise.all(input.map(file => fileToGenerativePart(file)));
-      result = await model.generateContent([prompt, ...imageParts]);
+      resultPromise = model.generateContent([prompt, ...imageParts]);
     } else {
       // Handle single file
       const imagePart = await fileToGenerativePart(input);
-      result = await model.generateContent([prompt, imagePart]);
+      resultPromise = model.generateContent([prompt, imagePart]);
     }
 
+    // Add 30s Timeout
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out. The AI model took too long to respond.")), 30000)
+    );
+
+    const result = await Promise.race([resultPromise, timeoutPromise]) as any;
     const response = await result.response;
     const textResponse = response.text();
 
     console.log("Gemini Raw Response:", textResponse);
 
-    const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
-
-    // Ensure we always return an array
-    if (parsed.orders && Array.isArray(parsed.orders)) {
-      return parsed.orders;
-    } else if (Array.isArray(parsed)) {
-      return parsed;
-    } else {
-      return [parsed] as ParsedOrder[];
+    if (!textResponse) {
+      throw new Error("The AI returned an empty response. Please try a different image.");
     }
 
-  } catch (error) {
+    const cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanJson);
+    } catch (e) {
+      throw new Error("Failed to parse AI response. The model returned malformed data.");
+    }
+
+    let orders: ParsedOrder[] = [];
+
+    // Normalize output
+    if (parsed.orders && Array.isArray(parsed.orders)) {
+      orders = parsed.orders;
+    } else if (Array.isArray(parsed)) {
+      orders = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      // Single object case
+      orders = [parsed] as ParsedOrder[];
+    }
+
+    if (orders.length === 0) {
+      throw new Error("Scaling/Parsing Complete, but no valid orders were found. Ensure the image text is legible.");
+    }
+
+    return orders;
+
+  } catch (error: any) {
     console.error("Gemini AI Error:", error);
-    return null;
+    // Propagate the specific error message
+    throw new Error(error.message || "An unexpected error occurred during AI processing.");
   }
 }

@@ -350,11 +350,11 @@ export default function OrdersPage() {
                     type: "error"
                 })
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("AI Parse Error:", error)
             toast({
                 title: "Import Failed",
-                description: "Could not extract orders. Please check the input format.",
+                description: error.message || "Could not extract orders. Please check the input format.",
                 type: "error"
             })
         } finally {

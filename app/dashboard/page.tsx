@@ -102,7 +102,12 @@ export default function DashboardPage() {
                 .single()
 
             if (profile) {
-                setUserName(profile.full_name || 'Manager')
+                // Fix for missing name functionality
+                const name = profile.full_name && profile.full_name.trim().length > 0
+                    ? profile.full_name
+                    : (profile.role === 'manager' ? 'Account Manager' : 'User');
+
+                setUserName(name)
                 setUserRole(profile.role)
                 setUserId(session.user.id)
 
@@ -112,60 +117,53 @@ export default function DashboardPage() {
                 }
 
                 if (profile.company_id) {
-                    // 1. Check Hubs (for setup guide)
-                    const { count } = await supabase.from('hubs').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id)
-                    setHasHubs((count || 0) > 0)
+                    // PARALLEL FETCHING for performance
+                    const [hubsResult, driversResult, ordersResult] = await Promise.all([
+                        supabase.from('hubs').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id),
+                        supabase.from('drivers').select('id, name, vehicle_type').eq('company_id', profile.company_id),
+                        supabase.from('orders').select('*').eq('company_id', profile.company_id).order('created_at', { ascending: false })
+                    ])
 
-                    // 2. Fetch Drivers
-                    const { data: driversData } = await supabase.from('drivers').select('id, name, vehicle_type').eq('company_id', profile.company_id)
+                    // 1. Check Hubs
+                    const count = hubsResult.count || 0
+                    setHasHubs(count > 0)
 
+                    // 2. Process Drivers
+                    const driversData = driversResult.data
                     const dMap: Record<string, any> = {}
                     if (driversData) {
                         driversData.forEach(d => { dMap[d.id] = d })
                         setDriversMap(dMap)
                     }
 
-                    // 3. Fetch Orders based on Date Selection
-                    const dateStr = format(selectedDate, 'yyyy-MM-dd')
-                    const isToday = isSameDay(selectedDate, new Date())
-
-                    let query = supabase.from('orders').select('*').eq('company_id', profile.company_id)
-
-                    // Filtering Logic similar to Driver Dashboard
-                    if (isToday) {
-                        // TODAY: Fetch everything to filter in memory correctly
-                        // We want: Active (Any Date) + Delivered (Today) + Cancelled (Today)
-                    } else {
-                        // HISTORY: Strict date match
-                        query = query.eq('delivery_date', dateStr)
-                    }
-
-                    // Always order by newest first
-                    query = query.order('created_at', { ascending: false })
-
-                    const { data: ordersData, error: ordersError } = await query
-                    if (ordersError) throw ordersError
-
+                    // 3. Process Orders
+                    const ordersData = ordersResult.data
                     if (ordersData) {
+                        const isToday = isSameDay(selectedDate, new Date())
                         let relevantOrders = ordersData
 
-                        // Refine 'Today' Logic:
-                        if (isToday) {
+                        // Client-side filtering for specific dates if needed vs DB filtering
+                        // Note: The original code fetched EVERYTHING for Today to handle cross-day logic
+                        // but fetched specific date for history. 
+                        // To keep parallel simple, we fetched all. If dataset grows, we should revert to specific query.
+                        // However, for optimization now, simple clientside filter on the full set (assuming < 1000 orders) is faster than serial round trips.
+
+                        // Recalculate based on selection
+                        if (!isToday) {
+                            const dateStr = format(selectedDate, 'yyyy-MM-dd')
+                            relevantOrders = ordersData.filter(o => o.delivery_date === dateStr)
+                        } else {
                             relevantOrders = ordersData.filter(o => {
                                 const isUpdatedToday = o.updated_at ? isSameDay(new Date(o.updated_at), selectedDate) : false
-
-                                if (o.status === 'delivered') {
-                                    return isUpdatedToday // Only delivered today
+                                if (o.status === 'delivered' || o.status === 'cancelled') {
+                                    return isUpdatedToday
                                 }
-                                if (o.status === 'cancelled') {
-                                    return isUpdatedToday // Only cancelled today
-                                }
-                                return true // Show all active (pending, assigned, in_progress) regardless of date
+                                return true
                             })
                         }
 
                         setFilteredOrders(relevantOrders)
-                        setOrders(relevantOrders) // Keep for reference if needed
+                        setOrders(relevantOrders)
 
                         // Calculate Stats
                         const newStats = {
@@ -179,12 +177,10 @@ export default function DashboardPage() {
                         setStats(newStats)
                         setRecentOrders(relevantOrders.slice(0, 5))
 
-                        // Active Drivers Count (Set of driver_ids in active orders)
+                        // Active Drivers Count
                         const activeDriverIds = new Set(relevantOrders.filter(o => o.driver_id && o.status !== 'pending').map(o => o.driver_id))
                         setActiveDriversCount(activeDriverIds.size)
 
-                        // Show Setup Guide only if NO orders exist at all in the DB (separate check?)
-                        // For now, let's just default to showing it if total stats are low AND today is empty
                         if (newStats.total === 0 && !hasHubs) {
                             setShowSetup(true)
                         } else {

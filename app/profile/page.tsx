@@ -68,41 +68,47 @@ export default function ProfilePage() {
                 setFullName(userProfile.full_name || '')
                 setProfileImage(userProfile.profile_image)
 
+                // Parallel Fetching for details
+                const promises = []
+
+                // 1. Company Info
                 if (userProfile.company_id) {
-                    const { data: company } = await supabase
-                        .from('companies')
-                        .select('name')
-                        .eq('id', userProfile.company_id)
-                        .single()
+                    promises.push(
+                        supabase.from('companies').select('name').eq('id', userProfile.company_id).single()
+                            .then(({ data }) => { if (data) setCompanyName(data.name) })
+                    )
 
-                    if (company) setCompanyName(company.name)
-
-                    // Fetch Custom Fields definitions for 'driver'
-                    const { data: fields } = await supabase
-                        .from('custom_fields')
-                        .select('*')
-                        .eq('company_id', userProfile.company_id)
-                        .eq('entity_type', 'driver')
-                        .eq('driver_visible', true) // Only fetch visible fields
-                        .order('display_order', { ascending: true })
-
-                    setCustomFields(fields || [])
+                    // 2. Custom Fields (only if driver visible)
+                    promises.push(
+                        supabase.from('custom_fields')
+                            .select('*')
+                            .eq('company_id', userProfile.company_id)
+                            .eq('entity_type', 'driver')
+                            .eq('driver_visible', true)
+                            .order('display_order', { ascending: true })
+                            .then(({ data }) => { setCustomFields(data || []) })
+                    )
                 }
 
+                // 3. Driver Data
                 if (userProfile.role === 'driver') {
-                    const { data: driverData } = await supabase
-                        .from('drivers')
-                        .select('phone, vehicle_type, is_online, custom_values')
-                        .eq('user_id', user.id)
-                        .single()
-
-                    if (driverData) {
-                        setPhone(driverData.phone || '')
-                        setVehicleType(driverData.vehicle_type || '')
-                        setIsOnline(driverData.is_online || false)
-                        setCustomValues(driverData.custom_values || {})
-                    }
+                    promises.push(
+                        supabase.from('drivers')
+                            .select('phone, vehicle_type, is_online, custom_values')
+                            .eq('user_id', user.id)
+                            .single()
+                            .then(({ data }) => {
+                                if (data) {
+                                    setPhone(data.phone || '')
+                                    setVehicleType(data.vehicle_type || '')
+                                    setIsOnline(data.is_online || false)
+                                    setCustomValues(data.custom_values || {})
+                                }
+                            })
+                    )
                 }
+
+                await Promise.all(promises)
             }
         } catch (error) {
             console.error('Error fetching profile:', error)
@@ -340,7 +346,7 @@ export default function ProfilePage() {
 
                         <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-bold uppercase tracking-wider border border-white/30 shadow-lg">
                             {userRole === 'driver' ? <Truck size={14} /> : <Building2 size={14} />}
-                            {userRole}
+                            {userRole ? userRole : 'No Role'}
                         </span>
                     </div>
                 </div>

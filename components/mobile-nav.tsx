@@ -48,12 +48,13 @@ export function MobileNav() {
             }
         }
 
-        // Safety timeout: if role fetch takes too long, show nav anyway (defaults to driver view)
+        // Safety timeout: if role fetch takes too long, give up (defaults to driver view)
         timeoutId = setTimeout(() => {
             if (mounted && loading) {
+                console.warn('Role fetch timed out, defaulting to safe view.')
                 setLoading(false)
             }
-        }, 1500)
+        }, 5000) // Increased to 5s for slow networks
 
         // Auth Logic
         supabase.auth.getSession().then(({ data: { session } }) => {
