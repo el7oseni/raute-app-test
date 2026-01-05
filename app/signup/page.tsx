@@ -46,6 +46,7 @@ export default function SignupPage() {
 
         try {
             // 1. Sign up the user
+            console.log("🔵 STEP 1: Starting Auth Signup...")
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
@@ -57,40 +58,59 @@ export default function SignupPage() {
                 }
             })
 
-            if (authError) throw authError
+            if (authError) {
+                console.error("❌ Auth Error:", authError)
+                throw authError
+            }
             if (!authData.user) throw new Error("No user returned from signup")
+            console.log("✅ Auth Signup Success. User ID:", authData.user.id)
 
             // 2. Create the company
+            console.log("🔵 STEP 2: Creating Company...")
             const { data: companyData, error: companyError } = await supabase
                 .from('companies')
                 .insert({ name: companyName })
                 .select()
                 .single()
 
-            if (companyError) throw companyError
+            if (companyError) {
+                console.error("❌ Company Error:", companyError)
+                throw companyError
+            }
             if (!companyData) throw new Error("Failed to create company")
+            console.log("✅ Company Created. ID:", companyData.id, "Name:", companyData.name)
 
             // 3. Create or Update the user profile (Upsert to handle trigger conflicts)
-            const { error: profileError } = await supabase
+            console.log("🔵 STEP 3: Creating User Profile...")
+            const profilePayload = {
+                id: authData.user.id,
+                company_id: companyData.id,
+                email: email,
+                full_name: fullName,
+                role: 'manager', // Enforce manager role
+                updated_at: new Date().toISOString()
+            }
+            console.log("Profile Payload:", profilePayload)
+
+            const { error: profileError, data: profileData } = await supabase
                 .from('users')
-                .upsert({
-                    id: authData.user.id,
-                    company_id: companyData.id,
-                    email: email,
-                    full_name: fullName,
-                    role: 'manager', // Enforce manager role
-                    updated_at: new Date().toISOString()
-                })
+                .upsert(profilePayload)
+                .select()
+
+            if (profileError) {
+                console.error("❌ Profile Error:", profileError)
+                throw profileError
+            }
+            console.log("✅ Profile Created/Updated:", profileData)
 
             localStorage.setItem('raute-role', 'manager')
 
-            if (profileError) throw profileError
-
             // Success! Redirect
+            console.log("🎉 Signup Complete! Redirecting to dashboard...")
             router.push("/dashboard")
 
         } catch (err) {
-            console.error("Signup error:", err)
+            console.error("💥 Signup error:", err)
             setError(err instanceof Error ? err.message : "An unexpected error occurred")
         } finally {
             setIsLoading(false)
