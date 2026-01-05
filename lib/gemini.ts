@@ -84,9 +84,9 @@ export async function parseOrderAI(input: string | File | File[]): Promise<Parse
       resultPromise = model.generateContent([prompt, imagePart]);
     }
 
-    // Add 30s Timeout
+    // Add 60s Timeout
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Request timed out. The AI model took too long to respond.")), 30000)
+      setTimeout(() => reject(new Error("Request timed out. The AI model took too long to respond.")), 60000)
     );
 
     const result = await Promise.race([resultPromise, timeoutPromise]) as any;

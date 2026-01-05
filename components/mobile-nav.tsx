@@ -67,7 +67,7 @@ export function MobileNav() {
                 console.warn('Role fetch timed out, defaulting to safe view.')
                 setLoading(false)
             }
-        }, 2000) // Reduced for faster loading
+        }, 8000) // Increased to prevent premature timeout on slow connections
 
         // Auth Logic
         supabase.auth.getSession().then(({ data: { session } }) => {
