@@ -48,6 +48,7 @@ export default function OrdersPage() {
     const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
     const [userRole, setUserRole] = useState<string | null>(null)
     const [userName, setUserName] = useState<string>('')
+    const [companyId, setCompanyId] = useState<string | null>(null) // Cache CompanyId
     const [isOnline, setIsOnline] = useState(false)
     const [driverId, setDriverId] = useState<string | null>(null)
 
@@ -132,8 +133,6 @@ export default function OrdersPage() {
         setIsLoading(true)
         try {
             // Get current user
-
-            // Get current user
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
@@ -148,6 +147,7 @@ export default function OrdersPage() {
             // Store user details
             setUserRole(userProfile.role)
             setUserName(userProfile.full_name || 'Driver')
+            setCompanyId(userProfile.company_id) // Save to State
 
             // Fetch Data based on Role
             if (userProfile.role === 'driver') {
@@ -293,11 +293,19 @@ export default function OrdersPage() {
 
                 // --- BULK AUTO-SAVE WORKFLOW ---
                 // Get User Context once
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) throw new Error("No user found")
 
-                const { data: userProfile } = await supabase.from('users').select('company_id').eq('id', user.id).single()
-                if (!userProfile) throw new Error("No profile found")
+                // Use cached ID or fetch fallback
+                let targetCompanyId = companyId
+
+                if (!targetCompanyId) {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) throw new Error("No user found")
+                    const { data: userProfile } = await supabase.from('users').select('company_id').eq('id', user.id).single()
+                    if (!userProfile) throw new Error("No profile found - Please refresh the page")
+                    targetCompanyId = userProfile.company_id
+                }
+
+                if (!targetCompanyId) throw new Error("Company ID Not Found")
 
                 // Map all results to database objects with geocoding
                 const newOrders = await Promise.all(results.map(async (result, index) => {
@@ -312,7 +320,7 @@ export default function OrdersPage() {
                     )
 
                     return {
-                        company_id: userProfile.company_id,
+                        company_id: targetCompanyId,
                         order_number: result.order_number || generatedId,
                         customer_name: result.customer_name || 'Unknown Customer',
                         address: result.address || 'Address Missing',

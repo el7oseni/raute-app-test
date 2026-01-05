@@ -26,7 +26,7 @@ export function MobileNav() {
         let mounted = true
         let timeoutId: NodeJS.Timeout
 
-        const fetchRole = async (userId: string) => {
+        const fetchRole = async (userId: string, retries = 3) => {
             try {
                 // Fetch role with timeout safely
                 const { data: userProfile, error } = await supabase
@@ -39,12 +39,25 @@ export function MobileNav() {
                     if (userProfile?.role) {
                         setUserRole(userProfile.role)
                         localStorage.setItem('raute-role', userProfile.role)
+                        setLoading(false)
+                    } else if (retries > 0) {
+                        // Retry if profile not found yet (race condition on signup/signin)
+                        console.warn(`Role not found, retrying... (${retries} left)`)
+                        setTimeout(() => fetchRole(userId, retries - 1), 500 * (4 - retries))
+                    } else {
+                        // Final failure
+                        setLoading(false)
                     }
-                    setLoading(false)
                 }
             } catch (error) {
                 console.error('Error fetching role:', error)
-                if (mounted) setLoading(false)
+                if (mounted) {
+                    if (retries > 0) {
+                        setTimeout(() => fetchRole(userId, retries - 1), 500 * (4 - retries))
+                    } else {
+                        setLoading(false)
+                    }
+                }
             }
         }
 
