@@ -284,6 +284,16 @@ export default function PlannerPage() {
             // Filter out cancelled/delivered orders from auto-optimization
             const ordersToOptimize = orders.filter(o => o.status !== 'cancelled' && o.status !== 'delivered')
 
+            // Check for orders without GPS
+            const noGpsCount = ordersToOptimize.filter(o => !o.latitude || !o.longitude).length
+            if (noGpsCount > 0) {
+                toast({
+                    title: "Optimization Partial Warning",
+                    description: `${noGpsCount} orders were skipped because they lack GPS coordinates. Please check their addresses.`,
+                    type: 'error'
+                })
+            }
+
             // Run the algorithm
             const result = await optimizeRoute(ordersToOptimize, drivers)
 
