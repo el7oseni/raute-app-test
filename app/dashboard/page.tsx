@@ -231,7 +231,9 @@ export default function DashboardPage() {
                         const activeDriverIds = new Set(relevantOrders.filter(o => o.driver_id && o.status !== 'pending').map(o => o.driver_id))
                         setActiveDriversCount(activeDriverIds.size)
 
-                        if (newStats.total === 0 && !hasHubs) {
+                        // Show Setup if ANY step is missing (Hubs, Drivers, or Orders)
+                        const totalDrivers = driversData ? driversData.length : 0
+                        if (newStats.total === 0 || !hasHubs || totalDrivers === 0) {
                             setShowSetup(true)
                         } else {
                             setShowSetup(false)
