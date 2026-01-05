@@ -95,11 +95,55 @@ export default function DashboardPage() {
             if (!session) return
 
             // Get Profile & Role
-            const { data: profile } = await supabase
+            let { data: profile } = await supabase
                 .from('users')
                 .select('full_name, role, company_id')
                 .eq('id', session.user.id)
                 .single()
+
+            // 🛠️ AUTO-REPAIR: If profile is missing (broken signup), fix it now.
+            if (!profile) {
+                console.warn("⚠️ Profile missing! Attempting auto-repair...")
+                try {
+                    // 1. Create a Default Company
+                    const { data: newCompany } = await supabase
+                        .from('companies')
+                        .insert({ name: 'My Company' })
+                        .select()
+                        .single()
+
+                    if (newCompany) {
+                        // 2. Create the User Profile
+                        const { error: createError } = await supabase
+                            .from('users')
+                            .insert({
+                                id: session.user.id,
+                                email: session.user.email,
+                                full_name: 'Manager',
+                                role: 'manager',
+                                company_id: newCompany.id,
+                                updated_at: new Date().toISOString()
+                            })
+
+                        if (!createError) {
+                            // Success! Use this new profile
+                            profile = {
+                                full_name: 'Manager',
+                                role: 'manager',
+                                company_id: newCompany.id
+                            } as any
+
+                            toast({
+                                title: "Account Repaired",
+                                description: "Missing profile data was automatically restored.",
+                                type: "success"
+                            })
+                        }
+                    }
+                } catch (repairError) {
+                    console.error("Auto-repair failed:", repairError)
+                }
+            }
 
             if (profile) {
                 // Fix for missing name functionality
