@@ -155,7 +155,9 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
 
         while (unrouted.length > 0) {
             // Greedy Nearest Neighbor from Top Candidates (to respect Time Window buckets)
-            const candidatePoolSize = 3 // Look ahead limit
+            // Increased pool size to 12 to prevent "zigzagging" (skipping nearby stops because they were 4th or 5th in the list).
+            // This allows better geographical clustering while still generally respecting the time-window sort order.
+            const candidatePoolSize = 12 // Look ahead limit
             const candidates = unrouted.slice(0, candidatePoolSize)
 
             let bestNextIndex = -1
