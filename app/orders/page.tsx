@@ -364,6 +364,7 @@ export default function OrdersPage() {
                 setIsAddOrderOpen(false)
                 setPickedLocation(null)
                 setAiInputText("")
+                setSelectedFiles([])
                 fetchData()
                 toast({
                     title: `🚀 Imported ${newOrders.length} orders!`,
