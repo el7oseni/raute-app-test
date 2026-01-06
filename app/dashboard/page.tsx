@@ -38,6 +38,7 @@ export default function DashboardPage() {
         cancelled: 0
     })
     const [activeDriversCount, setActiveDriversCount] = useState(0)
+    const [totalDriversCount, setTotalDriversCount] = useState(0)
     const [recentOrders, setRecentOrders] = useState<any[]>([])
     const [userName, setUserName] = useState('')
     const router = useRouter()
@@ -233,6 +234,8 @@ export default function DashboardPage() {
 
                         // Show Setup if ANY step is missing (Hubs, Drivers, or Orders)
                         const totalDrivers = driversData ? driversData.length : 0
+                        setTotalDriversCount(totalDrivers)
+
                         if (newStats.total === 0 || !hasHubs || totalDrivers === 0) {
                             setShowSetup(true)
                         } else {
@@ -271,7 +274,7 @@ export default function DashboardPage() {
             {showSetup && (
                 <div className="relative">
                     <button onClick={() => setShowSetup(false)} className="absolute top-2 right-2 p-2 text-slate-400 hover:text-white z-10"><X size={16} /></button>
-                    <SetupGuide hasDrivers={activeDriversCount > 0} hasOrders={stats.total > 0} hasHubs={hasHubs} />
+                    <SetupGuide hasDrivers={totalDriversCount > 0} hasOrders={stats.total > 0} hasHubs={hasHubs} />
                 </div>
             )}
 
