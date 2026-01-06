@@ -245,6 +245,37 @@ export default function DriversPage() {
         }
     }
 
+    async function handleUpdatePassword(formData: FormData) {
+        if (!passDriver) return
+        setIsUpdatePassLoading(true)
+
+        try {
+            const newPassword = formData.get('new_password') as string
+
+            const res = await fetch('/api/update-driver-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    driverId: passDriver.id,
+                    newPassword
+                })
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error || 'Failed to update password')
+
+            alert('✅ Password updated successfully!')
+            setIsPasswordOpen(false)
+            setPassDriver(null)
+        } catch (error: any) {
+            console.error(error)
+            alert(`❌ Error: ${error.message}`)
+        } finally {
+            setIsUpdatePassLoading(false)
+        }
+    }
+
     async function handleEditDriver(formData: FormData) {
         if (!editingDriver) return
 
@@ -776,67 +807,63 @@ export default function DriversPage() {
                         </form>
                     )}
                 </SheetContent>
-            </Sheet >
-        </Sheet>
+            </Sheet>
 
-            {/* Password Update Dialog */ }
-    <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Manage Credentials</DialogTitle>
-                <DialogDescription>
-                    Update the login password for <strong>{passDriver?.name}</strong>.
-                </DialogDescription>
-            </DialogHeader>
-            {passDriver && (
-                <form action={handleUpdatePassword} className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Driver Email (Read-only)</label>
-                        <Input value={passDriver.email || 'No Email Linked'} readOnly className="bg-muted text-muted-foreground" />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">New Password</label>
-                        <PasswordInput
-                            name="new_password"
-                            placeholder="Enter new password"
-                            required
-                            minLength={6}
-                        />
-                        <p className="text-xs text-muted-foreground">Must be at least 6 characters.</p>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={isUpdatePassLoading}>
-                            {isUpdatePassLoading ? 'Updating...' : 'Update Password'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            )}
-        </DialogContent>
-    </Dialog>
+            {/* Password Update Dialog */}
+            <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Manage Credentials</DialogTitle>
+                        <DialogDescription>
+                            Update the login password for <strong>{passDriver?.name}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {passDriver && (
+                        <form action={handleUpdatePassword} className="space-y-4">
 
-    {/* Delete Confirmation */ }
-    < AlertDialog open={!!deletingDriver} onOpenChange={(open) => !open && setDeleteingDriver(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Delete Driver?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This will remove {deletingDriver?.name} from your drivers list.
-                    All assigned orders will be unassigned.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                    onClick={handleDeleteDriver}
-                    disabled={isDeleting}
-                    className="bg-red-600 hover:bg-red-700"
-                >
-                    {isDeleting ? 'Deleting...' : 'Delete'}
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog >
-        </div >
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">New Password</label>
+                                <PasswordInput
+                                    name="new_password"
+                                    placeholder="Enter new password"
+                                    required
+                                    minLength={6}
+                                />
+                                <p className="text-xs text-muted-foreground">Must be at least 6 characters.</p>
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={isUpdatePassLoading}>
+                                    {isUpdatePassLoading ? 'Updating...' : 'Update Password'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation */}
+            <AlertDialog open={!!deletingDriver} onOpenChange={(open) => !open && setDeleteingDriver(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Driver?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will remove {deletingDriver?.name} from your drivers list.
+                            All assigned orders will be unassigned.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteDriver}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog >
+        </div>
     )
 }
