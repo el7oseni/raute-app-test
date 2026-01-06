@@ -201,17 +201,61 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
             }
         }
 
-        finalOrders.push(...sortedDriverOrders)
     }
 
-    const unassigned = updatedOrders.filter(o => !o.driver_id)
-    finalOrders.push(...unassigned)
+    // --- POST-PROCESSING: 2-OPT OPTIMIZATION ---
+    // The sortedDriverOrders is now a valid route, but might have "crossings" (zigzags).
+    // We apply a simple 2-Opt pass to untangle these crossings and reduce travel time.
 
-    return {
-        orders: finalOrders,
-        summary: {
-            totalDistance: 0,
-            unassignedCount: unassigned.length
+    let improvement = true
+    while (improvement) {
+        improvement = false
+        for (let i = 0; i < sortedDriverOrders.length - 2; i++) {
+            for (let j = i + 2; j < sortedDriverOrders.length - 1; j++) {
+                const A = sortedDriverOrders[i]
+                const B = sortedDriverOrders[i + 1]
+                const C = sortedDriverOrders[j]
+                const D = sortedDriverOrders[j + 1]
+
+                if (A.latitude && A.longitude && B.latitude && B.longitude &&
+                    C.latitude && C.longitude && D.latitude && D.longitude) {
+
+                    // Distance of current edges: A->B + C->D
+                    const currentDist = getDistance(A.latitude, A.longitude, B.latitude, B.longitude) +
+                        getDistance(C.latitude, C.longitude, D.latitude, D.longitude)
+
+                    // Distance of swapped edges: A->C + B->D
+                    const newDist = getDistance(A.latitude, A.longitude, C.latitude, C.longitude) +
+                        getDistance(B.latitude, B.longitude, D.latitude, D.longitude)
+
+                    // If swapping reduces total distance, perform the swap
+                    if (newDist < currentDist) {
+                        // Reverse the segment between i+1 and j
+                        const segment = sortedDriverOrders.slice(i + 1, j + 1).reverse()
+                        sortedDriverOrders.splice(i + 1, segment.length, ...segment)
+                        improvement = true
+                    }
+                }
+            }
         }
     }
+
+    // Re-assign correct indices after optimization
+    sortedDriverOrders.forEach((o, index) => {
+        o.route_index = index + 1
+    })
+
+    finalOrders.push(...sortedDriverOrders)
+}
+
+const unassigned = updatedOrders.filter(o => !o.driver_id)
+finalOrders.push(...unassigned)
+
+return {
+    orders: finalOrders,
+    summary: {
+        totalDistance: 0,
+        unassignedCount: unassigned.length
+    }
+}
 }
