@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Input } from "@/components/ui/input"
 import { offlineManager } from '@/lib/offline-manager'
 import { geoService } from '@/lib/geo-service'
+import LocationPicker from "@/components/location-picker"
 
 // Dynamically import map to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
@@ -64,6 +65,7 @@ export default function ClientOrderDetails() {
     const [isUpdating, setIsUpdating] = useState(false)
     const [userRole, setUserRole] = useState<string | null>(null)
     const [drivers, setDrivers] = useState<any[]>([])
+    const [editLocation, setEditLocation] = useState<{ lat: number, lng: number } | null>(null)
 
     useEffect(() => {
         fixLeafletIcons()
@@ -192,8 +194,58 @@ export default function ClientOrderDetails() {
     }
 
     async function handleEdit(formData: FormData) {
-        if (!orderId) return
-        try { setIsUpdating(true); const address = formData.get('address') as string; const city = formData.get('city') as string; const state = formData.get('state') as string; const zipCode = formData.get('zip_code') as string; const coords = await geocodeAddress(address, city, state, zipCode); const updatedOrder = { order_number: formData.get('order_number') as string, customer_name: formData.get('customer_name') as string, address, city, state, zip_code: zipCode, phone: formData.get('phone') as string, delivery_date: formData.get('delivery_date') as string, notes: formData.get('notes') as string, latitude: coords?.lat || null, longitude: coords?.lon || null, }; const { error } = await supabase.from('orders').update(updatedOrder).eq('id', orderId); if (error) throw error; setIsEditSheetOpen(false); fetchOrder() } catch (error) { alert('Failed update') } finally { setIsUpdating(false) }
+        if (!orderId || !order) return
+        try {
+            setIsUpdating(true);
+            const address = formData.get('address') as string;
+            const city = formData.get('city') as string;
+            const state = formData.get('state') as string;
+            const zipCode = formData.get('zip_code') as string;
+
+            // 1. Try Geocoding
+            const geocoded = await geocodeAddress(address, city, state, zipCode);
+
+            // 2. Determine Final Coords
+            // Logic: If user MANUALLY moved the pin (editLocation !== order.lat/lng), prioritize Manual.
+            // If user didn't move pin, but Geocode found something new (address changed), use Geocoded.
+            // Fallback: Use old order location (if geocode fails and user didn't touch pin).
+
+            let finalLat = order.latitude
+            let finalLng = order.longitude
+
+            const isManualMove = editLocation && (Number(editLocation.lat) !== Number(order.latitude) || Number(editLocation.lng) !== Number(order.longitude))
+
+            if (isManualMove && editLocation) {
+                finalLat = editLocation.lat
+                finalLng = editLocation.lng
+            } else if (geocoded) {
+                finalLat = geocoded.lat
+                finalLng = geocoded.lon
+            } else if (editLocation) {
+                // Fallback to whatever is in the picker (which defaults to old location) if geocode fails
+                finalLat = editLocation.lat
+                finalLng = editLocation.lng
+            }
+
+            const updatedOrder = {
+                order_number: formData.get('order_number') as string,
+                customer_name: formData.get('customer_name') as string,
+                address,
+                city,
+                state,
+                zip_code: zipCode,
+                phone: formData.get('phone') as string,
+                delivery_date: formData.get('delivery_date') as string,
+                notes: formData.get('notes') as string,
+                latitude: finalLat,
+                longitude: finalLng,
+            };
+
+            const { error } = await supabase.from('orders').update(updatedOrder).eq('id', orderId);
+            if (error) throw error;
+            setIsEditSheetOpen(false);
+            fetchOrder()
+        } catch (error) { alert('Failed update') } finally { setIsUpdating(false) }
     }
 
     function getMarkerColor(status: string) { const colors = { pending: '#eab308', assigned: '#3b82f6', in_progress: '#a855f7', delivered: '#22c55e', cancelled: '#ef4444' }; return colors[status as keyof typeof colors] || '#3b82f6' }
@@ -339,7 +391,10 @@ export default function ClientOrderDetails() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                            <Button variant="outline" onClick={() => setIsEditSheetOpen(true)} className="w-full"><Edit size={16} className="mr-2" /> Edit</Button>
+                            <Button variant="outline" onClick={() => {
+                                setEditLocation(order.latitude && order.longitude ? { lat: order.latitude, lng: order.longitude } : null)
+                                setIsEditSheetOpen(true)
+                            }} className="w-full"><Edit size={16} className="mr-2" /> Edit</Button>
                             <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="w-full"><Trash2 size={16} className="mr-2" /> Delete</Button>
                         </div>
                     </div>
@@ -348,7 +403,7 @@ export default function ClientOrderDetails() {
 
             {/* Dialogs & Sheets */}
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Order?</AlertDialogTitle><AlertDialogDescription>Permanently remove #{order.order_number}?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-            <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}><SheetContent side="bottom" className="h-[90vh] overflow-y-auto"><SheetHeader><SheetTitle>Edit Order</SheetTitle></SheetHeader><form onSubmit={(e) => { e.preventDefault(); handleEdit(new FormData(e.currentTarget)) }} className="space-y-4 mt-4"><Input name="order_number" defaultValue={order.order_number} placeholder="Order #" /><Input name="customer_name" defaultValue={order.customer_name} placeholder="Customer Name" /><Input name="address" defaultValue={order.address} placeholder="Address" /><div className="grid grid-cols-2 gap-4"><Input name="city" defaultValue={order.city || ''} placeholder="City" /><Input name="state" defaultValue={order.state || ''} placeholder="State" /></div><div className="grid grid-cols-2 gap-4"><Input name="zip_code" defaultValue={order.zip_code || ''} placeholder="ZIP" /><Input name="phone" defaultValue={order.phone || ''} placeholder="Phone" /></div><Input name="delivery_date" type="date" defaultValue={order.delivery_date ? new Date(order.delivery_date).toISOString().split('T')[0] : ''} /><textarea name="notes" className="w-full p-2 border rounded-md" defaultValue={order.notes || ''} placeholder="Notes" /><Button type="submit" className="w-full">Save Changes</Button></form></SheetContent></Sheet>
+            <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}><SheetContent side="bottom" className="h-[90vh] overflow-y-auto"><SheetHeader><SheetTitle>Edit Order</SheetTitle></SheetHeader><form onSubmit={(e) => { e.preventDefault(); handleEdit(new FormData(e.currentTarget)) }} className="space-y-4 mt-4"><Input name="order_number" defaultValue={order.order_number} placeholder="Order #" /><Input name="customer_name" defaultValue={order.customer_name} placeholder="Customer Name" /><Input name="address" defaultValue={order.address} placeholder="Address" /><div className="grid grid-cols-2 gap-4"><Input name="city" defaultValue={order.city || ''} placeholder="City" /><Input name="state" defaultValue={order.state || ''} placeholder="State" /></div><div className="grid grid-cols-2 gap-4"><Input name="zip_code" defaultValue={order.zip_code || ''} placeholder="ZIP" /><Input name="phone" defaultValue={order.phone || ''} placeholder="Phone" /></div><div className="bg-slate-50 p-3 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-slate-500 uppercase mb-2">GPS Location (Fix "No GPS" errors)</h3><LocationPicker onLocationSelect={(lat, lng) => setEditLocation({ lat, lng })} initialPosition={editLocation} />{editLocation && <p className="text-xs text-blue-600 mt-2 font-mono">Pin: {editLocation.lat.toFixed(5)}, {editLocation.lng.toFixed(5)}</p>}</div><Input name="delivery_date" type="date" defaultValue={order.delivery_date ? new Date(order.delivery_date).toISOString().split('T')[0] : ''} /><textarea name="notes" className="w-full p-2 border rounded-md" defaultValue={order.notes || ''} placeholder="Notes" /><Button type="submit" className="w-full">Save Changes</Button></form></SheetContent></Sheet>
         </div>
     )
 }
