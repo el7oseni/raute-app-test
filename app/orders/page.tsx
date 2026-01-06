@@ -866,7 +866,7 @@ export default function OrdersPage() {
                                             <label className="flex items-center justify-center gap-2 w-full py-4 bg-white dark:bg-slate-900/50 border border-dashed border-indigo-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-700 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer group/upload shadow-sm">
                                                 <input
                                                     type="file"
-                                                    accept="image/*"
+                                                    accept="image/*,.csv,.xlsx,.xls"
                                                     multiple
                                                     className="hidden"
                                                     onChange={(e) => {
@@ -878,7 +878,7 @@ export default function OrdersPage() {
                                                 <div className="p-2 bg-indigo-100 dark:bg-slate-800 rounded-full text-indigo-600 dark:text-indigo-400 group-hover/upload:scale-110 transition-transform">
                                                     <Camera size={18} />
                                                 </div>
-                                                <span>{selectedFiles.length > 0 ? `Change Images (${selectedFiles.length})` : "Select Images (Screenshots)"}</span>
+                                                <span>{selectedFiles.length > 0 ? `Change Files (${selectedFiles.length})` : "Select Images or Excel"}</span>
                                             </label>
 
                                             {/* File List & Analyze Button */}

@@ -1,5 +1,6 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { read, utils } from "xlsx";
 
 // Initialize Gemini
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
@@ -17,21 +18,40 @@ export interface ParsedOrder {
   notes: string;
 }
 
-// Convert File to Base64 helper
-export async function fileToGenerativePart(file: File): Promise<{ inlineData: { data: string; mimeType: string } }> {
+// Convert File to Base64 or Text helper
+export async function fileToGenerativePart(file: File): Promise<{ inlineData: { data: string; mimeType: string } } | { text: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64Data = (reader.result as string).split(',')[1];
-      resolve({
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type,
-        },
-      });
-    };
+
+    // Check if it's an Excel/CSV file
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const csvText = utils.sheet_to_csv(worksheet);
+          resolve({ text: csvText });
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Handle Images
+      reader.onloadend = () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        resolve({
+          inlineData: {
+            data: base64Data,
+            mimeType: file.type,
+          },
+        });
+      };
+      reader.readAsDataURL(file);
+    }
     reader.onerror = reject;
-    reader.readAsDataURL(file);
   });
 }
 
@@ -76,12 +96,25 @@ export async function parseOrderAI(input: string | File | File[]): Promise<Parse
       resultPromise = model.generateContent([prompt, `Input Text:\n"${input}"`]);
     } else if (Array.isArray(input)) {
       // Handle multiple files
-      const imageParts = await Promise.all(input.map(file => fileToGenerativePart(file)));
-      resultPromise = model.generateContent([prompt, ...imageParts]);
+      const parts = await Promise.all(input.map(file => fileToGenerativePart(file)));
+      // Separate text parts (Spreadsheets) from image parts
+      const promptParts: any[] = [prompt];
+      parts.forEach(p => {
+        if ('text' in p) {
+          promptParts.push(`\nSPREADSHEET DATA (${(p as any).filename || 'File'}):\n${p.text}\n`);
+        } else {
+          promptParts.push(p);
+        }
+      });
+      resultPromise = model.generateContent(promptParts);
     } else {
       // Handle single file
-      const imagePart = await fileToGenerativePart(input);
-      resultPromise = model.generateContent([prompt, imagePart]);
+      const part = await fileToGenerativePart(input);
+      if ('text' in part) {
+        resultPromise = model.generateContent([prompt, `\nSPREADSHEET DATA:\n${part.text}\n`]);
+      } else {
+        resultPromise = model.generateContent([prompt, part]);
+      }
     }
 
     // Add 60s Timeout
