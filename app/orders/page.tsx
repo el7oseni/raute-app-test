@@ -306,9 +306,12 @@ export default function OrdersPage() {
                 if (!targetCompanyId) throw new Error("Company ID Not Found")
 
                 // Map all results to database objects with geocoding
-                const newOrders = await Promise.all(results.map(async (result, index) => {
+                // We process sequentially to be nice to the free Geocoding API (Rate Limits)
+                const newOrders: any[] = []
+                for (let i = 0; i < results.length; i++) {
+                    const result = results[i]
                     // Generate unique ID if missing: ORD-Timestamp-Index
-                    const generatedId = `ORD-${Date.now().toString().slice(-6)}-${index + 1}`
+                    const generatedId = `ORD-${Date.now().toString().slice(-6)}-${i + 1}`
 
                     // Try to geocode the address
                     const coords = await geocodeAddress(
@@ -317,7 +320,10 @@ export default function OrdersPage() {
                         result.state
                     )
 
-                    return {
+                    // Add small delay between requests (1s)
+                    if (i < results.length - 1) await new Promise(r => setTimeout(r, 1000))
+
+                    newOrders.push({
                         company_id: targetCompanyId,
                         order_number: result.order_number || generatedId,
                         customer_name: result.customer_name || 'Unknown Customer',
@@ -332,8 +338,8 @@ export default function OrdersPage() {
                         priority: 0,
                         latitude: coords?.lat || null,
                         longitude: coords?.lng || null
-                    }
-                }))
+                    })
+                }
 
                 // Batch Insert
                 const { error } = await supabase.from('orders').insert(newOrders)
