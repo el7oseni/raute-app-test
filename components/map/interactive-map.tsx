@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo } from "react"
 import dynamic from "next/dynamic"
 import "leaflet/dist/leaflet.css"
-import { MapPin, Package, Truck, User } from "lucide-react"
-import type { Order, Driver } from "@/lib/supabase"
+import { MapPin, Package, Truck, User, Trash2 } from "lucide-react"
+import { supabase, type Order, type Driver } from "@/lib/supabase"
 import * as L from "leaflet" // Import Leaflet directly
 import { useTheme } from "next-themes"
 import type { MapControllerProps } from "@/components/map/map-controller"
@@ -217,6 +217,23 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                                 <div className="flex items-start gap-2 text-sm text-slate-600">
                                     <MapPin size={14} className="mt-0.5 flex-shrink-0" />
                                     <p>{order.address}</p>
+                                </div>
+                                <div className="border-t mt-2 pt-2 flex justify-end">
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation()
+                                            if (confirm(`Are you sure you want to delete order #${order.order_number}?`)) {
+                                                const { error } = await supabase.from('orders').delete().eq('id', order.id)
+                                                if (error) {
+                                                    alert('Failed to delete order')
+                                                    console.error(error)
+                                                }
+                                            }
+                                        }}
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold flex items-center gap-1 transition-colors"
+                                    >
+                                        <Trash2 size={12} /> Delete
+                                    </button>
                                 </div>
                             </div>
                         </Popup>
