@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { User, Mail, Lock, LogOut, Save, Truck, Building2, Camera, Edit2, Upload, X, Info } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ProfilePage() {
@@ -453,12 +454,12 @@ export default function ProfilePage() {
                                     <>
                                         <div className="space-y-2">
                                             <label className="text-sm font-semibold text-foreground">Phone Number</label>
-                                            <Input
-                                                type="tel"
+                                            <StyledPhoneInput
                                                 value={phone}
-                                                onChange={(e) => setPhone(e.target.value)}
+                                                onChange={(val) => setPhone(val || '')}
                                                 placeholder="e.g. +1 234 567 8900"
-                                                className="h-12 rounded-xl bg-background"
+                                                defaultCountry="US"
+                                                className="bg-background rounded-xl"
                                             />
                                         </div>
 

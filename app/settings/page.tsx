@@ -189,7 +189,18 @@ export default function SettingsPage() {
                                         <label className="text-sm font-medium">Location</label>
                                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                             <LocationPicker
-                                                onLocationSelect={(lat, lng) => setNewHubLoc({ lat, lng })}
+                                                onLocationSelect={async (lat, lng) => {
+                                                    setNewHubLoc({ lat, lng })
+                                                    try {
+                                                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                                                        const data = await res.json()
+                                                        if (data && data.display_name) {
+                                                            setNewHubAddress(data.display_name)
+                                                        }
+                                                    } catch (e) {
+                                                        console.error("Reverse geocoding error:", e)
+                                                    }
+                                                }}
                                                 initialPosition={newHubLoc}
                                             />
                                             {newHubLoc && (
@@ -208,6 +219,10 @@ export default function SettingsPage() {
                                                 placeholder="123 Industrial Blvd, City, State"
                                                 value={newHubAddress}
                                                 onChange={e => setNewHubAddress(e.target.value)}
+                                                onBlur={async () => {
+                                                    // Optional: Auto-search on blur if no location is set?
+                                                    // For now, let's keep the user in control with the search button to avoid jumping.
+                                                }}
                                             />
                                             <Button
                                                 variant="outline"
@@ -220,7 +235,7 @@ export default function SettingsPage() {
                                                         const data = await res.json()
                                                         if (data && data[0]) {
                                                             setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
-                                                            toast({ title: "Location found!", description: "Verify on map if needed.", type: "success" })
+                                                            toast({ title: "Location found!", description: "Map pin updated.", type: "success" })
                                                         } else {
                                                             toast({ title: "Address not found", description: "Please pick manually.", type: "error" })
                                                         }

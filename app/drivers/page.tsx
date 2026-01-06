@@ -41,6 +41,7 @@ export default function DriversPage() {
     // Location State for Add Form
     const [defaultStartLoc, setDefaultStartLoc] = useState<{ lat: number, lng: number } | null>(null)
     const [phoneValue, setPhoneValue] = useState<string | undefined>('')
+    const [editPhoneValue, setEditPhoneValue] = useState<string | undefined>('')
     const [hubs, setHubs] = useState<{ id: string, name: string, address: string, latitude: number, longitude: number }[]>([])
     const [selectedHubId, setSelectedHubId] = useState<string>("")
     const [locationMode, setLocationMode] = useState<'hub' | 'custom'>('hub')
@@ -68,6 +69,12 @@ export default function DriversPage() {
     useEffect(() => {
         filterDrivers()
     }, [drivers, searchQuery])
+
+    useEffect(() => {
+        if (editingDriver) {
+            setEditPhoneValue(editingDriver.phone || '')
+        }
+    }, [editingDriver])
 
     function filterDrivers() {
         let filtered = [...drivers]
@@ -395,6 +402,7 @@ export default function DriversPage() {
                                         value={phoneValue}
                                         onChange={setPhoneValue}
                                         placeholder="Enter phone number"
+                                        defaultCountry="US"
                                         className="bg-background"
                                     />
                                 </div>
@@ -656,7 +664,14 @@ export default function DriversPage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Phone</label>
-                                <Input name="phone" defaultValue={editingDriver.phone || ''} className="bg-background" />
+                                <StyledPhoneInput
+                                    name="phone"
+                                    value={editPhoneValue}
+                                    onChange={setEditPhoneValue}
+                                    placeholder="Enter phone number"
+                                    defaultCountry="US"
+                                    className="bg-background"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Vehicle Type</label>
