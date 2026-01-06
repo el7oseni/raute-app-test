@@ -260,24 +260,39 @@ export default function OrdersPage() {
         if (!fullAddress.trim()) return null
 
         try {
-            // Updated to use Nominatim (OpenStreetMap) since Google API Key was invalid
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
-                {
-                    headers: {
-                        'User-Agent': 'Raute Delivery App'
-                    }
-                }
-            )
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+            if (!apiKey) {
+                console.warn("⚠️ Google Maps API Key missing. Falling back...");
+                throw new Error("Missing API Key");
+            }
 
+            console.log("🌍 Geocoding with Google Maps:", fullAddress);
+
+            const response = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
+            )
             const data = await response.json()
 
-            if (data && data.length > 0) {
-                return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const location = data.results[0].geometry.location
+                return { lat: location.lat, lng: location.lng } // Google returns numbers directly
+            } else {
+                console.warn("Geocoding failed:", data.status, data.error_message);
+                return null;
             }
-            return null
         } catch (error) {
-            console.error('Geocoding error:', error)
+            console.error('Geocoding error (Google), trying Nominatim backup:', error)
+            // Fallback to Nominatim (OpenStreetMap) if Google fails or key is missing
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
+                    { headers: { 'User-Agent': 'Raute Delivery App' } }
+                )
+                const data = await response.json()
+                if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+            } catch (err) {
+                console.error("Nominatim Fallback Failed:", err)
+            }
             return null
         }
     }
