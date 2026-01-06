@@ -286,10 +286,22 @@ export default function PlannerPage() {
 
             // Check for orders without GPS
             const noGpsCount = ordersToOptimize.filter(o => !o.latitude || !o.longitude).length
+
+            // If ALL orders are invalid, stop here.
+            if (noGpsCount === ordersToOptimize.length && ordersToOptimize.length > 0) {
+                toast({
+                    title: "Optimization Failed",
+                    description: "All available orders are missing GPS data. Optimization cannot proceed.",
+                    type: 'error'
+                })
+                setIsLoading(false)
+                return
+            }
+
             if (noGpsCount > 0) {
                 toast({
                     title: "Optimization Partial Warning",
-                    description: `${noGpsCount} orders were skipped because they lack GPS coordinates. Please check their addresses.`,
+                    description: `${noGpsCount} orders were skipped because they lack GPS coordinates.`,
                     type: 'error'
                 })
             }
