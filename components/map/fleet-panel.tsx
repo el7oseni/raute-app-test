@@ -1,6 +1,6 @@
 "use client"
 
-import { Truck, Layers, CheckCircle2, AlertCircle } from "lucide-react"
+import { Truck, Layers, CheckCircle2, AlertCircle, MapPinOff } from "lucide-react"
 import type { Driver } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 
@@ -23,7 +23,8 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
         const driverOrders = orders.filter(o => o.driver_id === driverId)
         const active = driverOrders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length
         const completed = driverOrders.filter(o => o.status === 'delivered').length
-        return { active, completed }
+        const missingGps = driverOrders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled' && (!o.latitude || !o.longitude)).length
+        return { active, completed, missingGps }
     }
 
     return (
@@ -94,7 +95,7 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                     <div className="font-semibold truncate flex items-center gap-2">
                                         {driver.name}
                                     </div>
-                                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
                                         {stats.active > 0 ? (
                                             <span className="text-blue-600 font-medium flex items-center gap-1">
                                                 <AlertCircle size={10} />
@@ -102,6 +103,15 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                             </span>
                                         ) : (
                                             <span className="opacity-70">No active</span>
+                                        )}
+                                        {stats.missingGps > 0 && (
+                                            <>
+                                                <span className="text-slate-300">•</span>
+                                                <span className="text-orange-600 font-bold flex items-center gap-1 bg-orange-50 px-1 rounded-sm" title={`${stats.missingGps} orders hidden from map (No GPS)`}>
+                                                    <MapPinOff size={10} />
+                                                    {stats.missingGps} No GPS
+                                                </span>
+                                            </>
                                         )}
                                         <span className="text-slate-300">•</span>
                                         <span className="text-green-600/80 flex items-center gap-1">
