@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock } from "lucide-react"
+import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
@@ -890,28 +890,43 @@ export default function OrdersPage() {
                                                     accept="image/*,.csv,.xlsx,.xls"
                                                     multiple
                                                     className="hidden"
+                                                    value="" // Always reset so onChange fires even for same file
                                                     onChange={(e) => {
                                                         if (e.target.files && e.target.files.length > 0) {
-                                                            setSelectedFiles(Array.from(e.target.files))
+                                                            const newFiles = Array.from(e.target.files)
+                                                            setSelectedFiles(prev => [...prev, ...newFiles])
                                                         }
                                                     }}
                                                 />
                                                 <div className="p-2 bg-indigo-100 dark:bg-slate-800 rounded-full text-indigo-600 dark:text-indigo-400 group-hover/upload:scale-110 transition-transform">
                                                     <Camera size={18} />
                                                 </div>
-                                                <span>{selectedFiles.length > 0 ? `Change Files (${selectedFiles.length})` : "Select Images or Excel"}</span>
+                                                <span>{selectedFiles.length > 0 ? "Add More Files" : "Select Images or Excel"}</span>
                                             </label>
 
                                             {/* File List & Analyze Button */}
                                             {selectedFiles.length > 0 && (
                                                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
                                                     <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-2 border border-slate-100 dark:border-slate-800">
-                                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Files:</p>
-                                                        <ul className="space-y-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Files ({selectedFiles.length})</p>
+                                                            <button onClick={() => setSelectedFiles([])} className="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
+                                                        </div>
+                                                        <ul className="space-y-2">
                                                             {selectedFiles.map((file, idx) => (
-                                                                <li key={idx} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                                                    {file.name}
+                                                                <li key={`${file.name}-${idx}`} className="text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-950 rounded border border-slate-100 dark:border-slate-800">
+                                                                    <div className="flex items-center gap-2 truncate">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                                                        <span className="truncate">{file.name}</span>
+                                                                        <span className="text-[10px] text-slate-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                                                                        title="Remove file"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
                                                                 </li>
                                                             ))}
                                                         </ul>
