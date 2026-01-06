@@ -138,22 +138,26 @@ export default function ClientOrderDetails() {
             let isOutOfRange = false
             let dist = 0
 
-            // 📍 Anti-Fraud: Capture Location & Soft Check
+            // 📍 Anti-Fraud: Strict Location Check
             if (newStatus === 'delivered') {
                 const loc = await geoService.getCurrentLocation()
-                if (loc) {
-                    locationPayload = { lat: loc.lat, lng: loc.lng }
 
-                    // Check distance if order has lat/lng
-                    if (order.latitude && order.longitude) {
-                        dist = getDistanceMeters(loc.lat, loc.lng, order.latitude, order.longitude)
-                        console.log("Delivery Distance:", dist)
+                if (!loc) {
+                    alert("❌ Location Required!\n\nYou must enable GPS/Location to mark an order as delivered. This is for proof of delivery.")
+                    return // STOP: Do not update status
+                }
 
-                        // Flag if > 500 meters (approx 0.3 miles)
-                        if (dist > 500) {
-                            isOutOfRange = true
-                            // toast({ title: "Location Warning", description: "You are far from the destination, but delivery is saved.", type: "info" })
-                        }
+                locationPayload = { lat: loc.lat, lng: loc.lng }
+
+                // Check distance if order has lat/lng
+                if (order.latitude && order.longitude) {
+                    dist = getDistanceMeters(loc.lat, loc.lng, order.latitude, order.longitude)
+                    console.log("Delivery Distance:", dist)
+
+                    // Flag if > 500 meters (approx 0.3 miles)
+                    if (dist > 500) {
+                        isOutOfRange = true
+                        // toast({ title: "Location Warning", description: "You are far from the destination, but delivery is saved.", type: "info" })
                     }
                 }
             }
