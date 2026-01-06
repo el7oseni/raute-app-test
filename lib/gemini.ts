@@ -93,7 +93,7 @@ export async function parseOrderAI(input: string | File | File[]): Promise<Parse
     const prompt = `${SYSTEM_PROMPT}\nCurrent Date: ${new Date().toISOString().split('T')[0]}`;
 
     if (typeof input === 'string') {
-      resultPromise = model.generateContent([prompt, `Input Text:\n"${input}"`]);
+      resultPromise = model.generateContent([prompt, `\nDATA TO EXTRACT FROM:\n\`\`\`text\n${input}\n\`\`\`\n`]);
     } else if (Array.isArray(input)) {
       // Handle multiple files
       const parts = await Promise.all(input.map(file => fileToGenerativePart(file)));
@@ -117,7 +117,7 @@ export async function parseOrderAI(input: string | File | File[]): Promise<Parse
       }
     }
 
-    // Add 60s Timeout
+    // Add 60s Timeout (Pro matches might be slower)
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("Request timed out. The AI model took too long to respond.")), 60000)
     );
