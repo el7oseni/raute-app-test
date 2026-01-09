@@ -52,10 +52,8 @@ const statusColors = {
     cancelled: "bg-red-50 text-red-700 border-red-200",
 }
 
-export default function ClientOrderDetails() {
+export default function ClientOrderDetails({ orderId }: { orderId: string | null }) {
     const router = useRouter()
-    const searchParams = useSearchParams()
-    const orderId = searchParams.get('id')
 
     const [order, setOrder] = useState<Order | null>(null)
     const [isLoading, setIsLoading] = useState(true)
