@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
+
 import L from 'leaflet'
 import { Button } from '@/components/ui/button'
 import { MapPin } from 'lucide-react'
