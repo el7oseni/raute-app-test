@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -34,7 +34,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition }: { 
     const [isOpen, setIsOpen] = useState(false)
 
     // Sync state if prop changes (e.g. form reset)
-    useMemo(() => {
+    useEffect(() => {
         if (initialPosition) {
             setPosition([initialPosition.lat, initialPosition.lng])
         } else {
