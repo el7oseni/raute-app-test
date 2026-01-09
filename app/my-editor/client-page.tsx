@@ -271,8 +271,9 @@ export default function ClientOrderDetails() {
 
     async function handleEditSubmit(e: React.FormEvent) {
         e.preventDefault()
-        if (!orderId || !order) {
-            console.warn("Order ID or order data missing")
+        const effectiveOrderId = orderId || order?.id
+        if (!effectiveOrderId || !order) {
+            console.warn("Order ID or order data missing", { hasParamsId: !!orderId, hasOrder: !!order, hasOrderId: !!order?.id })
             return
         }
 
@@ -307,7 +308,7 @@ export default function ClientOrderDetails() {
                 longitude: finalLng,
             }
 
-            const { error } = await supabase.from('orders').update(updatedPayload).eq('id', orderId)
+            const { error } = await supabase.from('orders').update(updatedPayload).eq('id', effectiveOrderId)
             if (error) throw error
 
             // Update Local State & Close

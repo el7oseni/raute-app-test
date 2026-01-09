@@ -13,7 +13,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number, ln
 
 export async function reverseGeocode(lat: number, lng: number): Promise<{ address: string, city: string, state: string, zip: string } | null> {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    console.log("DEBUG: API Key check:", apiKey ? "Present" : "Missing", apiKey)
+
     if (!apiKey) throw new Error("Missing Google Maps API Key")
     try {
         const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
