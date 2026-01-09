@@ -263,7 +263,7 @@ export default function ClientOrderDetails({ orderId }: { orderId: string | null
     async function handleEditSubmit(e: React.FormEvent) {
         e.preventDefault()
         if (!orderId || !order) {
-            alert("Error: Order ID missing. Cannot save.")
+            console.warn("Order ID or order data missing")
             return
         }
 
