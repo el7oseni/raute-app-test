@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, MapPin, Calendar, User as UserIcon, Phone, Package, Edit, Trash2, Clock, Undo2, CheckCircle2, Loader2, Camera as CameraIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -52,8 +52,10 @@ const statusColors = {
     cancelled: "bg-red-50 text-red-700 border-red-200",
 }
 
-export default function ClientOrderDetails({ orderId }: { orderId: string | null }) {
+export default function ClientOrderDetails() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const orderId = searchParams.get('id')
 
     const [order, setOrder] = useState<Order | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -72,6 +74,9 @@ export default function ClientOrderDetails({ orderId }: { orderId: string | null
         fixLeafletIcons()
         if (orderId) {
             fetchOrder(true)
+        } else {
+            // If no ID, stop loading immediately
+            setIsLoading(false)
         }
     }, [orderId])
 
@@ -101,6 +106,8 @@ export default function ClientOrderDetails({ orderId }: { orderId: string | null
         }
         try {
             if (isInitial) setIsLoading(true)
+
+            // Fetch User & Role
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 const { data: userProfile } = await supabase
@@ -124,6 +131,8 @@ export default function ClientOrderDetails({ orderId }: { orderId: string | null
                     }
                 }
             }
+
+            // Fetch Order
             const { data, error } = await supabase
                 .from('orders')
                 .select('*')

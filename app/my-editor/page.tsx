@@ -1,10 +1,10 @@
 import { Suspense } from "react"
 import ClientOrderDetails from "./client-page"
 
-export default function OrderDetailsPage({ searchParams }: { searchParams: { id?: string } }) {
+export default function OrderDetailsPage() {
     return (
         <Suspense fallback={<div>Loading...</div>}>
-            <ClientOrderDetails orderId={searchParams.id || null} />
+            <ClientOrderDetails />
         </Suspense>
     )
 }
