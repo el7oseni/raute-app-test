@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X } from "lucide-react"
+import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
@@ -845,6 +845,11 @@ export default function OrdersPage() {
                                             <div className="text-center space-y-2 mb-2">
                                                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100">Magically Extract Orders</h3>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 px-4">Paste unstructured text (chats, emails) or upload screenshots. We'll extract details automatically.</p>
+                                            </div>
+
+                                            <div className="mx-4 mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-lg text-[11px] text-yellow-800 dark:text-yellow-200 flex items-start gap-2 text-left">
+                                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                                <span><strong>Tip:</strong> If pasting a spreadsheet/table, please include the <u>Header Row</u> so we can identify columns correctly!</span>
                                             </div>
 
                                             <div className="relative">
