@@ -199,40 +199,28 @@ export default function DriversPage() {
             const defaultStartLat = formData.get('default_start_lat') ? parseFloat(formData.get('default_start_lat') as string) : null
             const defaultStartLng = formData.get('default_start_lng') ? parseFloat(formData.get('default_start_lng') as string) : null
 
-            // Call Server-Side API Route
-            // Call Server-Side API Route
-            console.log("🚀 Sending Request to /api/create-driver...")
-            const payload = {
-                name,
+            // RPC Call (Mobile Compatible)
+            const { data: result, error } = await supabase.rpc('create_driver_account', {
                 email,
+                password,
+                full_name: name,
                 phone,
-                vehicleType,
-                companyId: userProfile.company_id,
-                customValues,
-                defaultStartAddress,
-                defaultStartLat,
-                defaultStartLng,
-                password // Ensure password is sent!
-            }
-            console.log("📦 Payload:", JSON.stringify(payload, null, 2))
-
-            const response = await fetch('/api/create-driver', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                vehicle_type: vehicleType,
+                company_id: userProfile.company_id,
+                custom_values: customValues,
+                default_start_address: defaultStartAddress,
+                default_start_lat: defaultStartLat,
+                default_start_lng: defaultStartLng
             })
 
-            const result = await response.json()
-            console.log("📩 API Response:", result)
-
-            if (!response.ok) {
-                console.error("❌ API Error:", result)
-                alert(`Failed to create driver: ${result.error || result.details || 'Unknown error'}`)
+            if (error || (result && result.success === false)) {
+                console.error("❌ API Error:", error || result)
+                alert(`Failed: ${error?.message || result?.error || 'Unknown error'}`)
                 return
             }
 
             // Success!
-            alert(`✅ Driver account created successfully!\n\nEmail: ${result.credentials.email}\nPassword: ${result.credentials.password}\n\nPlease save these credentials.`)
+            alert(`✅ Driver created! Password: ${password}`)
             setIsAddDriverOpen(false)
             setPhoneValue(undefined)
             setDefaultStartLoc(null)
@@ -252,18 +240,19 @@ export default function DriversPage() {
         try {
             const newPassword = formData.get('new_password') as string
 
-            const res = await fetch('/api/update-driver-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    driverId: passDriver.id,
-                    newPassword
-                })
+            if (!passDriver.user_id) {
+                throw new Error("Driver user ID is missing.")
+            }
+
+            const { error: pwError } = await supabase.rpc('update_user_password_by_admin', {
+                target_user_id: passDriver.user_id,
+                new_password: newPassword
             })
 
-            const data = await res.json()
-
-            if (!res.ok) throw new Error(data.error || 'Failed to update password')
+            if (pwError) {
+                console.error("Password update failed:", pwError)
+                throw new Error(pwError.message || 'Failed to update password')
+            }
 
             alert('✅ Password updated successfully!')
             setIsPasswordOpen(false)
@@ -319,18 +308,15 @@ export default function DriversPage() {
         try {
             setIsDeleting(true)
 
-            // Call API to delete driver and associated user account
-            const response = await fetch('/api/delete-driver', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    driverId: deletingDriver.id,
-                    userId: deletingDriver.user_id
-                })
+            // Mobile/Static Compatible RPC Call
+            if (!deletingDriver.user_id) throw new Error("Driver has no user ID")
+
+            const { data, error } = await supabase.rpc('delete_user_by_admin', {
+                target_user_id: deletingDriver.user_id
             })
 
-            const result = await response.json()
-            if (!response.ok) throw new Error(result.error || 'Failed to delete driver')
+            if (error) throw error
+            if (data && !data.success) throw new Error(data.error || 'Failed to delete')
 
             setDeleteingDriver(null)
             fetchDrivers()

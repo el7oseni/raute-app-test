@@ -112,13 +112,17 @@ export default function DispatchersPage() {
     async function handleDeleteDispatcher() {
         if (!deletingDispatcher) return
         try {
-            const response = await fetch(`/api/manage-dispatcher?id=${deletingDispatcher.id}`, { method: 'DELETE' })
-            if (!response.ok) throw new Error('Failed to delete')
+            // const response = await fetch(`/api/manage-dispatcher?id=${deletingDispatcher.id}`, { method: 'DELETE' })
+            const { error, data } = await supabase.rpc('delete_user_by_admin', { target_user_id: deletingDispatcher.id })
+
+            if (error) throw error
+            if (data && !data.success) throw new Error(data.error || 'Failed to delete')
 
             setDispatchers(prev => prev.filter(d => d.id !== deletingDispatcher.id))
             toast({ title: 'Dispatcher Deleted', type: 'success' })
             setDeletingDispatcher(null)
         } catch (e) {
+            console.error(e)
             toast({ title: 'Delete Failed', type: 'error' })
         }
     }
@@ -128,25 +132,35 @@ export default function DispatchersPage() {
             // UPDATE MODE
             setIsSubmitting(true)
             try {
-                const response = await fetch('/api/manage-dispatcher', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: editingDispatcher.id,
-                        name: formData.name,
-                        email: formData.email,
-                        password: formData.password,
-                        permissions: formData.permissions
-                    })
+                /* const response = await fetch('/api/manage-dispatcher', {
+                     method: 'PUT', ...
+                }) */
+
+                // Use RPC
+                const { error, data } = await supabase.rpc('update_dispatcher_account', {
+                    target_user_id: editingDispatcher.id,
+                    full_name: formData.name,
+                    email: formData.email,
+                    permissions: formData.permissions
                 })
 
-                if (!response.ok) throw new Error('Update failed')
+                if (error) throw error
+                if (data && !data.success) throw new Error(data.error || 'Update failed')
+
+                // If password provided, update it too
+                if (formData.password) {
+                    await supabase.rpc('update_user_password_by_admin', {
+                        target_user_id: editingDispatcher.id,
+                        new_password: formData.password
+                    })
+                }
 
                 toast({ title: 'Dispatcher Updated', type: 'success' })
                 setIsAddOpen(false)
                 setEditingDispatcher(null)
                 fetchDispatchers()
             } catch (e) {
+                console.error(e)
                 toast({ title: 'Update Error', type: 'error' })
             } finally {
                 setIsSubmitting(false)
@@ -169,38 +183,23 @@ export default function DispatchersPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("No authenticated user found")
 
-            // Debug log
-            console.log("Fetching company for user:", user.id)
+            // Get Company ID
+            const { data: currentUser } = await supabase.from('users').select('company_id').eq('id', user.id).single()
+            if (!currentUser) throw new Error("No company found")
 
-            const { data: currentUser, error: userError } = await supabase
-                .from('users')
-                .select('company_id')
-                .eq('id', user.id)
-                .single()
-
-            if (userError || !currentUser) {
-                console.error("User fetch error:", userError)
-                throw new Error("Could not fetch your company profile. Please refresh.")
-            }
-
-            console.log("Sending request to API with companyId:", currentUser.company_id)
-
-            const response = await fetch('/api/create-dispatcher', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    password: formData.password,
-                    companyId: currentUser.company_id,
-                    permissions: formData.permissions
-                })
+            // RPC Call
+            const { data, error } = await supabase.rpc('create_dispatcher_account', {
+                email: formData.email,
+                password: formData.password,
+                full_name: formData.name,
+                company_id: currentUser.company_id,
+                permissions: formData.permissions
             })
 
-            const result = await response.json()
-            console.log("API Response:", result)
+            console.log("RPC Response:", data, error)
 
-            if (!response.ok) throw new Error(result.error || "Failed to create dispatcher")
+            if (error) throw error
+            if (data && !data.success) throw new Error(data.error || "Failed to create dispatcher")
 
             toast({
                 title: 'Dispatcher Created!',

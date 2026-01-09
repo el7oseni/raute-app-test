@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
 import { parseOrderAI, type ParsedOrder } from "@/lib/gemini"
+import { reverseGeocode } from "@/lib/geocoding"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import LocationPicker from "@/components/location-picker"
 import { cn } from "@/lib/utils"
@@ -56,11 +57,13 @@ export default function OrdersPage() {
     const [pickedLocation, setPickedLocation] = useState<{
         lat: number
         lng: number
-        address?: string
-        city?: string
-        state?: string
-        zipCode?: string
     } | null>(null)
+
+    // Form Hooks
+    const [address, setAddress] = useState('')
+    const [city, setCity] = useState('')
+    const [state, setState] = useState('')
+    const [zipCode, setZipCode] = useState('')
     const [phoneValue, setPhoneValue] = useState<string | undefined>(undefined)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -981,13 +984,22 @@ export default function OrdersPage() {
                                         </div>
                                         <div className="space-y-2"><label className="text-sm font-medium">Customer Name</label><Input name="customer_name" placeholder="John Doe" required /></div>
                                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                            <LocationPicker onLocationSelect={(lat, lng) => setPickedLocation({ lat, lng })} />
+                                            <LocationPicker onLocationSelect={async (lat, lng) => {
+                                                setPickedLocation({ lat, lng })
+                                                const res = await reverseGeocode(lat, lng)
+                                                if (res) {
+                                                    setAddress(res.address)
+                                                    setCity(res.city)
+                                                    setState(res.state)
+                                                    setZipCode(res.zip)
+                                                }
+                                            }} />
                                             {pickedLocation && (<p className="text-xs text-blue-600 mt-2 flex items-center gap-1"><MapPin size={12} /> Selected: {pickedLocation.lat.toFixed(4)}, {pickedLocation.lng.toFixed(4)}</p>)}
                                         </div>
-                                        <div className="space-y-2"><label className="text-sm font-medium">Address</label><Input name="address" placeholder="123 Main St" required defaultValue={pickedLocation?.address || ''} key={pickedLocation?.address} /></div>
-                                        <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-sm font-medium">City</label><Input name="city" placeholder="New York" defaultValue={pickedLocation?.city || ''} key={pickedLocation?.city} /></div><div className="space-y-2"><label className="text-sm font-medium">State</label><Input name="state" placeholder="NY" defaultValue={pickedLocation?.state || ''} key={pickedLocation?.state} /></div></div>
+                                        <div className="space-y-2"><label className="text-sm font-medium">Address</label><Input name="address" placeholder="123 Main St" required value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+                                        <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-sm font-medium">City</label><Input name="city" placeholder="New York" value={city} onChange={(e) => setCity(e.target.value)} /></div><div className="space-y-2"><label className="text-sm font-medium">State</label><Input name="state" placeholder="NY" value={state} onChange={(e) => setState(e.target.value)} /></div></div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2"><label className="text-sm font-medium">ZIP Code</label><Input name="zip_code" placeholder="10001" defaultValue={pickedLocation?.zipCode || ''} key={pickedLocation?.zipCode} /></div>
+                                            <div className="space-y-2"><label className="text-sm font-medium">ZIP Code</label><Input name="zip_code" placeholder="10001" value={zipCode} onChange={(e) => setZipCode(e.target.value)} /></div>
                                             <div className="space-y-2">
                                                 <label className="text-sm font-medium">Phone</label>
                                                 <StyledPhoneInput
