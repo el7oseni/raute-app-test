@@ -249,8 +249,9 @@ export default function ClientOrderDetails() {
                     zip_code: data.zip || prev.zip_code
                 }))
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Reverse Geocoding Failed:", error)
+            alert(`⚠️ Could not auto-fill address: ${error.message || "Unknown error"}`)
         } finally {
             setIsGeocodingReversed(false)
         }
@@ -263,7 +264,10 @@ export default function ClientOrderDetails() {
 
     async function handleEditSubmit(e: React.FormEvent) {
         e.preventDefault()
-        if (!orderId || !order) return
+        if (!orderId || !order) {
+            alert("Error: Order ID missing. Cannot save.")
+            return
+        }
 
         try {
             setIsUpdating(true)
@@ -302,11 +306,11 @@ export default function ClientOrderDetails() {
             // Update Local State & Close
             setOrder(prev => prev ? { ...prev, ...updatedPayload } as Order : null)
             setIsEditSheetOpen(false)
-            alert("Changes Saved Successfully!") // Added feedback
+            alert("✅ Changes Saved Successfully!")
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Update failed", error)
-            alert('Failed to update order. Please check your connection.')
+            alert(`❌ Failed to update order: ${error.message || 'Check connection'}`)
         } finally {
             setIsUpdating(false)
         }
@@ -514,7 +518,10 @@ export default function ClientOrderDetails() {
 
             <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
                 <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
-                    <SheetHeader><SheetTitle>Edit Order</SheetTitle></SheetHeader>
+                    <SheetHeader>
+                        <SheetTitle>Edit Order</SheetTitle>
+                        <SheetDescription>Update order details and location.</SheetDescription>
+                    </SheetHeader>
                     <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
                         <Input value={formData.order_number || ''} onChange={e => setFormData(prev => ({ ...prev, order_number: e.target.value }))} placeholder="Order #" />
                         <Input value={formData.customer_name || ''} onChange={e => setFormData(prev => ({ ...prev, customer_name: e.target.value }))} placeholder="Customer Name" />
