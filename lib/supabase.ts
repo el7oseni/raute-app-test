@@ -63,6 +63,7 @@ export type Driver = {
     last_location_update?: string | null
     created_at: string
     updated_at: string
+    email?: string // Added for UI display
 }
 
 export type CustomField = {

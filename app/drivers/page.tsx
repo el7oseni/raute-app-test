@@ -138,12 +138,19 @@ export default function DriversPage() {
 
             const { data, error } = await supabase
                 .from('drivers')
-                .select('*')
+                .select('*, users:user_id(email)') // Join to get email from public.users
                 .eq('company_id', userProfile.company_id)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
-            setDrivers(data || [])
+
+            // Flatten the email into the driver object for easier access
+            const formattedData = (data || []).map((d: any) => ({
+                ...d,
+                email: d.users?.email || ''
+            }))
+
+            setDrivers(formattedData)
         } catch (error) {
             console.error('Error fetching drivers:', error)
         } finally {
@@ -273,6 +280,8 @@ export default function DriversPage() {
             const phone = formData.get('phone') as string
             const vehicleType = formData.get('vehicle_type') as string
             const status = formData.get('status') as string
+            const email = formData.get('email') as string
+            const password = formData.get('password') as string
 
             // Update custom values
             const customValues: Record<string, any> = { ...(editingDriver.custom_values || {}) }
@@ -281,24 +290,27 @@ export default function DriversPage() {
                 if (value) customValues[field.id] = value
             })
 
-            const { error } = await supabase
-                .from('drivers')
-                .update({
-                    name,
-                    phone,
-                    vehicle_type: vehicleType,
-                    status,
-                    custom_values: customValues
-                })
-                .eq('id', editingDriver.id)
+            // Use the new RPC to update everything securely
+            const { data: result, error } = await supabase.rpc('update_driver_full', {
+                target_driver_id: editingDriver.id,
+                new_name: name,
+                new_phone: phone,
+                new_vehicle_type: vehicleType,
+                new_status: status,
+                new_custom_values: customValues,
+                new_email: email,
+                new_password: password || null // Only send if not empty
+            })
 
             if (error) throw error
+            if (result && !result.success) throw new Error(result.error || 'Failed to update')
 
+            alert('✅ Driver updated successfully')
             setEditingDriver(null)
             fetchDrivers()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating driver:', error)
-            alert('Error updating driver')
+            alert(`Error updating driver: ${error.message}`)
         }
     }
 
@@ -689,13 +701,23 @@ export default function DriversPage() {
             } onOpenChange={(open) => !open && setEditingDriver(null)}>
                 <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl">
                     <SheetHeader>
-                        <SheetTitle>Edit Driver</SheetTitle>
+                        <SheetTitle>Edit Driver Details</SheetTitle>
                     </SheetHeader>
                     {editingDriver && (
                         <form action={handleEditDriver} className="space-y-4 mt-4 pb-40">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Name</label>
                                 <Input name="name" defaultValue={editingDriver.name} required className="bg-background" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email</label>
+                                <Input name="email" type="email" defaultValue={editingDriver.email} required className="bg-background" />
+                                <p className="text-[10px] text-muted-foreground">Changing this will update the driver's login email.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Password</label>
+                                <PasswordInput name="password" placeholder="Leave blank to keep current" minLength={6} className="bg-background" />
+                                <p className="text-[10px] text-muted-foreground">Only enter if you want to change the password.</p>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Phone</label>
