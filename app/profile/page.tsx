@@ -49,25 +49,46 @@ export default function ProfilePage() {
     async function fetchProfile() {
         try {
             setLoading(true)
+
+            // 1. Try standard Supabase Auth
+            let currentUserId = null
+            let currentUserEmail = ''
+
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
+
+            if (user) {
+                currentUserId = user.id
+                currentUserEmail = user.email || ''
+            } else {
+                // 2. Fallback to Custom Auth
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                if (customUserId) {
+                    currentUserId = customUserId
+                    // Cannot easily get email here without another query, 
+                    // but we will fetch it from user profile below anyway if needed
+                    currentUserEmail = 'Driver Account'
+                }
+            }
+
+            if (!currentUserId) {
                 router.push('/login')
                 return
             }
 
-            setUserId(user.id)
-            setEmail(user.email || '')
+            setUserId(currentUserId)
+            setEmail(currentUserEmail)
 
             const { data: userProfile } = await supabase
                 .from('users')
-                .select('full_name, role, company_id, profile_image')
-                .eq('id', user.id)
+                .select('full_name, role, company_id, profile_image, email')
+                .eq('id', currentUserId)
                 .single()
 
             if (userProfile) {
                 setUserRole(userProfile.role)
                 setFullName(userProfile.full_name || '')
                 setProfileImage(userProfile.profile_image)
+                if (userProfile.email) setEmail(userProfile.email)
 
                 // Parallel Fetching for details
                 const promises = []
@@ -96,7 +117,7 @@ export default function ProfilePage() {
                     promises.push(
                         supabase.from('drivers')
                             .select('phone, vehicle_type, is_online, custom_values')
-                            .eq('user_id', user.id)
+                            .eq('user_id', currentUserId)
                             .single()
                             .then(({ data }) => {
                                 if (data) {
@@ -262,9 +283,15 @@ export default function ProfilePage() {
 
         try {
             await supabase.auth.signOut()
+            localStorage.removeItem('raute_user_id')
+            localStorage.removeItem('raute-role')
             router.push('/login')
         } catch (error) {
             console.error('Error logging out:', error)
+            // Force logout local even if server fails
+            localStorage.removeItem('raute_user_id')
+            localStorage.removeItem('raute-role')
+            router.push('/login')
         }
     }
 

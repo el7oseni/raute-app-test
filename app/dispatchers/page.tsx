@@ -57,13 +57,24 @@ export default function DispatchersPage() {
     async function fetchDispatchers() {
         setIsLoading(true)
         try {
+            // 1. Try standard Supabase Auth
+            let currentUserId = null
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                console.warn("No auth user")
+
+            if (user) {
+                currentUserId = user.id
+            } else {
+                // 2. Fallback
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                if (customUserId) currentUserId = customUserId
+            }
+
+            if (!currentUserId) {
+                console.warn("No auth user found (standard or custom)")
                 return
             }
 
-            const { data: currentUser, error: userError } = await supabase.from('users').select('company_id').eq('id', user.id).single()
+            const { data: currentUser, error: userError } = await supabase.from('users').select('company_id').eq('id', currentUserId).single()
 
             if (userError || !currentUser) {
                 console.error("Profile Fetch Error:", userError)
@@ -180,11 +191,21 @@ export default function DispatchersPage() {
 
         setIsSubmitting(true)
         try {
+            // 1. Auth Check with Fallback
+            let currentUserId = null
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error("No authenticated user found")
+
+            if (user) {
+                currentUserId = user.id
+            } else {
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                if (customUserId) currentUserId = customUserId
+            }
+
+            if (!currentUserId) throw new Error("No authenticated user found")
 
             // Get Company ID
-            const { data: currentUser } = await supabase.from('users').select('company_id').eq('id', user.id).single()
+            const { data: currentUser } = await supabase.from('users').select('company_id').eq('id', currentUserId).single()
             if (!currentUser) throw new Error("No company found")
 
             // RPC Call

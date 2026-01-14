@@ -135,14 +135,27 @@ export default function OrdersPage() {
     async function fetchData() {
         setIsLoading(true)
         try {
-            // Get current user
+            // 1. Try standard Supabase Auth
+            let currentUserId = null
+
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
+
+            if (user) {
+                currentUserId = user.id
+            } else {
+                // 2. Fallback to Custom Auth
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                if (customUserId) {
+                    currentUserId = customUserId
+                }
+            }
+
+            if (!currentUserId) return
 
             const { data: userProfile } = await supabase
                 .from('users')
                 .select('company_id, role, full_name')
-                .eq('id', user.id)
+                .eq('id', currentUserId)
                 .maybeSingle()
 
             if (!userProfile) return
@@ -157,7 +170,7 @@ export default function OrdersPage() {
                 const { data: driverData } = await supabase
                     .from('drivers')
                     .select('id, is_online')
-                    .eq('user_id', user.id)
+                    .eq('user_id', currentUserId)
                     .maybeSingle()
 
                 if (!driverData) {

@@ -13,15 +13,20 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                // Check for standard Supabase session
                 const { data: { session } } = await supabase.auth.getSession()
+
+                // CHECK FOR CUSTOM SESSION (Bypass)
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                const isAuthenticated = !!session || !!customUserId
 
                 // List of public routes that don't require auth
                 const publicRoutes = ['/login', '/signup', '/']
 
-                if (!session && !publicRoutes.includes(pathname)) {
+                if (!isAuthenticated && !publicRoutes.includes(pathname)) {
                     // If no session and trying to access protected route, redirect to login
                     router.push('/login')
-                } else if (session && (pathname === '/login' || pathname === '/signup')) {
+                } else if (isAuthenticated && (pathname === '/login' || pathname === '/signup')) {
                     // If session exists and trying to access auth pages, redirect to dashboard
                     router.push('/dashboard')
                 }
@@ -32,9 +37,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             }
         }
 
-        // Subscribe to auth state changes
+        // Subscribe to auth state changes (Standard)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
+                localStorage.removeItem('raute_user_id') // Clear custom session too
                 router.push('/login')
             } else if (event === 'SIGNED_IN') {
                 const redirectUrl = pathname === '/login' || pathname === '/signup' ? '/dashboard' : pathname

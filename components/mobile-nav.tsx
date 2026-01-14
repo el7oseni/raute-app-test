@@ -70,13 +70,23 @@ export function MobileNav() {
         }, 8000) // Increased to prevent premature timeout on slow connections
 
         // Auth Logic
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+
             if (session?.user) {
                 fetchRole(session.user.id)
             } else {
-                if (mounted) setLoading(false)
+                // FALLBACK: Check for custom session (Driver Login)
+                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
+                if (customUserId) {
+                    fetchRole(customUserId)
+                } else {
+                    if (mounted) setLoading(false)
+                }
             }
-        })
+        }
+
+        checkSession()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {

@@ -31,19 +31,31 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            const { error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            // BYPASS: Use custom RPC instead of auth.signInWithPassword
+            const { data, error: rpcError } = await supabase.rpc('login_driver', {
+                p_email: email,
+                p_password: password
             })
 
-            if (authError) throw authError
+            if (rpcError) throw rpcError
 
-            // Success! Redirect
-            router.push("/dashboard")
+            if (!data.success) {
+                throw new Error(data.error || 'Login failed')
+            }
 
-        } catch (err) {
+            // Success! Manually handle session
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('raute_user_id', data.user_id)
+                // Trigger a storage event so other components know (optional but good practice)
+                window.dispatchEvent(new Event('storage'))
+            }
+
+            // Force reload to ensure AuthCheck picks it up immediately
+            window.location.href = "/dashboard"
+
+        } catch (err: any) {
             console.error("Login error:", err)
-            setError(err instanceof Error ? err.message : "Invalid email or password")
+            setError(err.message || "Invalid email or password")
         } finally {
             setIsLoading(false)
         }
