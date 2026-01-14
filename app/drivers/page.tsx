@@ -121,7 +121,7 @@ export default function DriversPage() {
             // Auth with Fallback
             let userId = (await supabase.auth.getSession()).data.session?.user?.id
             if (!userId && typeof window !== 'undefined') {
-                userId = localStorage.getItem('raute_user_id')
+                userId = localStorage.getItem('raute_user_id') || undefined
             }
             if (!userId) return
 
@@ -221,7 +221,7 @@ export default function DriversPage() {
         // Auth with Fallback
         let userId = (await supabase.auth.getSession()).data.session?.user?.id
         if (!userId && typeof window !== 'undefined') {
-            userId = localStorage.getItem('raute_user_id')
+            userId = localStorage.getItem('raute_user_id') || undefined
         }
         if (!userId) return
 
@@ -259,7 +259,7 @@ export default function DriversPage() {
             // Auth with Fallback
             let userId = (await supabase.auth.getSession()).data.session?.user?.id
             if (!userId && typeof window !== 'undefined') {
-                userId = localStorage.getItem('raute_user_id')
+                userId = localStorage.getItem('raute_user_id') || undefined
             }
             if (!userId) return
 
