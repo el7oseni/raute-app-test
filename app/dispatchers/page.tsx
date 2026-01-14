@@ -57,20 +57,23 @@ export default function DispatchersPage() {
     async function fetchDispatchers() {
         setIsLoading(true)
         try {
-            // 1. Try standard Supabase Auth
             let currentUserId = null
-            const { data: { user } } = await supabase.auth.getUser()
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-            if (user) {
-                currentUserId = user.id
+            if (session?.user) {
+                currentUserId = session.user.id
+                console.log("✅ Dispatcher Page: Supabase Session Auth")
             } else {
                 // 2. Fallback
                 const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                if (customUserId) currentUserId = customUserId
+                if (customUserId) {
+                    currentUserId = customUserId
+                    console.log("✅ Dispatcher Page: Manual Auth (raute_user_id)")
+                }
             }
 
             if (!currentUserId) {
-                console.warn("No auth user found (standard or custom)")
+                console.warn("⚠️ No auth user found (standard or custom)")
                 return
             }
 
@@ -82,12 +85,10 @@ export default function DispatchersPage() {
                 return
             }
 
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('company_id', currentUser.company_id)
-                .eq('role', 'dispatcher')
-                .order('created_at', { ascending: false })
+            // Use RPC to fetch dispatchers (Bypass RLS)
+            const { data, error } = await supabase.rpc('get_company_dispatchers', {
+                company_id_param: currentUser.company_id
+            })
 
             if (error) throw error
             setDispatchers((data as unknown as AppUser[]) || [])
@@ -193,10 +194,10 @@ export default function DispatchersPage() {
         try {
             // 1. Auth Check with Fallback
             let currentUserId = null
-            const { data: { user } } = await supabase.auth.getUser()
+            const { data: { session } } = await supabase.auth.getSession()
 
-            if (user) {
-                currentUserId = user.id
+            if (session?.user) {
+                currentUserId = session.user.id
             } else {
                 const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
                 if (customUserId) currentUserId = customUserId
