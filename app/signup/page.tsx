@@ -89,6 +89,7 @@ export default function SignupPage() {
 
 
             localStorage.setItem('raute-role', 'manager')
+            localStorage.setItem('raute_user_id', authData.user.id)
 
             // Small delay to ensure DB commit completes before redirect
             console.log("⏳ Waiting for database to finalize...")
