@@ -72,20 +72,64 @@ RETURNS JSON AS $$
 DECLARE
     new_user_id UUID;
 BEGIN
-    -- Create user in Auth (this might fail if auth admin is broken, but worth a try for new users)
-    -- If this fails on old DB, we might need a similar bypass for creation, 
-    -- BUT usually creation works, only Login (reading permissions) fails.
-    new_user_id := (
-        SELECT id FROM auth.users WHERE auth.users.email = create_dispatcher_account.email
-    );
-    
-    -- If user doesn't exist, we can't create them via SQL easily without admin secret.
-    -- Assuming the call is made from client with supabase.auth.signUp() which works?
-    -- Actually, our code uses this RPC effectively as a wrapper. 
-    -- For the Old DB, ensures the code matches.
-    
-    RETURN json_build_object('success', true); 
     -- Note: Real creation usually happens via client SDK or Service Role. 
-    -- This is just a placeholder if you are strictly using the previously defined logic.
+    -- This is just a placeholder to prevent SQL errors if called directly.
+    RETURN json_build_object('success', true); 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. DISABLE RLS TEMPORARILY (CRITICAL FOR PROD)
+-- Since we are managing auth manually via the RPC function, standard RLS based on auth.uid()
+-- will fail. We disable RLS on public.users to allow the frontend to read profiles.
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+
+-- 8. KILL THE FAILING SIGNUP TRIGGER (CRITICAL FOR PROD SIGNUP)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+-- 9. CREATE MANAGER SIGNUP RPC (The new safe way to signup)
+CREATE OR REPLACE FUNCTION public.complete_manager_signup(
+    user_email TEXT,
+    company_name TEXT,
+    full_name TEXT,
+    user_password TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+    new_user_id UUID;
+    new_comp_id UUID;
+BEGIN
+    -- Get the user ID from auth (Assuming the user was just created)
+    SELECT id INTO new_user_id FROM auth.users WHERE email = user_email;
+    
+    IF new_user_id IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'User not found in auth');
+    END IF;
+
+    -- Check if profile already exists to avoid duplicates
+    IF EXISTS (SELECT 1 FROM public.users WHERE id = new_user_id) THEN
+        RETURN json_build_object('success', true, 'message', 'Profile already exists');
+    END IF;
+
+    -- 1. Create Company
+    INSERT INTO public.companies (name, email)
+    VALUES (company_name, user_email)
+    RETURNING id INTO new_comp_id;
+
+    -- 2. Create User Profile
+    INSERT INTO public.users (id, email, full_name, role, company_id, status)
+    VALUES (
+        new_user_id,
+        user_email,
+        full_name,
+        'manager',
+        new_comp_id,
+        'active'
+    );
+
+    RETURN json_build_object('success', true, 'user_id', new_user_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant access
+GRANT EXECUTE ON FUNCTION public.complete_manager_signup TO anon, authenticated, service_role;

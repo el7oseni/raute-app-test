@@ -65,43 +65,28 @@ export default function SignupPage() {
             if (!authData.user) throw new Error("No user returned from signup")
             console.log("✅ Auth Signup Success. User ID:", authData.user.id)
 
-            // 2. Create the company
-            console.log("🔵 STEP 2: Creating Company...")
-            const { data: companyData, error: companyError } = await supabase
-                .from('companies')
-                .insert({ name: companyName })
-                .select()
-                .single()
-
-            if (companyError) {
-                console.error("❌ Company Error:", companyError)
-                throw companyError
-            }
-            if (!companyData) throw new Error("Failed to create company")
-            console.log("✅ Company Created. ID:", companyData.id, "Name:", companyData.name)
-
-            // 3. Create or Update the user profile (Upsert to handle trigger conflicts)
-            console.log("🔵 STEP 3: Creating User Profile...")
-            const profilePayload = {
-                id: authData.user.id,
-                company_id: companyData.id,
-                email: email,
+            // 2. Complete Signup via RPC (Safe & Atomic)
+            console.log("🔵 STEP 2: Completing Signup via RPC...")
+            const { data: rpcData, error: rpcError } = await supabase.rpc('complete_manager_signup', {
+                user_email: email,
+                company_name: companyName,
                 full_name: fullName,
-                role: 'manager', // Enforce manager role
-                updated_at: new Date().toISOString()
-            }
-            console.log("Profile Payload:", profilePayload)
+                user_password: password
+            })
 
-            const { error: profileError, data: profileData } = await supabase
-                .from('users')
-                .upsert(profilePayload)
-                .select()
-
-            if (profileError) {
-                console.error("❌ Profile Error:", profileError)
-                throw profileError
+            if (rpcError) {
+                console.error("❌ RPC Error:", rpcError)
+                throw new Error("Failed to create profile: " + rpcError.message)
             }
-            console.log("✅ Profile Created/Updated:", profileData)
+
+            if (rpcData && !rpcData.success) {
+                console.error("❌ RPC Logic Error:", rpcData)
+                throw new Error(rpcData.error || "Profile creation failed")
+            }
+
+            console.log("✅ Profile Created via RPC:", rpcData)
+
+
 
             localStorage.setItem('raute-role', 'manager')
 
