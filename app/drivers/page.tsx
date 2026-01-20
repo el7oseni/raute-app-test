@@ -630,10 +630,13 @@ export default function DriversPage() {
                                             setSelectedHubId(hubId)
                                             const hub = hubs.find(h => h.id === hubId)
                                             if (hub) {
+                                                // Use hub.latitude/longitude (matching database schema)
+                                                const lat = hub.latitude || (hub.lat ? parseFloat(hub.lat) : null)
+                                                const lng = hub.longitude || (hub.lng ? parseFloat(hub.lng) : null)
                                                 setDefaultStartLoc({
-                                                    address: hub.location || hub.name,
-                                                    lat: hub.lat || 0,
-                                                    lng: hub.lng || 0
+                                                    address: hub.address || hub.location || hub.name,
+                                                    lat: lat || 0,
+                                                    lng: lng || 0
                                                 })
                                             }
                                         }}

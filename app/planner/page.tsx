@@ -135,10 +135,10 @@ function DroppableDriverContainer({ driver, orders, children, isLocked = false }
         <div
             ref={setNodeRef}
             className={`bg-card dark:bg-slate-900 border rounded-md p-2 transition-colors ${isLocked
-                    ? 'border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 opacity-60'
-                    : isOver
-                        ? 'border-primary bg-primary/5 dark:bg-primary/20 ring-2 ring-primary/20'
-                        : 'border-border dark:border-slate-800'
+                ? 'border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 opacity-60'
+                : isOver
+                    ? 'border-primary bg-primary/5 dark:bg-primary/20 ring-2 ring-primary/20'
+                    : 'border-border dark:border-slate-800'
                 }`}
         >
             <div className="flex items-center justify-between mb-2">
@@ -576,13 +576,13 @@ export default function PlannerPage() {
                     </UnassignedArea>
 
                     {/* Droppable Drivers List */}
-                    <div className="h-2/5 border-t border-border bg-muted/10 flex flex-col">
-                        <div className="p-3 border-b border-border bg-muted/30">
+                    <div className="flex-1 min-h-0 border-t border-border bg-muted/10 flex flex-col">
+                        <div className="p-3 border-b border-border bg-muted/30 flex-shrink-0">
                             <h2 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-2">
                                 <Truck size={12} /> Drivers ({drivers.length})
                             </h2>
                         </div>
-                        <div className="overflow-y-auto p-3 space-y-3 flex-1">
+                        <div className="overflow-y-auto p-3 space-y-3 flex-1 min-h-0">
                             {drivers.map((driver, index) => (
                                 <DroppableDriverContainer
                                     key={driver.id}
