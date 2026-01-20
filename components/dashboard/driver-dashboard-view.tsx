@@ -187,14 +187,12 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                         if (o.status === 'delivered') {
                             chartMap[d].completed++
                             totalDeliveredHistory++
-                            // Simple On-Time Check: Did they deliver on the scheduled date?
-                            // (If delivered_at exists and starts with delivery_date)
+                            // On-Time Check: Did they deliver on the scheduled date?
+                            // Only count as on-time if delivered_at exists AND matches delivery_date
                             if (o.delivered_at && o.delivered_at.startsWith(d)) {
                                 onTimeCount++
-                            } else if (!o.delivered_at) {
-                                // Fallback if delivered_at missing but marked delivered
-                                onTimeCount++
                             }
+                            // NOTE: If delivered_at missing, we DON'T count it as on-time
                         } else if (o.status === 'cancelled') {
                             chartMap[d].failed++
                         }
@@ -205,11 +203,11 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
                 // B. Compute On-Time Rate
                 // Rate = (OnTime / TotalDelivered) * 100
-                // If no deliveries, 100% default
+                // If no deliveries, show 0% (not 100%)
                 if (totalDeliveredHistory > 0) {
                     setOnTimeRate(Math.round((onTimeCount / totalDeliveredHistory) * 100))
                 } else {
-                    setOnTimeRate(100)
+                    setOnTimeRate(0)
                 }
             }
 
@@ -332,8 +330,12 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
             {/* Main Progress Card */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all">
-                <div className="absolute top-0 right-0 p-4 opacity-5">
-                    <CheckCircle2 size={120} className="dark:text-white" />
+                {/* Success Checkmark - Shows when 100% complete */}
+                <div className={`absolute top-0 right-0 p-4 transition-opacity duration-500 ${completionPercentage === 100 && stats.total > 0
+                        ? 'opacity-20 dark:opacity-10'
+                        : 'opacity-5'
+                    }`}>
+                    <CheckCircle2 size={120} className={completionPercentage === 100 ? "text-green-500" : "dark:text-white"} />
                 </div>
 
                 <div className="relative z-10 flex flex-col items-center justify-center text-center space-y-4">
