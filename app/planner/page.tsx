@@ -131,6 +131,8 @@ function DroppableDriverContainer({ driver, orders, children, isLocked = false }
         data: { driver }
     })
 
+    const [isExpanded, setIsExpanded] = React.useState(false)
+
     return (
         <div
             ref={setNodeRef}
@@ -141,8 +143,20 @@ function DroppableDriverContainer({ driver, orders, children, isLocked = false }
                     : 'border-border dark:border-slate-800'
                 }`}
         >
-            <div className="flex items-center justify-between mb-2">
+            <div
+                className="flex items-center justify-between mb-2 cursor-pointer hover:bg-muted/30 -m-2 p-2 rounded transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
                 <div className="flex items-center gap-2">
+                    {/* Expand/Collapse Arrow */}
+                    <svg
+                        className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                     {isLocked && <Lock size={14} className="text-red-500" />}
                     <div className={`w-2 h-2 rounded-full ${driver.status === 'active' ? 'bg-green-500' : 'bg-slate-300'}`} />
                     <span className={`font-medium text-sm ${isLocked ? 'text-red-600 dark:text-red-400' : ''}`}>{driver.name}</span>
@@ -153,11 +167,13 @@ function DroppableDriverContainer({ driver, orders, children, isLocked = false }
                 </span>
             </div>
 
-            {/* Expanded List of Orders for this Driver */}
-            <div className="space-y-2 pl-2 border-l-2 border-muted min-h-[20px]">
-                {children}
-                {orders.length === 0 && <p className="text-[10px] text-muted-foreground italic">{isLocked ? 'Upgrade to unlock' : 'No orders assigned'}</p>}
-            </div>
+            {/* Collapsible Orders List */}
+            {isExpanded && (
+                <div className="space-y-2 pl-2 border-l-2 border-muted min-h-[20px] mt-2">
+                    {children}
+                    {orders.length === 0 && <p className="text-[10px] text-muted-foreground italic">{isLocked ? 'Upgrade to unlock' : 'No orders assigned'}</p>}
+                </div>
+            )}
         </div>
     )
 }
