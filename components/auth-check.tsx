@@ -10,6 +10,16 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const [isLoading, setIsLoading] = useState(true)
 
+    // Skip auth check entirely for landing page and other public marketing pages
+    const skipAuthCheckRoutes = ['/', '/privacy', '/terms']
+    const shouldSkipAuthCheck = skipAuthCheckRoutes.some(route =>
+        pathname === route || pathname.startsWith(`${route}/`)
+    )
+
+    if (shouldSkipAuthCheck) {
+        return <>{children}</>
+    }
+
     useEffect(() => {
         const checkAuth = async () => {
             try {
