@@ -52,8 +52,18 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 }
             } catch (error) {
                 console.error("Auth check critical failure:", error)
-                // Fallback to login if critical failure
-                if (pathname !== '/login') router.push('/login')
+
+                // List of public routes that don't require auth
+                const publicRoutes = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
+
+                const isPublicRoute = publicRoutes.some(route =>
+                    pathname === route || pathname.startsWith(`${route}/`)
+                )
+
+                // Fallback to login only if NOT on a public route
+                if (!isPublicRoute && pathname !== '/login') {
+                    router.push('/login')
+                }
             } finally {
                 setIsLoading(false)
             }
