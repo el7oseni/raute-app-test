@@ -318,16 +318,17 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 </div>
             )}
 
-            {/* Quick Setup Guide */}
-            {/* Quick Setup Guide */}
-            <DriverSetupGuide
-                isOnline={isOnline}
-                hasTasks={stats.pending > 0}
-                onToggleOnline={toggleOnlineStatus}
-                onViewAssignments={() => router.push('/orders')}
-                forceShow={forceShowGuide}
-                onDismiss={() => setForceShowGuide(false)}
-            />
+            {/* Quick Setup Guide (Only show for TODAY) */}
+            {isToday && (
+                <DriverSetupGuide
+                    isOnline={isOnline}
+                    hasTasks={stats.pending > 0}
+                    onToggleOnline={toggleOnlineStatus}
+                    onViewAssignments={() => router.push('/orders')}
+                    forceShow={forceShowGuide}
+                    onDismiss={() => setForceShowGuide(false)}
+                />
+            )}
 
             {/* Main Progress Card */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all">
