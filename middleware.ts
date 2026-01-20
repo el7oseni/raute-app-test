@@ -2,6 +2,12 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+    // Skip middleware entirely for landing page and marketing pages
+    const marketingPages = ['/', '/privacy', '/terms']
+    if (marketingPages.includes(request.nextUrl.pathname)) {
+        return NextResponse.next()
+    }
+
     let response = NextResponse.next({
         request: {
             headers: request.headers,
@@ -142,8 +148,9 @@ export const config = {
          * - favicon.ico (favicon file)
          * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
          * - api - API routes (we might want to protect these differently)
-         * Feel free to modify this pattern to include more paths.
+         * - Root path (/) - Landing page
+         * - /privacy, /terms - Legal pages
          */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|privacy|terms|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
