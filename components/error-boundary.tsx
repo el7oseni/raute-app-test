@@ -49,42 +49,40 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             }
 
             return (
-            \u003cdiv className = "min-h-screen flex items-center justify-center bg-background p-4"\u003e
-            \u003cdiv className = "max-w-md w-full bg-card border border-border rounded-lg shadow-lg p-6 text-center"\u003e
-            \u003cdiv className = "mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4"\u003e
-            \u003cAlertTriangle className = "h-8 w-8 text-destructive" /\u003e
-            \u003c / div\u003e
+                <div className="min-h-screen flex items-center justify-center bg-background p-4">
+                    <div className="max-w-md w-full bg-card border border-border rounded-lg shadow-lg p-6 text-center">
+                        <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
+                            <AlertTriangle className="h-8 w-8 text-destructive" />
+                        </div>
 
-            \u003ch2 className = "text-2xl font-bold mb-2"\u003eSomething went wrong\u003c / h2\u003e
+                        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
 
-            \u003cp className = "text-muted-foreground mb-4"\u003e
-                            We encountered an unexpected error.This has been logged for investigation.
-            \u003c / p\u003e
+                        <p className="text-muted-foreground mb-4">
+                            We encountered an unexpected error. This has been logged for investigation.
+                        </p>
 
-            {
-                this.state.error && (
-                \u003cdetails className = "mb-4 text-left"\u003e
-                \u003csummary className = "cursor-pointer text-sm text-muted-foreground hover:text-foreground"\u003e
+                        {this.state.error && (
+                            <details className="mb-4 text-left">
+                                <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                                     Error Details
-                \u003c / summary\u003e
-                \u003cpre className = "mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-32"\u003e
-                { this.state.error.message }
-                { this.state.error.stack && `\n\n${this.state.error.stack}` }
-                \u003c / pre\u003e
-                \u003c / details\u003e
-                        )
-            }
+                                </summary>
+                                <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-32">
+                                    {this.state.error.message}
+                                    {this.state.error.stack && `\n\n${this.state.error.stack}`}
+                                </pre>
+                            </details>
+                        )}
 
-            \u003cButton onClick = { this.handleReset } className = "w-full"\u003e
-            \u003cRefreshCw className = "mr-2 h-4 w-4" /\u003e
+                        <Button onClick={this.handleReset} className="w-full">
+                            <RefreshCw className="mr-2 h-4 w-4" />
                             Reload Page
-            \u003c / Button\u003e
+                        </Button>
 
-            \u003cp className = "text-xs text-muted-foreground mt-4"\u003e
+                        <p className="text-xs text-muted-foreground mt-4">
                             If this persists, please contact support.
-            \u003c / p\u003e
-            \u003c / div\u003e
-            \u003c / div\u003e
+                        </p>
+                    </div>
+                </div>
             )
         }
 
