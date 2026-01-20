@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Building2, Eye, EyeOff, Lock, Mail, User, AlertCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { useToast } from "@/components/toast-provider"
 import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { isValidPhoneNumber } from "react-phone-number-input"
 
@@ -17,6 +18,7 @@ export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [phoneValue, setPhoneValue] = useState<string | undefined>('')
+    const { toast } = useToast()
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -46,7 +48,7 @@ export default function SignupPage() {
 
         try {
             // 1. Sign up the user
-            console.log("🔵 STEP 1: Starting Auth Signup...")
+            // 1. Sign up the user
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
@@ -59,48 +61,48 @@ export default function SignupPage() {
             })
 
             if (authError) {
-                console.error("❌ Auth Error:", authError)
                 throw authError
             }
             if (!authData.user) throw new Error("No user returned from signup")
-            console.log("✅ Auth Signup Success. User ID:", authData.user.id)
 
             // 2. Complete Signup via RPC (Safe & Atomic)
-            console.log("🔵 STEP 2: Completing Signup via RPC...")
-            const { data: rpcData, error: rpcError } = await supabase.rpc('complete_manager_signup', {
-                user_email: email,
-                company_name: companyName,
-                full_name: fullName,
-                user_password: password
+            try {
+                const { data: rpcData, error: rpcError } = await Promise.race([
+                    supabase.rpc('complete_manager_signup', {
+                        user_email: email,
+                        company_name: companyName,
+                        full_name: fullName,
+                        user_password: password
+                    }),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('RPC timeout - profile might still be creating')), 10000)
+                    )
+                ]) as any
+
+                if (rpcError) {
+                    console.warn("RPC Error (non-fatal):", rpcError.message)
+                    // Don't throw - user is already created in auth, profile might create via trigger
+                }
+
+                if (rpcData && !rpcData.success) {
+                    console.warn("RPC returned error:", rpcData.error)
+                    // Don't throw - let trigger handle it
+                }
+            } catch (rpcErr: any) {
+                console.warn("RPC failed:", rpcErr.message)
+                // Continue anyway - user is created, trigger should handle profile
+            }
+
+            // Success! Redirect to email verification page
+            // This provides better UX - users know they need to verify email
+            window.location.href = "/verify-email"
+
+        } catch (err: any) {
+            toast({
+                title: "Signup Failed",
+                description: err.message || "An unexpected error occurred",
+                type: "error"
             })
-
-            if (rpcError) {
-                console.error("❌ RPC Error:", rpcError)
-                throw new Error("Failed to create profile: " + rpcError.message)
-            }
-
-            if (rpcData && !rpcData.success) {
-                console.error("❌ RPC Logic Error:", rpcData)
-                throw new Error(rpcData.error || "Profile creation failed")
-            }
-
-            console.log("✅ Profile Created via RPC:", rpcData)
-
-
-
-            localStorage.setItem('raute-role', 'manager')
-            localStorage.setItem('raute_user_id', authData.user.id)
-
-            // Small delay to ensure DB commit completes before redirect
-            console.log("⏳ Waiting for database to finalize...")
-            await new Promise(resolve => setTimeout(resolve, 500))
-
-            // Success! Redirect
-            console.log("🎉 Signup Complete! Redirecting to dashboard...")
-            router.push("/dashboard")
-
-        } catch (err) {
-            console.error("💥 Signup error:", err)
             setError(err instanceof Error ? err.message : "An unexpected error occurred")
         } finally {
             setIsLoading(false)

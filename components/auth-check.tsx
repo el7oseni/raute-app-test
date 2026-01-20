@@ -14,24 +14,46 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const checkAuth = async () => {
             try {
                 // Check for standard Supabase session
-                const { data: { session } } = await supabase.auth.getSession()
+                const { data, error } = await supabase.auth.getSession()
 
-                // CHECK FOR CUSTOM SESSION (Bypass)
-                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                const isAuthenticated = !!session || !!customUserId
+                if (error) {
+                    console.error("Auth Exception:", error)
+                    // If session check fails, force logout but don't crash
+                    // valid session is better than crash
+                    return
+                }
+
+                const session = data.session
+                const isAuthenticated = !!session
 
                 // List of public routes that don't require auth
-                const publicRoutes = ['/login', '/signup', '/']
+                const publicRoutes = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation']
 
-                if (!isAuthenticated && !publicRoutes.includes(pathname)) {
-                    // If no session and trying to access protected route, redirect to login
+                const isPublicRoute = publicRoutes.some(route =>
+                    pathname === route || pathname.startsWith(`${route}/`)
+                )
+
+                if (!isAuthenticated && !isPublicRoute) {
                     router.push('/login')
-                } else if (isAuthenticated && (pathname === '/login' || pathname === '/signup')) {
-                    // If session exists and trying to access auth pages, redirect to dashboard
-                    router.push('/dashboard')
+                } else if (isAuthenticated) {
+                    // Check Email Verification
+                    // Note: Supabase sometimes treats external providers as confirmed automatically.
+                    // For email/password, we typically want to enforce this.
+                    if (session?.user && !session.user.email_confirmed_at && pathname !== '/verify-email') {
+                        // Safer check for user existence
+                        console.warn("⛔ Email not verified. Redirecting...")
+                        router.push('/verify-email')
+                        return
+                    }
+
+                    if (['/login', '/signup', '/'].includes(pathname)) {
+                        router.push('/dashboard')
+                    }
                 }
             } catch (error) {
-                console.error("Auth check failed:", error)
+                console.error("Auth check critical failure:", error)
+                // Fallback to login if critical failure
+                if (pathname !== '/login') router.push('/login')
             } finally {
                 setIsLoading(false)
             }
@@ -40,11 +62,13 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         // Subscribe to auth state changes (Standard)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
-                localStorage.removeItem('raute_user_id') // Clear custom session too
                 router.push('/login')
             } else if (event === 'SIGNED_IN') {
                 const redirectUrl = pathname === '/login' || pathname === '/signup' ? '/dashboard' : pathname
-                router.push(redirectUrl)
+                // Only navigate if not already on target path
+                if (pathname !== redirectUrl) {
+                    router.push(redirectUrl)
+                }
             }
         })
 

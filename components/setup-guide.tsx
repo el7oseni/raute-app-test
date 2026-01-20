@@ -5,12 +5,12 @@ import { CheckCircle2, ChevronRight, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
-export function SetupGuide({ hasDrivers, hasOrders, hasHubs }: { hasDrivers: boolean, hasOrders: boolean, hasHubs: boolean }) {
+export function SetupGuide({ hasDrivers, hasOrders, hasHubs, hasOptimizedOrders }: { hasDrivers: boolean, hasOrders: boolean, hasHubs: boolean, hasOptimizedOrders?: boolean }) {
     const router = useRouter()
     const [isVisible, setIsVisible] = useState(true)
 
     // Hide if all steps are complete
-    if (hasHubs && hasDrivers && hasOrders) return null
+    if (hasHubs && hasDrivers && hasOrders && hasOptimizedOrders) return null
 
     // Hide if user dismissed it
     if (!isVisible) return null
@@ -46,7 +46,7 @@ export function SetupGuide({ hasDrivers, hasOrders, hasHubs }: { hasDrivers: boo
             description: 'Go to the Planner to assign orders automatically.',
             action: 'Go to Planner',
             route: '/planner',
-            isComplete: false // Always open until drivers/orders are done
+            isComplete: hasOptimizedOrders || false // Complete if we have orders assigned to drivers
         }
     ]
 

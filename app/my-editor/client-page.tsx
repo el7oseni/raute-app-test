@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Input } from "@/components/ui/input"
 import { offlineManager } from '@/lib/offline-manager'
 import { geoService } from '@/lib/geo-service'
+import { useToast } from "@/components/toast-provider"
 import LocationPicker from "@/components/location-picker"
 
 // Dynamically import map to avoid SSR issues
@@ -56,10 +57,12 @@ export default function ClientOrderDetails() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const orderId = searchParams.get('id')
+    const { toast } = useToast()
 
     const [order, setOrder] = useState<Order | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [isUndoDialogOpen, setIsUndoDialogOpen] = useState(false)
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [isUpdating, setIsUpdating] = useState(false)
@@ -141,8 +144,8 @@ export default function ClientOrderDetails() {
 
             if (error) throw error
             setOrder(data)
-        } catch (error) {
-            console.error('Error fetching order:', error)
+        } catch (error: any) {
+            toast({ title: 'Error fetching order', description: error.message, type: 'error' })
         } finally {
             if (isInitial) setIsLoading(false)
         }
@@ -175,7 +178,7 @@ export default function ClientOrderDetails() {
                 const loc = await geoService.getCurrentLocation()
 
                 if (!loc) {
-                    alert("❌ Location Required!\n\nYou must enable GPS/Location to mark an order as delivered. This is for proof of delivery.")
+                    toast({ title: "Location Required", description: "You must enable GPS/Location to mark as delivered.", type: "error" })
                     return // STOP: Do not update status
                 }
 
@@ -184,7 +187,6 @@ export default function ClientOrderDetails() {
                 // Check distance if order has lat/lng
                 if (order.latitude && order.longitude) {
                     dist = getDistanceMeters(loc.lat, loc.lng, order.latitude, order.longitude)
-                    console.log("Delivery Distance:", dist)
 
                     // Flag if > 500 meters (approx 0.3 miles)
                     if (dist > 500) {
@@ -228,8 +230,7 @@ export default function ClientOrderDetails() {
             } : null)
 
         } catch (error) {
-            alert('Failed to update status')
-            console.error(error)
+            toast({ title: 'Failed to update status', type: 'error' })
         }
     }
 
@@ -257,8 +258,7 @@ export default function ClientOrderDetails() {
                 }))
             }
         } catch (error: any) {
-            console.error("Reverse Geocoding Failed:", error)
-            alert(`⚠️ Could not auto-fill address: ${error.message || "Unknown error"}`)
+            toast({ title: 'Could not auto-fill address', description: error.message || "Unknown error", type: 'error' })
         } finally {
             setIsGeocodingReversed(false)
         }
@@ -266,14 +266,13 @@ export default function ClientOrderDetails() {
 
     async function handleDelete() {
         if (!orderId) return
-        try { setIsDeleting(true); const { error } = await supabase.from('orders').delete().eq('id', orderId); if (error) throw error; router.push('/orders') } catch (error) { console.error(error) } finally { setIsDeleting(false) }
+        try { setIsDeleting(true); const { error } = await supabase.from('orders').delete().eq('id', orderId); if (error) throw error; router.push('/orders') } catch (error: any) { toast({ title: 'Delete Failed', description: error.message, type: 'error' }) } finally { setIsDeleting(false) }
     }
 
     async function handleEditSubmit(e: React.FormEvent) {
         e.preventDefault()
         const effectiveOrderId = orderId || order?.id
         if (!effectiveOrderId || !order) {
-            console.warn("Order ID or order data missing", { hasParamsId: !!orderId, hasOrder: !!order, hasOrderId: !!order?.id })
             return
         }
 
@@ -314,11 +313,10 @@ export default function ClientOrderDetails() {
             // Update Local State & Close
             setOrder(prev => prev ? { ...prev, ...updatedPayload } as Order : null)
             setIsEditSheetOpen(false)
-            alert("✅ Changes Saved Successfully!")
+            toast({ title: "Changes Saved Successfully!", type: "success" })
 
         } catch (error: any) {
-            console.error("Update failed", error)
-            alert(`❌ Failed to update order: ${error.message || 'Check connection'}`)
+            toast({ title: "Failed to update order", description: error.message || 'Check connection', type: "error" })
         } finally {
             setIsUpdating(false)
         }
@@ -406,25 +404,62 @@ export default function ClientOrderDetails() {
 
             {/* Content & Logic Area */}
             <div className="p-4 space-y-4 max-w-lg mx-auto">
-                {/* 🚨 DRIVER ACTIONS */}
-                {userRole === 'driver' && (
-                    <div className="space-y-3">
+
+                {/* Info Cards */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
+                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><UserIcon size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Customer</p><p className="font-medium text-slate-900">{order.customer_name}</p>{order.phone && (<a href={`tel:${order.phone}`} className="text-blue-600 text-sm font-medium flex items-center gap-1 mt-1"><Phone size={12} /> {order.phone}</a>)}</div></div>
+                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><MapPin size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Address</p><p className="font-medium text-slate-900">{order.address}</p><p className="text-sm text-slate-500">{[order.city, order.state].filter(Boolean).join(', ')}</p><a href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-full mt-2 hover:bg-blue-100 transition-colors">Open in Google Maps</a></div></div>
+                    {order.notes && (<div className="p-4 bg-yellow-50/50"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wider mb-1">Driver Notes</p><p className="text-sm text-slate-700 italic">"{order.notes}"</p></div>)}
+
+                    {/* Proof Display for Managers & Everyone */}
+                    {order.proof_url && (
+                        <div className="p-4 bg-slate-50">
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Proof of Delivery</p>
+                            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer" onClick={() => window.open(order.proof_url!, '_blank')}>
+                                <img src={order.proof_url} alt="Proof" className="object-cover w-full h-full hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                    <span className="bg-white/90 text-slate-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">View Full</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 🚨 DRIVER ACTIONS (Show for anyone NOT a manager) */}
+                {!['manager', 'admin', 'company_admin'].includes(userRole || '') && (
+                    <div className="space-y-3 pt-2">
                         {order.status === 'delivered' ? (
                             <div className="bg-green-50 rounded-xl border border-green-200 p-5 text-center space-y-3 animate-in fade-in slide-in-from-bottom-4">
                                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600"><CheckCircle2 size={24} /></div>
                                 <div><h3 className="font-bold text-green-800 text-lg">Order Delivered!</h3><p className="text-sm text-green-700">Time: {new Date(order.delivered_at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-                                <Button variant="outline" size="sm" onClick={() => { if (confirm('Undo delivery status?')) updateOrderStatus('in_progress') }} className="w-full border-green-200 text-green-700 hover:bg-green-100 mt-2 bg-transparent"><Undo2 size={14} className="mr-2" />Undo / Not Delivered</Button>
+
+                                {order.proof_url && (
+                                    <div className="flex justify-center">
+                                        <a href={order.proof_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-bold text-green-700 bg-white border border-green-200 px-4 py-2 rounded-lg hover:bg-green-50 transition-colors shadow-sm">
+                                            <CameraIcon size={14} /> View Proof Photo
+                                        </a>
+                                    </div>
+                                )}
+
+                                <Button
+                                    variant="outline"
+                                    disabled={isUpdating}
+                                    onClick={() => setIsUndoDialogOpen(true)}
+                                    className="w-full h-12 border-green-200 text-green-700 hover:bg-green-100 mt-2 bg-transparent font-medium"
+                                >
+                                    {isUpdating ? <Loader2 className="animate-spin mr-2" size={18} /> : <Undo2 size={18} className="mr-2" />}
+                                    Undo / Not Delivered
+                                </Button>
                             </div>
                         ) : order.status === 'cancelled' ? (
                             <div className="bg-red-50 p-4 rounded-xl border border-red-200 text-center text-red-700 font-medium">This order is cancelled.</div>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-3">
+                                {/* Button 1: Capture Proof */}
                                 <Button
+                                    variant="outline"
                                     onClick={async () => {
-                                        if (!confirm('Mark this order as delivered?')) return
-
                                         try {
-                                            // 1. Capture Photo
                                             const { Camera, CameraResultType } = await import('@capacitor/camera')
                                             const image = await Camera.getPhoto({
                                                 quality: 70,
@@ -432,53 +467,70 @@ export default function ClientOrderDetails() {
                                                 resultType: CameraResultType.Uri
                                             })
 
-                                            // 2. Upload to Supabase if photo taken
-                                            let proofUrl = null
                                             if (image.webPath) {
+                                                // Change text to 'Uploading...' could go here using state, but keeping it simple
+                                                // Import compression utility
+                                                const { ImageCompressor } = await import('@/lib/image-compressor')
+
+                                                // Fetch and compress image
                                                 const response = await fetch(image.webPath)
-                                                const blob = await response.blob()
+                                                const originalBlob = await response.blob()
+                                                const compressedBlob = await ImageCompressor.compressFromBlob(originalBlob)
+
                                                 const filename = `proof-${orderId}-${Date.now()}.jpg`
 
+                                                // Upload compressed version (96% smaller)
                                                 const { data, error } = await supabase.storage
                                                     .from('proofs')
-                                                    .upload(filename, blob)
+                                                    .upload(filename, compressedBlob)
 
-                                                if (error) {
-                                                    console.error('Upload failed:', error)
-                                                } else if (data) {
+                                                if (error) throw error
+
+                                                if (data) {
                                                     const { data: { publicUrl } } = supabase.storage.from('proofs').getPublicUrl(filename)
-                                                    proofUrl = publicUrl
+                                                    updateOrderStatus('delivered', publicUrl)
                                                 }
                                             }
-
-                                            // 3. Update Order
-                                            updateOrderStatus('delivered', proofUrl)
-
-                                        } catch (e) {
-                                            console.error("Camera/Upload Error:", e)
-                                            updateOrderStatus('delivered')
+                                        } catch (e: any) {
+                                            // Ensure user knows why it failed
+                                            if (e.message !== 'User cancelled photos app') {
+                                                toast({ title: "Camera Failed", description: e.message, type: "error" })
+                                            }
                                         }
                                     }}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white h-14 rounded-xl shadow-lg shadow-green-200 text-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    className="w-full h-12 border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300"
                                 >
-                                    <CameraIcon size={20} />
-                                    <span>Capture Proof & Deliver</span>
+                                    <CameraIcon size={18} className="mr-2" />
+                                    Capture Proof
                                 </Button>
-                                <p className="text-xs text-center text-slate-400">Photo required for completion</p>
+
+                                {/* Button 2: Direct Delivery */}
+                                <Button
+                                    disabled={isUpdating}
+                                    onClick={async () => {
+                                        if (confirm("Mark as Delivered without proof?")) {
+                                            try {
+                                                setIsUpdating(true)
+                                                await updateOrderStatus('delivered')
+                                            } catch (err: any) {
+                                                toast({ title: "Error", description: err.message, type: "error" })
+                                            } finally {
+                                                setIsUpdating(false)
+                                            }
+                                        }
+                                    }}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white h-14 rounded-xl shadow-lg shadow-green-200 text-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                >
+                                    {isUpdating ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />}
+                                    <span>{isUpdating ? "Processing..." : "Mark Delivered"}</span>
+                                </Button>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Info Cards */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
-                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><UserIcon size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Customer</p><p className="font-medium text-slate-900">{order.customer_name}</p>{order.phone && (<a href={`tel:${order.phone}`} className="text-blue-600 text-sm font-medium flex items-center gap-1 mt-1"><Phone size={12} /> {order.phone}</a>)}</div></div>
-                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><MapPin size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Address</p><p className="font-medium text-slate-900">{order.address}</p><p className="text-sm text-slate-500">{[order.city, order.state].filter(Boolean).join(', ')}</p><a href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-full mt-2 hover:bg-blue-100 transition-colors">Open in Google Maps</a></div></div>
-                    {order.notes && (<div className="p-4 bg-yellow-50/50"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wider mb-1">Driver Notes</p><p className="text-sm text-slate-700 italic">"{order.notes}"</p></div>)}
-                </div>
-
                 {/* 🔒 MANAGER ACTIONS 🔒 */}
-                {userRole !== 'driver' && (
+                {(userRole === 'manager' || userRole === 'admin' || userRole === 'company_admin') && (
                     <div className="space-y-4 pt-4">
                         {/* Status Update */}
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
@@ -522,6 +574,34 @@ export default function ClientOrderDetails() {
             </div>
 
             {/* Dialogs & Sheets */}
+            <AlertDialog open={isUndoDialogOpen} onOpenChange={setIsUndoDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Undo Delivery?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will revert the status to <b>In Progress</b>. The delivery timestamp will be removed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={async () => {
+                                try {
+                                    setIsUpdating(true)
+                                    await updateOrderStatus('in_progress')
+                                } finally {
+                                    setIsUpdating(false)
+                                    setIsUndoDialogOpen(false)
+                                }
+                            }}
+                            className="bg-orange-500 hover:bg-orange-600"
+                        >
+                            Yes, Undo It
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Order?</AlertDialogTitle><AlertDialogDescription>Permanently remove #{order.order_number}?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
             <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
@@ -561,6 +641,6 @@ export default function ClientOrderDetails() {
                     </form>
                 </SheetContent>
             </Sheet>
-        </div>
+        </div >
     )
 }

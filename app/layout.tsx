@@ -27,6 +27,8 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+import PwaElementsLoader from "@/components/pwa-elements-loader";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,16 +36,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased h-screen overflow-hidden bg-background`}>
+      <body className={`${inter.className} antialiased h-screen overflow-hidden bg-background safe-area-pt`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
+          <PwaElementsLoader />
           <ToastProvider>
             <AuthCheck>
-              <main className="h-full overflow-y-auto pb-20">
+              <main className="h-full overflow-y-auto pb-20 safe-area-pb">
                 {children}
               </main>
               <MobileNav />

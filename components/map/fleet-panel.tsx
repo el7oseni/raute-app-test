@@ -18,6 +18,13 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
     const unassignedOrders = orders.filter(o => !o.driver_id).length
     const activeOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled').length
 
+    // Calculate drivers with active orders (working drivers)
+    const driversWithActiveOrders = new Set(
+        orders
+            .filter(o => o.driver_id && o.status !== 'delivered' && o.status !== 'cancelled')
+            .map(o => o.driver_id)
+    ).size
+
     // Helper to get stats for a driver
     const getDriverStats = (driverId: string) => {
         const driverOrders = orders.filter(o => o.driver_id === driverId)
@@ -38,9 +45,9 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                         <div className="text-xl font-bold text-primary">{activeOrders}</div>
                     </div>
                     <div className="bg-muted/50 p-2 rounded-lg">
-                        <div className="text-xs text-muted-foreground">Online Drivers</div>
+                        <div className="text-xs text-muted-foreground">Active Drivers</div>
                         <div className="text-xl font-bold text-green-600">
-                            {drivers.filter(d => d.is_online).length}
+                            {driversWithActiveOrders}
                             <span className="text-muted-foreground text-sm font-normal">/{drivers.length}</span>
                         </div>
                     </div>

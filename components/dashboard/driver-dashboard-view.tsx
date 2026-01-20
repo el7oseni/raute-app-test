@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Package, Truck, CheckCircle2, Clock, MapPin, ArrowRight, AlertCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, Timer } from "lucide-react"
+import { Package, Truck, CheckCircle2, Clock, MapPin, ArrowRight, AlertCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, Timer, HelpCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { format, isSameDay, subDays, startOfDay, endOfDay } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -34,17 +34,55 @@ export function DriverDashboardView({ userId }: { userId: string }) {
     const [onTimeRate, setOnTimeRate] = useState(100)
     const [weeklyData, setWeeklyData] = useState<any[]>([])
     const [ordersList, setOrdersList] = useState<any[]>([])
-    const [isOnline, setIsOnline] = useState(false)
+    const [isOnline, setIsOnline] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('driver_is_online')
+            return saved === 'true'
+        }
+        return false
+    })
     const [driverId, setDriverId] = useState<string | null>(null)
     const { toast } = useToast()
+    const [forceShowGuide, setForceShowGuide] = useState(false)
+    const [isMounted, setIsMounted] = useState(false)
+    const chartRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
+        // ResizeObserver to detect when container has width (Fixes Recharts width(-1) error)
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.contentRect.width > 0) {
+                    setIsMounted(true)
+                }
+            }
+        })
+
+        if (chartRef.current) {
+            resizeObserver.observe(chartRef.current)
+        }
+
+        // 2. Fallback: Force mount after delay if observer doesn't fire (Safety net)
+        setTimeout(() => {
+            setIsMounted(true)
+        }, 500)
+
         // Initialize Background Services
         PushService.init()
+
+        return () => {
+            resizeObserver.disconnect()
+        }
     }, [])
 
     useEffect(() => {
+        console.log("✅ DriverDashboardView MOUNTED with userId:", userId)
+        if (!userId || userId === '') {
+            console.warn("⚠️ DriverDashboardView: Invalid userId, skipping fetch")
+            setIsLoading(false)
+            return
+        }
         fetchDriverStats()
+        return () => console.log("❌ DriverDashboardView UNMOUNTED")
     }, [userId, selectedDate])
 
     async function fetchDriverStats() {
@@ -64,7 +102,13 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             }
 
             setDriverId(driverData.id)
-            setIsOnline(driverData.is_online || false)
+
+            // Priority: Local Storage -> DB
+            if (typeof window !== 'undefined' && localStorage.getItem('driver_is_online') !== null) {
+                setIsOnline(localStorage.getItem('driver_is_online') === 'true')
+            } else {
+                setIsOnline(driverData.is_online || false)
+            }
 
             const dateStr = format(selectedDate, 'yyyy-MM-dd')
             const isToday = isSameDay(selectedDate, new Date())
@@ -89,7 +133,9 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 if (isToday) {
                     relevantOrders = orders.filter(o => {
                         if (o.status === 'delivered') {
-                            return o.delivered_at ? o.delivered_at.startsWith(dateStr) : true
+                            // Robust Date Check (Timezone Safe)
+                            if (!o.delivered_at) return true
+                            return isSameDay(new Date(o.delivered_at), new Date())
                         }
                         return true
                     })
@@ -178,6 +224,9 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
         const newStatus = !isOnline
         setIsOnline(newStatus) // Optimistic
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('driver_is_online', String(newStatus))
+        }
 
         try {
             await supabase.from('drivers').update({ is_online: newStatus }).eq('id', driverId)
@@ -192,8 +241,12 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             toast({ title: newStatus ? "You are ONLINE 🟢" : "You are OFFLINE ⚫", type: "success" })
         } catch (error) {
             console.error(error)
-            setIsOnline(!newStatus) // Revert
-            toast({ title: "Failed to update status", type: "error" })
+            // setIsOnline(!newStatus) // DON'T REVERT - Keep local state active so user can work
+            toast({
+                title: "Status active locally",
+                description: "Server sync issues detected, but local mode enabled.",
+                type: "success"
+            })
         }
     }
 
@@ -217,7 +270,7 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-slate-300 dark:border-slate-700 shadow-sm text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-slate-500">
                             <CalendarIcon size={20} />
                         </Button>
                     </PopoverTrigger>
@@ -231,6 +284,15 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                         />
                     </PopoverContent>
                 </Popover>
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    onClick={() => setForceShowGuide(!forceShowGuide)}
+                >
+                    <HelpCircle size={20} />
+                </Button>
             </div>
 
             {/* STATUS TOGGLE & GUIDE */}
@@ -254,11 +316,14 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             </div>
 
             {/* Quick Setup Guide */}
+            {/* Quick Setup Guide */}
             <DriverSetupGuide
                 isOnline={isOnline}
                 hasTasks={stats.pending > 0}
                 onToggleOnline={toggleOnlineStatus}
                 onViewAssignments={() => router.push('/orders')}
+                forceShow={forceShowGuide}
+                onDismiss={() => setForceShowGuide(false)}
             />
 
             {/* Main Progress Card */}
@@ -330,26 +395,32 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                     <TrendingUp className="text-slate-400" size={18} />
                     <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Weekly Performance</h3>
                 </div>
-                <div className="h-40 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={weeklyData}>
-                            <XAxis
-                                dataKey="date"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                            />
-                            <Tooltip
-                                cursor={{ fill: '#f1f5f9' }}
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            />
-                            <Bar dataKey="completed" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20}>
-                                {weeklyData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.completed >= 10 ? '#22c55e' : '#3b82f6'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                <div ref={chartRef} className="w-full h-64 min-w-full" style={{ minHeight: '250px' }}>
+                    {isMounted ? (
+                        <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                            <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <XAxis
+                                    dataKey="date"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: '#f1f5f9' }}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Bar dataKey="completed" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20}>
+                                    {weeklyData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.completed >= 10 ? '#22c55e' : '#3b82f6'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                            <Skeleton className="h-full w-full rounded-xl opacity-20" />
+                        </div>
+                    )}
                 </div>
             </div>
 

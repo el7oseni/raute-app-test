@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 
 import L from 'leaflet'
 import { Button } from '@/components/ui/button'
@@ -27,29 +27,51 @@ function LocationMarker({ position, setPosition }: { position: [number, number] 
     return position ? <Marker position={position} icon={icon} /> : null
 }
 
-export default function LocationPicker({ onLocationSelect, initialPosition }: { onLocationSelect: (lat: number, lng: number) => void, initialPosition?: { lat: number, lng: number } | null }) {
-    // Default to a central location (e.g., LA) implies user should find their spot.
-    // In production, we'd use geolocation to center efficiently.
-    const [position, setPosition] = useState<[number, number] | null>(initialPosition ? [initialPosition.lat, initialPosition.lng] : null)
-    const [isOpen, setIsOpen] = useState(false)
+function RecenterMap({ position }: { position: [number, number] | null }) {
+    const map = useMap()
+    useEffect(() => {
+        if (position) {
+            map.flyTo(position, 13, { duration: 1.5 })
+        }
+    }, [position, map])
+    return null
+}
 
-    // Sync state if prop changes (e.g. form reset)
+export default function LocationPicker({
+    onLocationSelect,
+    initialPosition,
+    alwaysOpen = false
+}: {
+    onLocationSelect: (lat: number, lng: number) => void,
+    initialPosition?: { lat: number, lng: number } | null,
+    alwaysOpen?: boolean
+}) {
+    // Default to a central location (e.g., LA)
+    const defaultCenter: [number, number] = [34.0522, -118.2437]
+
+    const [position, setPosition] = useState<[number, number] | null>(initialPosition ? [initialPosition.lat, initialPosition.lng] : null)
+    const [isOpen, setIsOpen] = useState(alwaysOpen)
+
+    // Sync state if prop changes (e.g. form reset or address search)
     useEffect(() => {
         if (initialPosition) {
             setPosition([initialPosition.lat, initialPosition.lng])
+            // If we receive a new position externally, force open if not always open
+            if (!alwaysOpen) setIsOpen(true)
         } else {
-            setPosition(null)
+            // Keep existing position if null passed? Or reset? 
+            // Usually if initialPosition becomes null, we might want to reset, but let's be careful.
         }
-    }, [initialPosition])
+    }, [initialPosition, alwaysOpen])
 
     const handleConfirm = () => {
         if (position) {
             onLocationSelect(position[0], position[1])
-            setIsOpen(false)
+            if (!alwaysOpen) setIsOpen(false)
         }
     }
 
-    if (!isOpen) {
+    if (!isOpen && !alwaysOpen) {
         return (
             <Button
                 type="button"
@@ -68,7 +90,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition }: { 
         <div className="space-y-3 border rounded-xl overflow-hidden shadow-sm animate-in fade-in zoom-in-95 duration-200">
             <div className="h-[300px] w-full relative z-0">
                 <MapContainer
-                    center={[34.0522, -118.2437]}
+                    center={position || defaultCenter}
                     zoom={10}
                     style={{ height: '100%', width: '100%' }}
                 >
@@ -77,6 +99,7 @@ export default function LocationPicker({ onLocationSelect, initialPosition }: { 
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     <LocationMarker position={position} setPosition={setPosition} />
+                    <RecenterMap position={position} />
                 </MapContainer>
 
                 {/* Center Indicator (Helper) */}
@@ -86,14 +109,16 @@ export default function LocationPicker({ onLocationSelect, initialPosition }: { 
             </div>
 
             <div className="p-3 bg-slate-50 flex gap-2 justify-end border-t">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsOpen(false)}
-                >
-                    Cancel
-                </Button>
+                {!alwaysOpen && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                )}
                 <Button
                     type="button"
                     size="sm"

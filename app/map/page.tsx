@@ -31,6 +31,7 @@ export default function MapPage() {
     const [orders, setOrders] = useState<Order[]>([])
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [userRole, setUserRole] = useState<string | null>(null)
 
     // UI State
     const [selectedDriverId, setSelectedDriverId] = useState<string | null>(searchParams.get('driverId'))
@@ -49,7 +50,14 @@ export default function MapPage() {
             setUserLocation([30.0444, 31.2357])
         }
 
-        fetchData()
+        // Timeout protection: don't let loading spin forever
+        const timeoutId = setTimeout(() => {
+            setIsLoading(false)
+        }, 5000) // 5 seconds max
+
+        fetchData().finally(() => {
+            clearTimeout(timeoutId)
+        })
 
         // Real-time Subscriptions
         const orderSub = supabase
@@ -80,24 +88,50 @@ export default function MapPage() {
 
     async function fetchData() {
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
+
+            // 1. Try standard Supabase Auth
+            let currentUserId = null
+
+            // Retry logic for Supabase Auth
+            let retries = 0
+            const maxRetries = 3
+            while (!currentUserId && retries < maxRetries) {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    currentUserId = user.id
+                } else {
+                    retries++
+                    if (retries < maxRetries) await new Promise(r => setTimeout(r, 1000))
+                }
+            }
+
+
+
+            if (!currentUserId) {
+                setIsLoading(false)
+                return
+            }
 
             const { data: userProfile } = await supabase
                 .from('users')
                 .select('company_id, role')
-                .eq('id', user.id)
+                .eq('id', currentUserId)
                 .maybeSingle()
 
-            if (!userProfile) return
+            if (!userProfile) {
+                return
+            }
+
+            setUserRole(userProfile.role) // Store user role
 
             // Driver: Only see own stuff
             if (userProfile.role === 'driver') {
-                const { data: driverData } = await supabase.from('drivers').select('id').eq('user_id', user.id).maybeSingle()
+                const { data: driverData } = await supabase.from('drivers').select('id').eq('user_id', currentUserId).maybeSingle()
                 if (driverData) {
                     setSelectedDriverId(driverData.id) // Auto-select self
                     const { data } = await supabase.from('orders').select('*').eq('driver_id', driverData.id)
                     setOrders(data || [])
+                    setDrivers([]) // Drivers don't need to see other drivers
                 }
             } else {
                 // Manager: See all
@@ -115,7 +149,7 @@ export default function MapPage() {
                 setDrivers(driversData || [])
             }
         } catch (error) {
-            console.error('Error fetching map data:', error)
+            // Error fetching map data
         } finally {
             setIsLoading(false)
         }
@@ -125,6 +159,14 @@ export default function MapPage() {
         setSelectedDriverId(id)
         setIsMobilePanelOpen(false) // Close sheet on mobile selection
     }
+
+    // Calculate orders without GPS
+    const ordersWithoutGPS = (() => {
+        const displayedOrders = selectedDriverId
+            ? orders.filter(o => o.driver_id === selectedDriverId)
+            : orders
+        return displayedOrders.filter(o => !o.latitude || !o.longitude)
+    })()
 
     // Map Theme State
     const [mapTheme, setMapTheme] = useState<'light' | 'dark'>(() => {
@@ -143,35 +185,39 @@ export default function MapPage() {
 
     return (
         <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-background relative">
-            {/* Desktop Sidebar */}
-            <div className="hidden md:block w-80 shrink-0 h-full z-20 shadow-xl border-t">
-                <FleetPanel
-                    drivers={drivers}
-                    orders={orders}
-                    selectedDriverId={selectedDriverId}
-                    onSelectDriver={handleDriverSelect}
-                />
-            </div>
+            {/* Desktop Sidebar - Only for Managers */}
+            {userRole === 'manager' && (
+                <div className="hidden md:block w-80 shrink-0 h-full z-20 shadow-xl border-t">
+                    <FleetPanel
+                        drivers={drivers}
+                        orders={orders}
+                        selectedDriverId={selectedDriverId}
+                        onSelectDriver={handleDriverSelect}
+                    />
+                </div>
+            )}
 
-            {/* Mobile Sheet Trigger */}
-            <div className="md:hidden absolute top-4 left-4 z-[400]">
-                <Sheet open={isMobilePanelOpen} onOpenChange={setIsMobilePanelOpen}>
-                    <SheetTrigger asChild>
-                        <Button variant="secondary" size="icon" className="shadow-lg h-12 w-12 rounded-full border border-primary/20">
-                            <Menu className="h-6 w-6" />
-                        </Button>
-                    </SheetTrigger>
-                    <SheetContent side="bottom" className="h-[60vh] p-0 rounded-t-xl z-[1000]">
-                        <SheetTitle className="sr-only">Fleet Overview</SheetTitle>
-                        <FleetPanel
-                            drivers={drivers}
-                            orders={orders}
-                            selectedDriverId={selectedDriverId}
-                            onSelectDriver={handleDriverSelect}
-                        />
-                    </SheetContent>
-                </Sheet>
-            </div>
+            {/* Mobile Sheet Trigger - Only for Managers */}
+            {userRole === 'manager' && (
+                <div className="md:hidden absolute top-4 left-4 z-[400]">
+                    <Sheet open={isMobilePanelOpen} onOpenChange={setIsMobilePanelOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="secondary" size="icon" className="shadow-lg h-12 w-12 rounded-full border border-primary/20">
+                                <Menu className="h-6 w-6" />
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="h-[60vh] p-0 rounded-t-xl z-[1000]">
+                            <SheetTitle className="sr-only">Fleet Overview</SheetTitle>
+                            <FleetPanel
+                                drivers={drivers}
+                                orders={orders}
+                                selectedDriverId={selectedDriverId}
+                                onSelectDriver={handleDriverSelect}
+                            />
+                        </SheetContent>
+                    </Sheet>
+                </div>
+            )}
 
             {/* Map Theme Toggle (Separate Button) */}
             <div className="absolute top-4 right-4 z-[400]">
@@ -213,6 +259,16 @@ export default function MapPage() {
                         >
                             Clear
                         </Button>
+                    </div>
+                )}
+
+                {/* Warning for Orders Without GPS */}
+                {ordersWithoutGPS.length > 0 && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-orange-500/90 backdrop-blur text-white px-4 py-2 rounded-lg shadow-lg z-[400] flex items-center gap-2 text-sm font-medium">
+                        <span className="text-lg">⚠️</span>
+                        <span>
+                            {ordersWithoutGPS.length} order{ordersWithoutGPS.length > 1 ? 's' : ''} hidden (No GPS coordinates)
+                        </span>
                     </div>
                 )}
             </div>

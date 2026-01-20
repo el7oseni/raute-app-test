@@ -1,3 +1,4 @@
+import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 
 // Get environment variables
@@ -5,14 +6,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// Create Supabase client with session persistence (for regular operations)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        storageKey: 'raute-auth',
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    }
-})
+// Create Supabase client with proper SSR support (for client-side operations)
+// This will automatically sync with cookies for server-side middleware
+export const supabase = typeof window !== 'undefined'
+    ? createBrowserClient(supabaseUrl, supabaseAnonKey)
+    : createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: false,
+        }
+    })
 
 // Create Admin Client (Server-side only, uses Service Role Key)
 // ⚠️ NEVER expose this client or the Service Role Key to the browser
@@ -108,6 +110,7 @@ export type Order = {
     delivered_at: string | null
     created_at: string
     updated_at: string
+    proof_url?: string | null
 }
 
 export type DriverActivityLog = {
@@ -119,5 +122,3 @@ export type DriverActivityLog = {
 }
 
 export type Permission = 'create_orders' | 'delete_orders' | 'view_drivers' | 'manage_drivers' | 'view_map' | 'access_settings'
-
-

@@ -10,10 +10,12 @@ import { User, Mail, Lock, LogOut, Save, Truck, Building2, Camera, Edit2, Upload
 import { ThemeToggle } from "@/components/theme-toggle"
 import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/components/toast-provider"
 
 export default function ProfilePage() {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const { toast } = useToast()
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -59,15 +61,7 @@ export default function ProfilePage() {
             if (user) {
                 currentUserId = user.id
                 currentUserEmail = user.email || ''
-            } else {
-                // 2. Fallback to Custom Auth
-                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                if (customUserId) {
-                    currentUserId = customUserId
-                    // Cannot easily get email here without another query, 
-                    // but we will fetch it from user profile below anyway if needed
-                    currentUserEmail = 'Driver Account'
-                }
+                // Redirect to login handled below if no user
             }
 
             if (!currentUserId) {
@@ -133,7 +127,7 @@ export default function ProfilePage() {
                 await Promise.all(promises)
             }
         } catch (error) {
-            console.error('Error fetching profile:', error)
+            toast({ title: 'Error loading profile', type: 'error' })
         } finally {
             setLoading(false)
         }
@@ -145,13 +139,13 @@ export default function ProfilePage() {
 
         // Validate file size (max 2MB)
         if (file.size > 2 * 1024 * 1024) {
-            alert('❌ Image size must be less than 2MB')
+            toast({ title: '❌ Image size must be less than 2MB', type: 'error' })
             return
         }
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('❌ Please select a valid image file')
+            toast({ title: '❌ Please select a valid image file', type: 'error' })
             return
         }
 
@@ -165,9 +159,14 @@ export default function ProfilePage() {
             }
             reader.readAsDataURL(file)
 
-            // Compress and upload
-            const fileExt = file.name.split('.').pop()
-            const fileName = `${userId}-${Date.now()}.${fileExt}`
+            //Import compression utility
+            const { ImageCompressor } = await import('@/lib/image-compressor')
+
+            // Compress image (optimized for avatars)
+            const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+            const compressedBlob = await ImageCompressor.compressFromBlob(blob)
+
+            const fileName = `${userId}-${Date.now()}.jpg`
             const filePath = `avatars/${fileName}`
 
             // Delete old image if exists
@@ -178,12 +177,13 @@ export default function ProfilePage() {
                 }
             }
 
-            // Upload new image
+            // Upload compressed version
             const { error: uploadError } = await supabase.storage
                 .from('profiles')
-                .upload(filePath, file, {
+                .upload(filePath, compressedBlob, {
                     cacheControl: '3600',
-                    upsert: false
+                    upsert: false,
+                    contentType: 'image/jpeg'
                 })
 
             if (uploadError) throw uploadError
@@ -202,10 +202,9 @@ export default function ProfilePage() {
             if (updateError) throw updateError
 
             setProfileImage(publicUrl)
-            alert('✅ Profile picture updated!')
-        } catch (error: any) {
-            console.error('Error uploading image:', error)
-            alert('❌ Failed to upload image: ' + error.message)
+            toast({ title: '✅ Profile picture updated!', type: 'success' })
+        } catch (error) {
+            toast({ title: 'Error uploading image', type: 'error' })
         } finally {
             setUploadingImage(false)
         }
@@ -236,11 +235,10 @@ export default function ProfilePage() {
                 if (driverError) throw driverError
             }
 
-            alert('✅ Profile updated successfully!')
+            toast({ title: '✅ Profile updated successfully!', type: 'success' })
             setIsEditSheetOpen(false)
         } catch (error) {
-            console.error('Error updating profile:', error)
-            alert('❌ Failed to update profile')
+            toast({ title: 'Error updating profile', type: 'error' })
         } finally {
             setSaving(false)
         }
@@ -248,12 +246,12 @@ export default function ProfilePage() {
 
     async function handleChangePassword() {
         if (newPassword !== confirmPassword) {
-            alert('❌ Passwords do not match!')
+            toast({ title: '❌ Passwords do not match!', type: 'error' })
             return
         }
 
         if (newPassword.length < 6) {
-            alert('❌ Password must be at least 6 characters')
+            toast({ title: '❌ Password must be at least 6 characters', type: 'error' })
             return
         }
 
@@ -266,13 +264,12 @@ export default function ProfilePage() {
 
             if (error) throw error
 
-            alert('✅ Password changed successfully!')
+            toast({ title: '✅ Password changed successfully!', type: 'success' })
             setNewPassword('')
             setConfirmPassword('')
             setIsPasswordSheetOpen(false)
-        } catch (error: any) {
-            console.error('Error changing password:', error)
-            alert('❌ Failed to change password: ' + error.message)
+        } catch (error) {
+            toast({ title: 'Error changing password', type: 'error' })
         } finally {
             setChangingPassword(false)
         }
@@ -283,14 +280,11 @@ export default function ProfilePage() {
 
         try {
             await supabase.auth.signOut()
-            localStorage.removeItem('raute_user_id')
-            localStorage.removeItem('raute-role')
+            // Session cleared - middleware will handle redirect
             router.push('/login')
         } catch (error) {
-            console.error('Error logging out:', error)
-            // Force logout local even if server fails
-            localStorage.removeItem('raute_user_id')
-            localStorage.removeItem('raute-role')
+            toast({ title: 'Log out failed', type: 'error' })
+            // Force redirect even if server fails
             router.push('/login')
         }
     }
@@ -366,7 +360,9 @@ export default function ProfilePage() {
                             )}
                         </div>
 
-                        <h1 className="text-3xl font-bold text-white mt-4 mb-2">{fullName || 'User'}</h1>
+                        <h1 className="text-3xl font-bold text-white mt-4 mb-2">
+                            {fullName || email.split('@')[0] || userRole || 'User'}
+                        </h1>
                         <div className="flex items-center gap-2 text-blue-100 text-sm mb-3">
                             <Mail size={14} />
                             <span>{email}</span>
@@ -606,9 +602,52 @@ export default function ProfilePage() {
                     Logout
                 </Button>
 
-                <p className="text-center text-xs text-muted-foreground pt-4">
-                    Raute v1.0.0 • Image max 2MB 📸
-                </p>
+                {/* DANGER ZONE */}
+                <div className="pt-8">
+                    <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-2 px-1">Danger Zone</p>
+                    <Button
+                        onClick={async () => {
+                            if (confirm("⚠️ WARNING: This will permanently delete your account, drivers, and data. This action cannot be undone.\n\nType 'DELETE' to confirm.")) {
+                                const confirmText = prompt("Type 'DELETE' to confirm account deletion:");
+                                if (confirmText === 'DELETE') {
+                                    try {
+                                        setLoading(true);
+                                        const res = await fetch('/api/auth/delete-account', {
+                                            method: 'DELETE',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ userId })
+                                        });
+
+                                        if (!res.ok) throw new Error("Deletion failed");
+
+                                        await supabase.auth.signOut();
+                                        router.push('/login');
+                                        toast({ title: 'Account deleted successfully', type: 'success' });
+                                    } catch (e) {
+                                        toast({ title: 'Failed to delete account', type: 'error' });
+                                        setLoading(false);
+                                    }
+                                }
+                            }
+                        }}
+                        variant="ghost"
+                        className="w-full h-12 text-red-500 hover:bg-red-50 hover:text-red-700 text-sm font-medium rounded-xl border border-dashed border-red-200"
+                    >
+                        Delete My Account
+                    </Button>
+                </div>
+
+                {/* Legal Footer */}
+                <div className="text-center pt-8 pb-4 space-y-2">
+                    <div className="flex items-center justify-center gap-4 text-xs font-medium text-blue-600 dark:text-blue-400">
+                        <a href="/privacy" className="hover:underline">Privacy Policy</a>
+                        <span>•</span>
+                        <a href="/terms" className="hover:underline">Terms of Service</a>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Raute v1.0.0 • Image max 2MB 📸
+                    </p>
+                </div>
             </div>
         </div>
     )

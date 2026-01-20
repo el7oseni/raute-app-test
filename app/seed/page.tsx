@@ -141,7 +141,6 @@ export default function SeedPage() {
             }
 
         } catch (error: any) {
-            console.error(error)
             toast({ title: 'Error', description: error.message, type: 'error' })
             setStatus('Failed')
         } finally {

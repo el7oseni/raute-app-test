@@ -39,7 +39,6 @@ function MapBounds({ orders }: { orders: Order[] }) {
 export default function DriverRouteMap({ orders }: { orders: Order[] }) {
     // Filter valid coordinates
     const validOrders = orders.filter(o => o.latitude && o.longitude)
-    const positions = validOrders.map(o => [o.latitude!, o.longitude!] as [number, number])
 
     if (validOrders.length === 0) {
         return (
@@ -49,9 +48,48 @@ export default function DriverRouteMap({ orders }: { orders: Order[] }) {
         )
     }
 
+    // --- JITTER / SPIDERFY LOGIC ---
+    // 1. Group by exact location to detect collisions
+    const locationGroups: Record<string, Order[]> = {}
+    validOrders.forEach(o => {
+        const key = `${o.latitude!.toFixed(6)},${o.longitude!.toFixed(6)}`
+        if (!locationGroups[key]) locationGroups[key] = []
+        locationGroups[key].push(o)
+    })
+
+    // 2. Calculate displayed positions
+    const displayOrders = validOrders.map(order => {
+        const lat = order.latitude!
+        const lng = order.longitude!
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`
+        const group = locationGroups[key]
+
+        let finalLat = lat
+        let finalLng = lng
+
+        if (group.length > 1) {
+            const idx = group.findIndex(o => o.id === order.id)
+            // Radius ~100m for very clear separation
+            const radius = 0.0009
+            // Distribute angles evenly, starting from 90deg (Horizontal spread)
+            const angle = (idx / group.length) * 2 * Math.PI + (Math.PI / 2)
+
+            finalLat = lat + Math.cos(angle) * radius
+            finalLng = lng + Math.sin(angle) * radius
+        }
+
+        return {
+            ...order,
+            displayLat: finalLat,
+            displayLng: finalLng
+        }
+    })
+
+    const positions = displayOrders.map(o => [o.displayLat, o.displayLng] as [number, number])
+
     return (
         <MapContainer
-            center={[validOrders[0].latitude!, validOrders[0].longitude!]}
+            center={[displayOrders[0].displayLat, displayOrders[0].displayLng]}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
         >
@@ -72,10 +110,10 @@ export default function DriverRouteMap({ orders }: { orders: Order[] }) {
             />
 
             {/* Markers */}
-            {validOrders.map((order) => (
+            {displayOrders.map((order) => (
                 <Marker
                     key={order.id}
-                    position={[order.latitude!, order.longitude!]}
+                    position={[order.displayLat, order.displayLng]}
                     icon={createNumberIcon(order.route_index || 0)}
                 >
                     <Popup>

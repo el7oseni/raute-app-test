@@ -40,17 +40,30 @@ export default function SettingsPage() {
     async function fetchHubs() {
         try {
             setLoading(true)
+
+            // Auth with Fallback
+            let userId: string | undefined
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
+
+            if (user) {
+                userId = user.id
+            }
+
+            if (!userId) {
                 router.push("/login")
                 return
             }
 
             const { data: userProfile } = await supabase
                 .from('users')
-                .select('company_id')
-                .eq('id', user.id)
+                .select('company_id, role')
+                .eq('id', userId)
                 .single()
+
+            if (userProfile?.role === 'driver') {
+                router.push("/dashboard")
+                return
+            }
 
             if (userProfile && userProfile.company_id) {
                 const { data, error } = await supabase
@@ -63,7 +76,7 @@ export default function SettingsPage() {
                 setHubs(data || [])
             }
         } catch (error) {
-            console.error("Error fetching hubs:", error)
+            toast({ title: "Failed to load settings", type: "error" })
         } finally {
             setLoading(false)
         }
@@ -106,7 +119,6 @@ export default function SettingsPage() {
             setIsAddOpen(false)
             fetchHubs()
         } catch (error) {
-            console.error(error)
             toast({ title: "Failed to add warehouse", type: "error" })
         } finally {
             setSaving(false)
@@ -121,7 +133,6 @@ export default function SettingsPage() {
             setHubs(prev => prev.filter(h => h.id !== id))
             toast({ title: "Warehouse deleted", type: "success" })
         } catch (error) {
-            console.error(error)
             toast({ title: "Failed to delete", type: "error" }) // Fixed toast type to "error"
         }
     }
@@ -198,7 +209,7 @@ export default function SettingsPage() {
                                                             setNewHubAddress(data.display_name)
                                                         }
                                                     } catch (e) {
-                                                        console.error("Reverse geocoding error:", e)
+                                                        // Silent fail
                                                     }
                                                 }}
                                                 initialPosition={newHubLoc}

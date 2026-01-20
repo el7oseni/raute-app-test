@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase, type Order, type Driver } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { MapPin, Truck, Sparkles, AlertCircle, Lock, Unlock, Clock, ExternalLink } from 'lucide-react'
+import { MapPin, Truck, Sparkles, AlertCircle, Lock, Unlock, Clock, ExternalLink, CheckCircle2 } from 'lucide-react'
 import { useToast } from "@/components/toast-provider"
 import { useTheme } from 'next-themes'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
@@ -125,7 +125,7 @@ function DraggableOrderCard({ order, isOverlay = false, onViewDetails }: { order
 /**
  * DROPPABLE DRIVER CONTAINER COMPONENT
  */
-function DroppableDriverContainer({ driver, orders, children }: { driver: Driver, orders: Order[], children: React.ReactNode }) {
+function DroppableDriverContainer({ driver, orders, children, isLocked = false }: { driver: Driver, orders: Order[], children: React.ReactNode, isLocked?: boolean }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `driver-${driver.id}`,
         data: { driver }
@@ -134,12 +134,19 @@ function DroppableDriverContainer({ driver, orders, children }: { driver: Driver
     return (
         <div
             ref={setNodeRef}
-            className={`bg-card dark:bg-slate-900 border rounded-md p-2 transition-colors ${isOver ? 'border-primary bg-primary/5 dark:bg-primary/20 ring-2 ring-primary/20' : 'border-border dark:border-slate-800'}`}
+            className={`bg-card dark:bg-slate-900 border rounded-md p-2 transition-colors ${isLocked
+                    ? 'border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30 opacity-60'
+                    : isOver
+                        ? 'border-primary bg-primary/5 dark:bg-primary/20 ring-2 ring-primary/20'
+                        : 'border-border dark:border-slate-800'
+                }`}
         >
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
+                    {isLocked && <Lock size={14} className="text-red-500" />}
                     <div className={`w-2 h-2 rounded-full ${driver.status === 'active' ? 'bg-green-500' : 'bg-slate-300'}`} />
-                    <span className="font-medium text-sm">{driver.name}</span>
+                    <span className={`font-medium text-sm ${isLocked ? 'text-red-600 dark:text-red-400' : ''}`}>{driver.name}</span>
+                    {isLocked && <span className="text-[10px] bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded font-bold">LOCKED</span>}
                 </div>
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                     {orders.length} orders
@@ -149,7 +156,7 @@ function DroppableDriverContainer({ driver, orders, children }: { driver: Driver
             {/* Expanded List of Orders for this Driver */}
             <div className="space-y-2 pl-2 border-l-2 border-muted min-h-[20px]">
                 {children}
-                {orders.length === 0 && <p className="text-[10px] text-muted-foreground italic">No orders assigned</p>}
+                {orders.length === 0 && <p className="text-[10px] text-muted-foreground italic">{isLocked ? 'Upgrade to unlock' : 'No orders assigned'}</p>}
             </div>
         </div>
     )
@@ -199,6 +206,20 @@ export default function PlannerPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null) // For Quick View Sheet
 
+    // Subscription State
+    const [driverLimit, setDriverLimit] = useState(1)
+    const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false)
+
+    const [optimizationReport, setOptimizationReport] = useState<{
+        totalProcessed: number
+        assigned: number
+        unassigned: number
+        problematic: number
+        driverBreakdown: { driverId: string, driverName: string, orderCount: number }[]
+        issues: { reason: string, count: number, orders: string[] }[]
+        driverDiagnostics?: { name: string, valid: boolean, lat: number, lng: number, address?: string }[]
+    } | null>(null)
+
     // Map State
     const [mapCenter, setMapCenter] = useState<[number, number]>([34.0522, -118.2437])
 
@@ -215,27 +236,57 @@ export default function PlannerPage() {
         fixLeafletIcons() // Run Leaflet Fix
         fetchData()
 
-        // Realtime Subscription
-        const channel = supabase
-            .channel('planner_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => fetchData())
-            .subscribe()
+        // Realtime Subscription (non-blocking)
+        let channel: any = null
+
+        try {
+            channel = supabase
+                .channel('planner_updates')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => fetchData())
+                .subscribe((status) => {
+                    if (status === 'CHANNEL_ERROR') {
+                        // Realtime subscription failed
+                    }
+                })
+        } catch (error) {
+            // App continues to work without realtime
+        }
 
         return () => {
-            supabase.removeChannel(channel)
+            if (channel) {
+                try {
+                    supabase.removeChannel(channel)
+                } catch (e) {
+                    // Ignore cleanup error
+                }
+            }
         }
     }, [])
 
     async function fetchData() {
         setIsLoading(true)
         try {
+            // Auth with Fallback
+            let userId: string | undefined
             const { data: { session } } = await supabase.auth.getSession()
-            if (!session) { router.push('/login'); return }
 
-            // Get User
-            const { data: user } = await supabase.from('users').select('company_id, role').eq('id', session.user.id).single()
+            if (session?.user) {
+                userId = session.user.id
+            }
+
+            if (!userId) {
+                router.push('/login')
+                return
+            }
+
+            // Get User + Subscription Limit
+            const { data: user } = await supabase.from('users').select('company_id, role, driver_limit').eq('id', userId).single()
             if (!user || user.role === 'driver') { router.replace('/orders'); return }
+
+            // Set subscription limit
+            const limit = user.driver_limit || 1
+            setDriverLimit(limit)
 
             // Get Active Data
             const [ordersRes, driversRes] = await Promise.all([
@@ -244,13 +295,19 @@ export default function PlannerPage() {
             ])
 
             if (ordersRes.data) setOrders(ordersRes.data)
-            if (driversRes.data) setDrivers(driversRes.data)
+            if (driversRes.data) {
+                setDrivers(driversRes.data)
+
+                // Check if subscription is expired (more drivers than limit)
+                const activeDriverCount = driversRes.data.length
+                setIsSubscriptionExpired(activeDriverCount > limit)
+            }
 
             // Center Map
             if (ordersRes.data?.[0]?.latitude) {
                 setMapCenter([ordersRes.data[0].latitude!, ordersRes.data[0].longitude!])
             }
-        } catch (e) { console.error(e) }
+        } catch (e) { toast({ title: "Failed to load planner data", type: "error" }) }
         finally { setIsLoading(false) }
     }
 
@@ -306,8 +363,19 @@ export default function PlannerPage() {
                 })
             }
 
+            // 🛑 SUBSCRIPTION ENFORCEMENT: Only optimize with drivers within limit
+            const allowedDrivers = drivers.slice(0, driverLimit)
+
+            if (allowedDrivers.length < drivers.length) {
+                toast({
+                    title: "Subscription Restricted",
+                    description: `Optimization will only use your first ${driverLimit} driver${driverLimit === 1 ? '' : 's'}. ${drivers.length - driverLimit} driver${drivers.length - driverLimit === 1 ? ' is' : 's are'} locked. Upgrade to unlock.`,
+                    type: "info"
+                })
+            }
+
             // Run the algorithm
-            const result = await optimizeRoute(ordersToOptimize, drivers)
+            const result = await optimizeRoute(ordersToOptimize, allowedDrivers)
 
             // Update Local State
             setOrders(result.orders)
@@ -323,18 +391,66 @@ export default function PlannerPage() {
             const { error } = await supabase.from('orders').upsert(updates)
 
             if (error) {
-                console.error("SUPABASE UPSERT ERROR:", error)
                 throw error
             }
+
+            // Generate Optimization Report
+            const assignedOrders = result.orders.filter(o => o.driver_id)
+            const unassignedOrders = result.orders.filter(o => !o.driver_id)
+
+            // Driver Breakdown
+            const driverBreakdown = drivers.map(driver => ({
+                driverId: driver.id,
+                driverName: driver.name,
+                orderCount: assignedOrders.filter(o => o.driver_id === driver.id).length
+            })).filter(d => d.orderCount > 0)
+
+            // Issues Analysis
+            const issues: { reason: string, count: number, orders: string[] }[] = []
+
+            const noGpsOrders = ordersToOptimize.filter(o => !o.latitude || !o.longitude)
+            if (noGpsOrders.length > 0) {
+                issues.push({
+                    reason: 'Missing GPS Coordinates',
+                    count: noGpsOrders.length,
+                    orders: noGpsOrders.map(o => o.order_number || o.id)
+                })
+            }
+
+            const lockedOrders = ordersToOptimize.filter(o => o.locked_to_driver)
+            if (lockedOrders.length > 0) {
+                issues.push({
+                    reason: 'Locked to Driver (Manual Assignment)',
+                    count: lockedOrders.length,
+                    orders: lockedOrders.map(o => o.order_number || o.id)
+                })
+            }
+
+            if (unassignedOrders.length > 0) {
+                issues.push({
+                    reason: 'Could Not Be Assigned (Distance/Capacity Constraints)',
+                    count: unassignedOrders.length,
+                    orders: unassignedOrders.map(o => o.order_number || o.id)
+                })
+            }
+
+            setOptimizationReport({
+                totalProcessed: ordersToOptimize.length,
+                assigned: assignedOrders.length,
+                unassigned: unassignedOrders.length,
+                problematic: noGpsOrders.length + lockedOrders.length,
+                driverBreakdown,
+                issues,
+                driverDiagnostics: (result as any).debug?.drivers
+            })
+
             toast({
                 title: "Optimization Complete",
-                description: "Routes have been updated.",
+                description: `${assignedOrders.length} orders assigned to ${driverBreakdown.length} drivers.`,
                 type: 'success',
             })
 
         } catch (error: any) {
-            console.error("FULL OPTIMIZATION ERROR OBJECT:", error)
-
             // Try to extract useful info
             let msg = 'Unknown Error'
             if (error?.message) msg = error.message
@@ -366,6 +482,19 @@ export default function PlannerPage() {
         let newDriverId: string | null = null
         if (targetId.startsWith('driver-')) {
             newDriverId = targetId.replace('driver-', '')
+
+            // 🛑 SUBSCRIPTION ENFORCEMENT: Block dispatch to drivers beyond limit
+            if (newDriverId) {
+                const driverIndex = drivers.findIndex(d => d.id === newDriverId)
+                if (driverIndex >= driverLimit) {
+                    toast({
+                        title: "Subscription Limit Reached",
+                        description: `You can only assign orders to your first ${driverLimit} driver${driverLimit === 1 ? '' : 's'}. Upgrade to unlock more slots.`,
+                        type: "error"
+                    })
+                    return // Block the assignment
+                }
+            }
         } else if (targetId === 'unassigned-zone') {
             newDriverId = null
         } else {
@@ -397,7 +526,7 @@ export default function PlannerPage() {
             .eq('id', orderId)
 
         if (error) {
-            console.error('Failed to update order:', error)
+            toast({ title: 'Failed to update order', description: error.message, type: 'error' })
             fetchData() // Revert
         }
     }
@@ -454,11 +583,12 @@ export default function PlannerPage() {
                             </h2>
                         </div>
                         <div className="overflow-y-auto p-3 space-y-3 flex-1">
-                            {drivers.map(driver => (
+                            {drivers.map((driver, index) => (
                                 <DroppableDriverContainer
                                     key={driver.id}
                                     driver={driver}
                                     orders={orders.filter(o => o.driver_id === driver.id)}
+                                    isLocked={index >= driverLimit}
                                 >
                                     {orders.filter(o => o.driver_id === driver.id).map(order => (
                                         <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
@@ -637,6 +767,163 @@ export default function PlannerPage() {
                 </SheetContent>
             </Sheet>
 
-        </DndContext>
+            {/* OPTIMIZATION REPORT DIALOG */}
+            <Sheet open={!!optimizationReport} onOpenChange={(open) => !open && setOptimizationReport(null)}>
+                <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                    <SheetHeader>
+                        <SheetTitle className="flex items-center gap-2">
+                            <Sparkles className="text-blue-600" size={20} />
+                            Optimization Report
+                        </SheetTitle>
+                        <SheetDescription>
+                            Smart route optimization results
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    {optimizationReport && (
+                        <div className="space-y-6 mt-6">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-green-700 dark:text-green-400">{optimizationReport.assigned}</div>
+                                        <div className="text-xs text-green-600 dark:text-green-500 font-medium mt-1">Assigned</div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950 dark:to-amber-950 border-yellow-200 dark:border-yellow-800">
+                                    <CardContent className="p-4 text-center">
+                                        <div className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">{optimizationReport.unassigned}</div>
+                                        <div className="text-xs text-yellow-600 dark:text-yellow-500 font-medium mt-1">Unassigned</div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Driver Breakdown */}
+                            {optimizationReport.driverBreakdown.length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                        <Truck size={16} className="text-blue-600" />
+                                        Driver Assignment Breakdown
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {optimizationReport.driverBreakdown.map((driver) => (
+                                            <div
+                                                key={driver.driverId}
+                                                className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-2 w-2 rounded-full bg-blue-600" />
+                                                    <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{driver.driverName}</span>
+                                                </div>
+                                                <span className="text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded-full">
+                                                    {driver.orderCount} orders
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Issues / Warnings */}
+                            {optimizationReport.issues.length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                        <AlertCircle size={16} className="text-orange-600" />
+                                        Issues & Warnings
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {optimizationReport.issues.map((issue, index) => (
+                                            <Card key={index} className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50">
+                                                <CardContent className="p-3">
+                                                    <div className="flex items-start justify-between mb-2">
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">{issue.reason}</p>
+                                                            <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{issue.count} affected</p>
+                                                        </div>
+                                                        <span className="text-xs bg-orange-200 dark:bg-orange-900 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full font-bold">
+                                                            {issue.count}
+                                                        </span>
+                                                    </div>
+                                                    <details className="mt-2">
+                                                        <summary className="text-xs text-orange-700 dark:text-orange-400 cursor-pointer hover:underline">
+                                                            View affected orders
+                                                        </summary>
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {issue.orders.slice(0, 10).map((orderId, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className="text-[10px] bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-1.5 py-0.5 rounded font-mono"
+                                                                >
+                                                                    #{orderId}
+                                                                </span>
+                                                            ))}
+                                                            {issue.orders.length > 10 && (
+                                                                <span className="text-[10px] text-orange-600 dark:text-orange-400 px-1.5">
+                                                                    +{issue.orders.length - 10} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </details>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Driver Diagnostics (Debug Info for User) */}
+                            {optimizationReport.driverDiagnostics && (
+                                <div className="space-y-3 pt-4 border-t border-border">
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                        <Truck size={16} className="text-purple-600" />
+                                        Drivers Availability Check
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {optimizationReport.driverDiagnostics.map((d, i) => (
+                                            <div key={i} className={`flex items-center justify-between p-2 rounded text-xs border ${d.valid ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-300' : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300'}`}>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold">{d.name}</span>
+                                                    <span className="opacity-70 text-[10px] truncate max-w-[250px] block" title={d.address}>
+                                                        {d.address || `Lat: ${d.lat?.toFixed(4) || '?'}, Lng: ${d.lng?.toFixed(4) || '?'}`}
+                                                    </span>
+                                                </div>
+                                                <span className="font-bold">{d.valid ? 'READY' : 'INVALID LOC'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Success Summary */}
+                            {optimizationReport.assigned > 0 && (
+                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border border-green-200 dark:border-green-800 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <CheckCircle2 className="text-green-600 dark:text-green-400" size={18} />
+                                        <h4 className="font-bold text-green-800 dark:text-green-300">Optimization Successful!</h4>
+                                    </div>
+                                    <p className="text-sm text-green-700 dark:text-green-400">
+                                        {optimizationReport.assigned} out of {optimizationReport.totalProcessed} orders were successfully assigned to {optimizationReport.driverBreakdown.length} driver(s).
+                                    </p>
+                                    {optimizationReport.unassigned > 0 && (
+                                        <p className="text-xs text-green-600 dark:text-green-500 mt-2">
+                                            {optimizationReport.unassigned} orders remain unassigned and require manual review.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Close Button */}
+                            <Button
+                                className="w-full"
+                                onClick={() => setOptimizationReport(null)}
+                            >
+                                Close Report
+                            </Button>
+                        </div>
+                    )}
+                </SheetContent>
+            </Sheet>
+
+        </DndContext >
     )
 }

@@ -91,7 +91,7 @@ export default function OrdersPage() {
     useEffect(() => {
         if (!driverId) return
 
-        console.log("🎧 Listening for assignments for driver:", driverId)
+
 
         const channel = supabase
             .channel(`driver-notifications-${driverId}`)
@@ -143,10 +143,10 @@ export default function OrdersPage() {
             if (user) {
                 currentUserId = user.id
             } else {
-                // 2. Fallback to Custom Auth
-                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                if (customUserId) {
-                    currentUserId = customUserId
+                // 2. If no user, try to get user from session (e.g., after refresh)
+                const { data: { session } } = await supabase.auth.getSession()
+                if (session) {
+                    currentUserId = session.user.id
                 }
             }
 
@@ -203,8 +203,9 @@ export default function OrdersPage() {
                 if (error) throw error
                 setOrders(data || [])
             }
-        } catch (error) {
-            console.error('Error fetching data:', error)
+        } catch (error: any) {
+            toast({ title: 'Failed to update order', description: error.message, type: 'error' })
+            fetchData() // Revert
         } finally {
             setIsLoading(false)
         }
@@ -227,15 +228,12 @@ export default function OrdersPage() {
 
     async function toggleOnlineStatus() {
         if (!driverId) {
-            console.error("❌ No Driver ID found! Cannot toggle status.")
             toast({ title: "Error", description: "Driver profile not found.", type: "error" })
             return
         }
 
         const currentStatus = isOnline
         const newStatus = !currentStatus
-
-        console.log(`🔄 Toggling status: ${currentStatus} -> ${newStatus} for Driver ID: ${driverId}`)
 
         // 1. Optimistic Update
         setIsOnline(newStatus)
@@ -257,11 +255,9 @@ export default function OrdersPage() {
                 timestamp: new Date().toISOString()
             })
 
-            console.log("✅ Status updated successfully in DB:", data)
             toast({ title: newStatus ? "You are ONLINE 🟢" : "You are OFFLINE ⚫", type: "success" })
 
         } catch (error: any) {
-            console.error("💥 Catch Block Error:", error)
             setIsOnline(currentStatus) // Revert UI
             toast({
                 title: "Failed to update status",
@@ -278,11 +274,9 @@ export default function OrdersPage() {
         try {
             const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
             if (!apiKey) {
-                console.warn("⚠️ Google Maps API Key missing. Falling back...");
+                // Fallback silently if key is missing
                 throw new Error("Missing API Key");
             }
-
-            console.log("🌍 Geocoding with Google Maps:", fullAddress);
 
             const response = await fetch(
                 `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
@@ -293,11 +287,9 @@ export default function OrdersPage() {
                 const location = data.results[0].geometry.location
                 return { lat: location.lat, lng: location.lng } // Google returns numbers directly
             } else {
-                console.warn("Geocoding failed:", data.status, data.error_message);
                 return null;
             }
         } catch (error) {
-            console.error('Geocoding error (Google), trying Nominatim backup:', error)
             // Fallback to Nominatim (OpenStreetMap) if Google fails or key is missing
             try {
                 const response = await fetch(
@@ -307,7 +299,7 @@ export default function OrdersPage() {
                 const data = await response.json()
                 if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
             } catch (err) {
-                console.error("Nominatim Fallback Failed:", err)
+                // Silent fail
             }
             return null
         }
@@ -395,12 +387,12 @@ export default function OrdersPage() {
                 })
             }
         } catch (error: any) {
-            console.error("AI Parse Error:", error)
             toast({
                 title: "Import Failed",
                 description: error.message || "Could not extract orders. Please check the input format.",
                 type: "error"
             })
+            throw error
         } finally {
             setIsParsing(false)
         }
@@ -456,15 +448,14 @@ export default function OrdersPage() {
             setSelectedOrders([])
             fetchData()
             toast({ title: `Deleted ${selectedOrders.length} orders`, type: "success" })
-        } catch (error) {
-            console.error('Delete error:', error)
+        } catch (error: any) {
+            toast({ title: 'Delete error', description: error.message, type: 'error' })
         }
     }
 
     async function handleAddOrder(formData: FormData) {
         if (isSubmitting) return
         setIsSubmitting(true)
-        console.log("handleAddOrder called")
         // Prevent default submission behavior handled by React is not applicable here as it's a server action / function call, 
         // but since we are using <form action={}> this is fine.
 
@@ -479,7 +470,6 @@ export default function OrdersPage() {
 
         // Phone Validation
         const phone = phoneValue
-        console.log("Phone value:", phone)
         if (phone && !isValidPhoneNumber(phone)) {
             toast({ title: "Invalid Phone Number", description: "Please enter a valid international number", type: "error" })
             setIsSubmitting(false) // Release lock
@@ -487,15 +477,12 @@ export default function OrdersPage() {
         }
 
         try {
-            console.log("Fetching user...")
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) {
-                console.error("No auth user found")
                 toast({ title: "Session Error", description: "Please refresh the page.", type: "error" })
                 return
             }
 
-            console.log("Fetching profile...")
             const { data: userProfile } = await supabase
                 .from('users')
                 .select('company_id')
@@ -503,12 +490,10 @@ export default function OrdersPage() {
                 .maybeSingle()
 
             if (!userProfile) {
-                console.error("No profile found for user:", user.id)
                 toast({ title: "Profile Error", description: "Could not find your company profile.", type: "error" })
                 return
             }
 
-            console.log("Creating new order object...")
             const city = formData.get('city') as string; const state = formData.get('state') as string; const zipCode = formData.get('zip_code') as string
             const newOrder = {
                 company_id: userProfile.company_id,
@@ -532,7 +517,6 @@ export default function OrdersPage() {
             setIsAddOrderOpen(false); setPickedLocation(null); setPhoneValue(undefined); fetchData()
             toast({ title: "Order created successfully", type: "success" })
         } catch (error) {
-            console.error(error)
             toast({ title: "Failed to create order", type: "error" })
         } finally {
             setIsSubmitting(false)
@@ -783,7 +767,7 @@ export default function OrdersPage() {
                 ) : (
                     // MAP VIEW
                     <div className="h-[600px] rounded-2xl overflow-hidden border border-border shadow-md">
-                        <DriverRouteMap orders={filteredOrders.filter(o => o.latitude && o.longitude && o.status !== 'delivered')} />
+                        <DriverRouteMap orders={filteredOrders.filter(o => o.latitude && o.longitude)} />
                     </div>
                 )}
             </div>

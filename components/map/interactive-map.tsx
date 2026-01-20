@@ -121,6 +121,17 @@ interface InteractiveMapProps {
 }
 
 export default function InteractiveMap({ orders, drivers, selectedDriverId, userLocation, forceTheme }: InteractiveMapProps) {
+    // Debug logging
+    useEffect(() => {
+        console.log('🗺️ InteractiveMap render:', {
+            ordersCount: orders.length,
+            driversCount: drivers.length,
+            selectedDriverId,
+            userLocation,
+            ordersWithGPS: orders.filter(o => o.latitude && o.longitude).length
+        })
+    }, [orders, drivers, selectedDriverId, userLocation])
+
     const { theme } = useTheme()
     // Use forced theme if provided, otherwise fallback to system theme
     const currentTheme = forceTheme || theme
@@ -147,6 +158,11 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
         if (!selectedDriverId) return drivers
         return drivers.filter(d => d.id === selectedDriverId)
     }, [drivers, selectedDriverId])
+
+    // Count orders without GPS (for debugging/warning)
+    const ordersWithoutGPS = useMemo(() => {
+        return displayedOrders.filter(o => !o.latitude || !o.longitude)
+    }, [displayedOrders])
 
     const routePositions = useMemo(() => {
         if (!selectedDriverId || displayedDrivers.length === 0 || displayedOrders.length === 0) return []
@@ -198,11 +214,38 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                 />
             )}
 
-            {displayedOrders.map((order, index) => (
-                order.latitude && order.longitude && (
+            {displayedOrders.map((order, index) => {
+                if (!order.latitude || !order.longitude) return null
+
+                // Jitter Logic for Overlapping Markers
+                const lat = Number(order.latitude)
+                const lng = Number(order.longitude)
+
+                // Find how many others are at this exact spot
+                const collisionGroup = displayedOrders.filter(
+                    o => Math.abs(Number(o.latitude) - lat) < 0.00001 &&
+                        Math.abs(Number(o.longitude) - lng) < 0.00001
+                )
+
+                let finalLat = lat
+                let finalLng = lng
+
+                // If collision exists, offset them in a small circle/spiral
+                if (collisionGroup.length > 1) {
+                    const idxInGroup = collisionGroup.findIndex(o => o.id === order.id)
+                    // Radius ~100m for very clear separation
+                    const radius = 0.0009
+                    // Distribute angles evenly, starting from 90deg (Horizontal spread)
+                    const angle = (idxInGroup / collisionGroup.length) * 2 * Math.PI + (Math.PI / 2)
+
+                    finalLat = lat + Math.cos(angle) * radius
+                    finalLng = lng + Math.sin(angle) * radius
+                }
+
+                return (
                     <Marker
                         key={order.id}
-                        position={[Number(order.latitude), Number(order.longitude)]}
+                        position={[finalLat, finalLng]}
                         icon={createOrderIcon(order.status, selectedDriverId ? index + 1 : undefined)}
                     >
                         <Popup>
@@ -212,6 +255,11 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                                     <div>
                                         <p className="font-semibold text-slate-900">#{order.order_number}</p>
                                         <p className="text-sm text-slate-600">{order.customer_name}</p>
+                                        {collisionGroup.length > 1 && (
+                                            <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded border border-yellow-200">
+                                                Overlapping Location
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-2 text-sm text-slate-600">
@@ -239,7 +287,7 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                         </Popup>
                     </Marker>
                 )
-            ))}
+            })}
 
             {displayedDrivers.map((driver) => (
                 driver.current_lat && driver.current_lng && (

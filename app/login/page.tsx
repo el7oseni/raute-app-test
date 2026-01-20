@@ -9,12 +9,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Eye, EyeOff, Lock, Mail, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useToast } from "@/components/toast-provider"
 
 export default function LoginPage() {
     const router = useRouter()
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const { toast } = useToast()
 
     // Forgot Password State
     const [isResetMode, setIsResetMode] = useState(false)
@@ -31,31 +33,57 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            // BYPASS: Use custom RPC instead of auth.signInWithPassword
-            const { data, error: rpcError } = await supabase.rpc('login_driver', {
-                p_email: email,
-                p_password: password
+            // 1. Attempt Standard Supabase Login
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password
             })
 
-            if (rpcError) throw rpcError
+            console.log('🔐 Login Response:', { error: authError, hasSession: !!authData.session })
 
-            if (!data.success) {
-                throw new Error(data.error || 'Login failed')
+            if (authError) {
+                throw authError
             }
 
-            // Success! Manually handle session
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('raute_user_id', data.user_id)
-                // Trigger a storage event so other components know (optional but good practice)
-                window.dispatchEvent(new Event('storage'))
+            if (!authData.session) {
+                throw new Error('No session returned')
             }
 
-            // Force reload to ensure AuthCheck picks it up immediately
+            // 2. CRITICAL: Force session refresh to set cookies
+            // This ensures the middleware can see the session
+            const { error: refreshError } = await supabase.auth.refreshSession()
+            if (refreshError) console.warn('Session refresh warning:', refreshError)
+
+            // 3. Check Email Verification
+            const isEmailVerified = authData.session.user.email_confirmed_at
+
+            // 4. Handle Redirection
+            if (!isEmailVerified) {
+                console.log('📧 Email NOT verified - redirecting to /verify-email')
+                router.refresh() // Sync server state
+                window.location.href = "/verify-email"
+                return
+            }
+
+            // Success - Hard Redirect to Dashboard
+            console.log('✅ Email verified - redirecting to /dashboard')
+
+            // Force a router refresh first to update server components
+            router.refresh()
+
+            // Allow a small delay for cookies to propagate
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // Use hard navigation to force middleware re-check with new cookies
             window.location.href = "/dashboard"
+            return
 
         } catch (err: any) {
-            console.error("Login error:", err)
-            setError(err.message || "Invalid email or password")
+            toast({
+                title: "Login Failed",
+                description: err.message || "Invalid credentials",
+                type: "error"
+            })
         } finally {
             setIsLoading(false)
         }
@@ -72,17 +100,17 @@ export default function LoginPage() {
 
         try {
             // Supabase Reset Password
-            // This sends an email with a link like: SITE_URL/auth/callback?next=/account/update-password
+            // This sends an email with a link like: SITE_URL/auth/callback?next=/update-password
             // We assume standard callback handling or basic redirection works.
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/callback?next=/settings`
+                redirectTo: `${window.location.origin}/auth/callback?next=/update-password`
             })
 
             if (error) throw error
 
             setResetSuccess(true)
         } catch (err) {
-            console.error(err)
+
             setError(err instanceof Error ? err.message : "Failed to send reset link")
         } finally {
             setIsResetting(false)

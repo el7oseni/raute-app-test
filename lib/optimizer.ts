@@ -9,6 +9,7 @@ interface OptimizationResult {
         totalDistance: number
         unassignedCount: number
     }
+    debug?: any // Allow passing back debug info
 }
 
 // Maximum allowed distance for auto-assignment (in km)
@@ -54,7 +55,8 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
 
     // 1. Separate Locked vs Unlocked Orders
     const lockedOrders = activeOrders.filter(o => o.locked_to_driver && o.driver_id)
-    const availableOrders = activeOrders.filter(o => !o.locked_to_driver)
+    // Fix: Available = All active orders NOT in the locked list (handles locked=true but driver=null case)
+    const availableOrders = activeOrders.filter(o => !lockedOrders.includes(o))
 
     // Map drivers to their starting positions
     // Fallback logic: If driver has NO location, we try to use the average location of their LOCKED orders, 
@@ -62,6 +64,7 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
     const driverPositions = drivers.map(d => {
         let lat = d.current_lat || d.default_start_lat
         let lng = d.current_lng || d.default_start_lng
+        let usedInferred = false
 
         // If no start location, check if they have locked orders to infer a "region"
         if (!lat || !lng) {
@@ -69,17 +72,31 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
             if (driversLockedOrders.length > 0) {
                 lat = driversLockedOrders[0].latitude
                 lng = driversLockedOrders[0].longitude
+                usedInferred = true
             }
         }
 
         return {
             id: d.id,
+            name: d.name,
             lat,
             lng,
+            address: d.default_start_address || (d.current_lat ? 'Live Location' : 'No Address'),
             load: lockedOrders.filter(o => o.driver_id === d.id).length,
-            valid: !!(lat && lng) // Only optimize for drivers with a known location
+            valid: !!(lat && lng), // Only optimize for drivers with a known location
+            source: usedInferred ? 'inferred' : (d.current_lat ? 'live' : 'default')
         }
     })
+
+    // ... (rest of the file remains same until return)
+    // Actually, I can't skip the middle with replace_file_content easily if I changed the map.
+    // But wait, the return statement is all I need to change if I change the map above?
+    // No, I need to change the map above.
+    // And then the return statement at the bottom needs to pick it up.
+
+    // I will split this into two tool calls to be safe.
+    // First call: Update the driverPositions map.
+
 
     // 2. Assign Available Orders to Nearest Valid Driver
     for (const order of availableOrders) {
@@ -254,6 +271,9 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
         summary: {
             totalDistance: 0,
             unassignedCount: unassigned.length
+        },
+        debug: {
+            drivers: driverPositions.map(d => ({ name: d.name, valid: d.valid, lat: d.lat, lng: d.lng, address: d.address })),
         }
     }
 }

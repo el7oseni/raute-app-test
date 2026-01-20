@@ -9,20 +9,34 @@ export function DriverSetupGuide({
     isOnline,
     hasTasks,
     onToggleOnline,
-    onViewAssignments
+    onViewAssignments,
+    forceShow = false,
+    onDismiss
 }: {
     isOnline: boolean,
     hasTasks: boolean,
     onToggleOnline: () => void,
-    onViewAssignments: () => void
+    onViewAssignments: () => void,
+    forceShow?: boolean,
+    onDismiss?: () => void
 }) {
     const [isVisible, setIsVisible] = useState(true)
 
-    // Hide if all steps are complete
-    if (isOnline && hasTasks) return null
+    // Handle external dismiss
+    const handleDismiss = () => {
+        setIsVisible(false)
+        if (onDismiss) onDismiss()
+    }
 
-    // Hide if user dismissed it
-    if (!isVisible) return null
+    // Determine visibility logic
+    if (forceShow) {
+        // Show regardless of status
+    } else {
+        // Hide if completed
+        if (isOnline && hasTasks) return null
+        // Hide if manually dismissed
+        if (!isVisible) return null
+    }
 
     const steps = [
         {
@@ -48,7 +62,7 @@ export function DriverSetupGuide({
     return (
         <Card className="bg-slate-900 dark:bg-slate-800 text-white border-0 shadow-xl overflow-hidden relative mb-6">
             <button
-                onClick={() => setIsVisible(false)}
+                onClick={handleDismiss}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
                 aria-label="Dismiss guide"
             >

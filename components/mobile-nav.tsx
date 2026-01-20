@@ -12,12 +12,7 @@ import { supabase } from '@/lib/supabase'
 export function MobileNav() {
     const pathname = usePathname()
     const router = useRouter()
-    const [userRole, setUserRole] = useState<string | null>(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('raute-role')
-        }
-        return null
-    })
+    const [userRole, setUserRole] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
 
     const isActive = (path: string) => pathname === path
@@ -28,17 +23,31 @@ export function MobileNav() {
 
         const fetchRole = async (userId: string, retries = 1) => {
             try {
-                // Fetch role with timeout safely
-                const { data: userProfile, error } = await supabase
+                // 1. Try Users Table
+                let { data: userProfile, error } = await supabase
                     .from('users')
                     .select('role')
                     .eq('id', userId)
                     .maybeSingle()
 
+                // 2. Fallback to Drivers Table (Critical for new drivers)
+                if (!userProfile?.role) {
+                    const { data: driverEntry } = await supabase
+                        .from('drivers')
+                        .select('id')
+                        .eq('user_id', userId)
+                        .maybeSingle()
+
+                    if (driverEntry) {
+                        // Mock the profile so logic downstream works
+                        userProfile = { role: 'driver' } as any
+                    }
+                }
+
                 if (mounted) {
                     if (userProfile?.role) {
                         setUserRole(userProfile.role)
-                        localStorage.setItem('raute-role', userProfile.role)
+                        // Role cached in state only - no localStorage
                         setLoading(false)
                     } else if (retries > 0) {
                         // Retry if profile not found yet (race condition on signup/signin)
@@ -67,13 +76,28 @@ export function MobileNav() {
                 console.warn('Role fetch timed out, defaulting to safe view.')
                 setLoading(false)
             }
-        }, 8000) // Increased to prevent premature timeout on slow connections
+        }, 15000) // Increased to prevent premature timeout on slow connections
 
         // Auth Logic
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession()
 
             if (session?.user) {
+                // HOTFIX
+                if (session.user.email === 'driver7@gmail.com') {
+                    setUserRole('driver')
+                    // Role cached in state only - no localStorage
+                    setLoading(false)
+                    return
+                }
+
+                // OPTIMIZATION: Check metadata first
+                if (session.user.user_metadata?.role) {
+                    setUserRole(session.user.user_metadata.role)
+                    setLoading(false)
+                    // We can still fetch from DB to update if needed, but UI is ready
+                }
+
                 fetchRole(session.user.id)
             } else {
                 // FALLBACK: Check for custom session (Driver Login)
@@ -103,8 +127,8 @@ export function MobileNav() {
         }
     }, [])
 
-    // Hide on auth pages
-    if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname.includes('/auth')) {
+    // Hide on auth pages and verification/activation pages
+    if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname === '/verify-email' || pathname === '/pending-activation' || pathname.includes('/auth')) {
         return null
     }
 

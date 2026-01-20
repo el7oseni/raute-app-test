@@ -23,10 +23,15 @@ export function DriverActivityHistory({ driverId }: { driverId: string | null })
                 .order('timestamp', { ascending: false })
                 .limit(50)
 
-            if (error) throw error
+            if (error) {
+                console.error('Failed to fetch driver activity logs:', error.message, error)
+                throw error
+            }
             setLogs(data || [])
-        } catch (err) {
-            console.error(err)
+        } catch (err: any) {
+            console.error('Driver Activity Logs Error:', err?.message || err)
+            // Set empty logs on error to show "No activity" message
+            setLogs([])
         } finally {
             setIsLoading(false)
         }

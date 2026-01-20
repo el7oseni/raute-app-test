@@ -62,26 +62,22 @@ export default function DispatchersPage() {
 
             if (session?.user) {
                 currentUserId = session.user.id
-                console.log("✅ Dispatcher Page: Supabase Session Auth")
-            } else {
-                // 2. Fallback
-                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                if (customUserId) {
-                    currentUserId = customUserId
-                    console.log("✅ Dispatcher Page: Manual Auth (raute_user_id)")
-                }
             }
 
             if (!currentUserId) {
-                console.warn("⚠️ No auth user found (standard or custom)")
                 return
             }
 
-            const { data: currentUser, error: userError } = await supabase.from('users').select('company_id').eq('id', currentUserId).single()
+            const { data: currentUser, error: userError } = await supabase.from('users').select('company_id, role').eq('id', currentUserId).single()
 
             if (userError || !currentUser) {
-                console.error("Profile Fetch Error:", userError)
-                // Don't toast here to avoid spam on initial load if auth is initializing
+                toast({ title: "Profile Error", description: "Could not fetch user profile.", type: "error" })
+                return
+            }
+
+            // 🚨 SECURITY: Manager/Admin Only 🚨
+            if (currentUser.role === 'driver') {
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -93,7 +89,6 @@ export default function DispatchersPage() {
             if (error) throw error
             setDispatchers((data as unknown as AppUser[]) || [])
         } catch (error) {
-            console.error('Error fetching dispatchers:', error)
             toast({ title: 'Error loading team', type: 'error' })
         } finally {
             setIsLoading(false)
@@ -134,7 +129,6 @@ export default function DispatchersPage() {
             toast({ title: 'Dispatcher Deleted', type: 'success' })
             setDeletingDispatcher(null)
         } catch (e) {
-            console.error(e)
             toast({ title: 'Delete Failed', type: 'error' })
         }
     }
@@ -172,7 +166,6 @@ export default function DispatchersPage() {
                 setEditingDispatcher(null)
                 fetchDispatchers()
             } catch (e) {
-                console.error(e)
                 toast({ title: 'Update Error', type: 'error' })
             } finally {
                 setIsSubmitting(false)
@@ -184,7 +177,7 @@ export default function DispatchersPage() {
     }
 
     async function handleCreateDispatcher() {
-        console.log("Create button clicked")
+
         if (!formData.name || !formData.email || !formData.password) {
             toast({ title: 'Missing Fields', description: 'Please fill in all required fields.', type: 'error' })
             return
@@ -198,9 +191,6 @@ export default function DispatchersPage() {
 
             if (session?.user) {
                 currentUserId = session.user.id
-            } else {
-                const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null
-                if (customUserId) currentUserId = customUserId
             }
 
             if (!currentUserId) throw new Error("No authenticated user found")
@@ -218,7 +208,7 @@ export default function DispatchersPage() {
                 permissions: formData.permissions
             })
 
-            console.log("RPC Response:", data, error)
+
 
             if (error) throw error
             if (data && !data.success) throw new Error(data.error || "Failed to create dispatcher")
@@ -234,7 +224,6 @@ export default function DispatchersPage() {
             fetchDispatchers()
 
         } catch (error: any) {
-            console.error("Handle Create Error:", error)
             toast({
                 title: 'Error Creating Dispatcher',
                 description: error.message || "An unexpected error occurred",

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X } from 'lucide-react'
@@ -44,212 +44,238 @@ export default function DashboardPage() {
     const router = useRouter()
     const [hasHubs, setHasHubs] = useState(false)
     const [driversMap, setDriversMap] = useState<Record<string, any>>({})
-    const [showSetup, setShowSetup] = useState(false)
+    const [showSetup, setShowSetup] = useState(true) // Show setup by default for new accounts
     const { toast } = useToast()
+    const isMountedRef = useRef(true)
 
     useEffect(() => {
-        fetchDashboardData()
 
-        // Realtime Subscription
-        const channel = supabase
-            .channel('dashboard_updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                fetchDashboardData()
+        isMountedRef.current = true
 
-                // Manager Notifications Logic
-                const newOrder = payload.new as any
-                const oldOrder = payload.old as any // Note: 'old' is empty on INSERT
-                const eventType = payload.eventType
-
-                if (!newOrder) return
-
-                // 1. Issue Reported (Critical)
-                if (newOrder.status === 'cancelled' && (eventType === 'INSERT' || (oldOrder && oldOrder.status !== 'cancelled'))) {
-                    toast({
-                        title: "🚨 Issue Reported!",
-                        description: `Order #${newOrder.order_number} marked as Failed/Cancelled.`,
-                        type: "error"
-                    })
-                }
-
-                // 2. Order Delivered (Success)
-                if (newOrder.status === 'delivered' && (eventType === 'INSERT' || (oldOrder && oldOrder.status !== 'delivered'))) {
-                    toast({
-                        title: "✅ Order Delivered",
-                        description: `${newOrder.customer_name} has received their package.`,
-                        type: "success"
-                    })
-                }
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => fetchDashboardData())
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [selectedDate]) // Re-fetch on date change
-
-    async function fetchDashboardData() {
-        try {
-            // Get User & Session
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) return
-
-            // Get Profile & Role
-            let { data: profile } = await supabase
-                .from('users')
-                .select('full_name, role, company_id')
-                .eq('id', session.user.id)
-                .single()
-
-            // 🛠️ AUTO-REPAIR: If profile is missing OR incomplete (Trigger created empty row), fix it.
-            if (!profile || !profile.role || !profile.company_id) {
-                console.warn("⚠️ Profile incomplete! Attempting auto-repair...")
-                try {
-                    let targetCompanyId = profile?.company_id
-
-                    // 1. If Company Missing, Create One
-                    if (!targetCompanyId) {
-                        const { data: newCompany } = await supabase
-                            .from('companies')
-                            .insert({ name: 'My Company' })
-                            .select()
-                            .single()
-
-                        if (newCompany) targetCompanyId = newCompany.id
+        // Minimal async auth check
+        const initDashboard = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session) {
+                    // No fallback - redirects handled by AuthCheck or below
+                    // Don't redirect - AuthCheck in layout handles this
+                    if (isMountedRef.current) {
+                        setIsLoading(false)
                     }
+                    return
 
-                    if (targetCompanyId) {
-                        // 2. Update/Create User Profile
-                        const { error: updateError } = await supabase
-                            .from('users')
-                            .upsert({
-                                id: session.user.id,
-                                email: session.user.email,
-                                full_name: profile?.full_name || 'Manager',
-                                role: 'manager', // Enforce Manager
-                                company_id: targetCompanyId,
-                                updated_at: new Date().toISOString()
-                            })
-
-                        if (!updateError) {
-                            // Apply fixes to local state immediately
-                            profile = {
-                                full_name: profile?.full_name || 'Manager',
-                                role: 'manager',
-                                company_id: targetCompanyId
-                            } as any
-
-                            toast({
-                                title: "Account Configured",
-                                description: "Your profile has been automatically set up.",
-                                type: "success"
-                            })
-                        }
+                    // Don't redirect - AuthCheck in layout handles this
+                    if (isMountedRef.current) {
+                        setIsLoading(false)
                     }
-                } catch (repairError) {
-                    console.error("Auto-repair failed:", repairError)
-                }
-            }
-
-            if (profile) {
-                // Fix for missing name functionality
-                const name = profile.full_name && profile.full_name.trim().length > 0
-                    ? profile.full_name
-                    : (profile.role === 'manager' ? 'Account Manager' : 'User');
-
-                setUserName(name)
-                setUserRole(profile.role)
-                setUserId(session.user.id)
-
-                if (profile.role === 'driver') {
-                    setIsLoading(false)
                     return
                 }
 
-                if (profile.company_id) {
-                    // PARALLEL FETCHING for performance
-                    const [hubsResult, driversResult, ordersResult] = await Promise.all([
-                        supabase.from('hubs').select('*', { count: 'exact', head: true }).eq('company_id', profile.company_id),
-                        supabase.from('drivers').select('id, name, vehicle_type').eq('company_id', profile.company_id),
-                        supabase.from('orders').select('*').eq('company_id', profile.company_id).order('created_at', { ascending: false })
-                    ])
+                // Get user role and full_name from database
+                let role = session.user.user_metadata?.role
+                let fullName = session.user.user_metadata?.full_name
 
-                    // 1. Check Hubs
-                    const count = hubsResult.count || 0
-                    setHasHubs(count > 0)
+                // If not in metadata, fetch from DB
+                if (!role || !fullName) {
+                    const { data } = await supabase
+                        .from('users')
+                        .select('role, full_name')
+                        .eq('id', session.user.id)
+                        .single()
 
-                    // 2. Process Drivers
-                    const driversData = driversResult.data
-                    const dMap: Record<string, any> = {}
-                    if (driversData) {
-                        driversData.forEach(d => { dMap[d.id] = d })
-                        setDriversMap(dMap)
+                    if (data) {
+                        role = role || data.role
+                        fullName = fullName || data.full_name
                     }
+                }
 
-                    // 3. Process Orders
-                    const ordersData = ordersResult.data
-                    if (ordersData) {
-                        const isToday = isSameDay(selectedDate, new Date())
-                        let relevantOrders = ordersData
+                // Final Fallback
+                if (!role) role = 'driver'
+                if (!fullName) fullName = session.user.email?.split('@')[0] || 'User'
 
-                        // Client-side filtering for specific dates if needed vs DB filtering
-                        // Note: The original code fetched EVERYTHING for Today to handle cross-day logic
-                        // but fetched specific date for history. 
-                        // To keep parallel simple, we fetched all. If dataset grows, we should revert to specific query.
-                        // However, for optimization now, simple clientside filter on the full set (assuming < 1000 orders) is faster than serial round trips.
+                if (isMountedRef.current) {
+                    setUserId(session.user.id)
+                    setUserRole(role)
+                    setUserName(fullName)
+                }
 
-                        // Recalculate based on selection
-                        if (!isToday) {
-                            const dateStr = format(selectedDate, 'yyyy-MM-dd')
-                            relevantOrders = ordersData.filter(o => o.delivery_date === dateStr)
-                        } else {
-                            relevantOrders = ordersData.filter(o => {
-                                const isUpdatedToday = o.updated_at ? isSameDay(new Date(o.updated_at), selectedDate) : false
-                                if (o.status === 'delivered' || o.status === 'cancelled') {
-                                    return isUpdatedToday
-                                }
-                                return true
+                // 🔥 FETCH DASHBOARD DATA (For all management roles)
+                if (['manager', 'dispatcher', 'admin', 'company_admin'].includes(role)) {
+                    // Get company_id
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('company_id')
+                        .eq('id', session.user.id)
+                        .single()
+
+                    const companyId = userData?.company_id
+
+                    if (companyId) {
+                        // Fetch ALL orders for this company
+                        const { data: ordersData, error: ordersError } = await supabase
+                            .from('orders')
+                            .select('*')
+                            .eq('company_id', companyId)
+                            .order('created_at', { ascending: false })
+
+                        if (ordersData && !ordersError) {
+                            setOrders(ordersData)
+
+                            // Calculate stats
+                            const statsCalc = {
+                                total: ordersData.length,
+                                pending: ordersData.filter(o => o.status === 'pending').length,
+                                assigned: ordersData.filter(o => o.status === 'assigned').length,
+                                inProgress: ordersData.filter(o => o.status === 'in_progress').length,
+                                delivered: ordersData.filter(o => o.status === 'delivered').length,
+                                cancelled: ordersData.filter(o => o.status === 'cancelled').length
+                            }
+                            setStats(statsCalc)
+                        }
+
+                        // Fetch Drivers
+                        const { data: driversData } = await supabase
+                            .from('drivers')
+                            .select('*')
+                            .eq('company_id', companyId)
+
+                        if (driversData) {
+                            setTotalDriversCount(driversData.length)
+                            // Build drivers map for quick lookup
+                            const dMap: Record<string, any> = {}
+                            driversData.forEach(d => {
+                                dMap[d.id] = { name: d.name, vehicle_type: d.vehicle_type, vehicle: d.vehicle_type }
                             })
+                            setDriversMap(dMap)
                         }
 
-                        setFilteredOrders(relevantOrders)
-                        setOrders(relevantOrders)
+                        // Fetch Hubs
+                        const { data: hubsData } = await supabase
+                            .from('hubs')
+                            .select('id')
+                            .eq('company_id', companyId)
 
-                        // Calculate Stats
-                        const newStats = {
-                            total: relevantOrders.length,
-                            pending: relevantOrders.filter(o => o.status === 'pending').length,
-                            assigned: relevantOrders.filter(o => o.status === 'assigned').length,
-                            inProgress: relevantOrders.filter(o => o.status === 'in_progress').length,
-                            delivered: relevantOrders.filter(o => o.status === 'delivered').length,
-                            cancelled: relevantOrders.filter(o => o.status === 'cancelled').length
-                        }
-                        setStats(newStats)
-                        setRecentOrders(relevantOrders.slice(0, 5))
-
-                        // Active Drivers Count
-                        const activeDriverIds = new Set(relevantOrders.filter(o => o.driver_id && o.status !== 'pending').map(o => o.driver_id))
-                        setActiveDriversCount(activeDriverIds.size)
-
-                        // Show Setup if ANY step is missing (Hubs, Drivers, or Orders)
-                        const totalDrivers = driversData ? driversData.length : 0
-                        setTotalDriversCount(totalDrivers)
-
-                        if (newStats.total === 0 || !hasHubs || totalDrivers === 0) {
-                            setShowSetup(true)
-                        } else {
-                            setShowSetup(false)
+                        if (hubsData) {
+                            setHasHubs(hubsData.length > 0)
                         }
                     }
                 }
+
+                if (isMountedRef.current) {
+                    setIsLoading(false)
+                }
+            } catch (error) {
+                console.error('Dashboard Init Error:', error)
+                if (isMountedRef.current) {
+                    setIsLoading(false)
+                }
             }
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error)
-        } finally {
-            setIsLoading(false)
         }
-    }
+
+        initDashboard()
+
+        return () => {
+
+            isMountedRef.current = false
+        }
+    }, [])
+
+    // Auto-refresh when user returns to dashboard (for Quick Setup updates)
+    useEffect(() => {
+        const handleFocus = async () => {
+            if (!userId || !['manager', 'dispatcher', 'admin', 'company_admin'].includes(userRole || '')) return
+
+            try {
+                // Get company_id
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('company_id')
+                    .eq('id', userId)
+                    .single()
+
+                const companyId = userData?.company_id
+                if (!companyId) return
+
+                // Re-fetch ALL dashboard data
+                const { data: ordersData } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('company_id', companyId)
+                    .order('created_at', { ascending: false })
+
+                if (ordersData) {
+                    setOrders(ordersData)
+
+                    // Recalculate stats
+                    const statsCalc = {
+                        total: ordersData.length,
+                        pending: ordersData.filter(o => o.status === 'pending').length,
+                        assigned: ordersData.filter(o => o.status === 'assigned').length,
+                        inProgress: ordersData.filter(o => o.status === 'in_progress').length,
+                        delivered: ordersData.filter(o => o.status === 'delivered').length,
+                        cancelled: ordersData.filter(o => o.status === 'cancelled').length
+                    }
+                    setStats(statsCalc)
+                }
+
+                // Re-fetch Drivers
+                const { data: driversData } = await supabase
+                    .from('drivers')
+                    .select('*')
+                    .eq('company_id', companyId)
+
+                if (driversData) {
+                    setTotalDriversCount(driversData.length)
+                    const dMap: Record<string, any> = {}
+                    driversData.forEach(d => {
+                        dMap[d.id] = { name: d.name, vehicle_type: d.vehicle_type, vehicle: d.vehicle_type }
+                    })
+                    setDriversMap(dMap)
+                }
+
+                // Re-fetch Hubs
+                const { data: hubsData } = await supabase
+                    .from('hubs')
+                    .select('id')
+                    .eq('company_id', companyId)
+
+                if (hubsData) {
+                    setHasHubs(hubsData.length > 0)
+                }
+            } catch (error) {
+                console.error('Error refreshing dashboard data:', error)
+            }
+        }
+
+        window.addEventListener('focus', handleFocus)
+        return () => window.removeEventListener('focus', handleFocus)
+    }, [userId, userRole])
+
+    // ✅ QUICK SETUP COMPLETION CHECK - Auto-hide when all steps are complete
+    useEffect(() => {
+        if (userRole !== 'manager') return
+
+        const setupComplete = totalDriversCount > 0 && stats.total > 0 && hasHubs
+        if (setupComplete && showSetup) {
+            setShowSetup(false) // Hide guide when all steps done
+        }
+    }, [userId, userRole, totalDriversCount, stats.total, hasHubs, showSetup])
+
+    // 📅 DATE FILTER - Filter orders when date changes
+    useEffect(() => {
+        if (!orders.length) {
+            setFilteredOrders([])
+            return
+        }
+
+        const filtered = orders.filter(order => {
+            const orderDate = new Date(order.created_at)
+            return isSameDay(orderDate, selectedDate)
+        })
+
+        setFilteredOrders(filtered)
+    }, [selectedDate, orders])
+
 
     const getGreeting = () => {
         const hour = new Date().getHours()
@@ -262,21 +288,32 @@ export default function DashboardPage() {
 
     if (isLoading) return <DashboardSkeleton />
 
-    // 🚚 DRIVER VIEW
-    if (userRole === 'driver' && userId) {
-        return <DriverDashboardView userId={userId} />
+    // 🚚 DRIVER VIEW - RENDER DASHBOARD
+    if (userRole === 'driver') {
+        return <DriverDashboardView userId={userId || ''} />
+    }
+
+    // If no role set yet, keep loading
+    if (!userRole) {
+        return <DashboardSkeleton />
     }
 
     // 👔 MANAGER VIEW
     return (
         <div className="p-4 space-y-6 pb-24 max-w-7xl mx-auto min-h-screen bg-slate-50/50 dark:bg-slate-950 transition-colors">
-            {/* 0. SETUP GUIDE (Conditional) */}
-            {showSetup && (
+            {/* 0. SETUP GUIDE (Conditional - Managers Only) */}
+            {showSetup && userRole === 'manager' && (
                 <div className="relative">
                     <button onClick={() => setShowSetup(false)} className="absolute top-2 right-2 p-2 text-slate-400 hover:text-white z-10"><X size={16} /></button>
-                    <SetupGuide hasDrivers={totalDriversCount > 0} hasOrders={stats.total > 0} hasHubs={hasHubs} />
+                    <SetupGuide
+                        hasDrivers={totalDriversCount > 0}
+                        hasOrders={stats.total > 0}
+                        hasHubs={hasHubs}
+                        hasOptimizedOrders={stats.assigned > 0 || stats.inProgress > 0}
+                    />
                 </div>
             )}
+
 
             {/* 1. HEADER & CONTROLS */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -428,7 +465,7 @@ export default function DashboardPage() {
                                                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
                                                         {order.customer_name}
                                                     </p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between mt-0.5">
+                                                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between mt-0.5">
                                                         <span>{order.status.replace('_', ' ')}</span>
                                                         <div className="flex items-center gap-2">
                                                             {/* Suspicious Delivery Warning */}
@@ -453,7 +490,7 @@ export default function DashboardPage() {
                                                                 )}
                                                             </span>
                                                         </div>
-                                                    </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}

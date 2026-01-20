@@ -47,5 +47,23 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>We use your location to provide accurate route mapping and estimated arrival times for deliveries.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>We use your location to track delivery progress and optimize routes while you are driving.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>We use the camera to allow drivers to capture Proof of Delivery (POD) photos upon successful completion of a stop.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>We use the photo library to save Proof of Delivery photos.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>We use the photo library to allow uploading of profile pictures or existing delivery photos.</string>
+    
+    <!-- Background Modes for Continuous Location Tracking -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+        <string>fetch</string>
+        <string>remote-notification</string>
+    </array>
 </dict>
 </plist>
