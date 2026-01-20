@@ -112,9 +112,9 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen overflow-y-auto bg-slate-50 flex items-start justify-center p-4 py-8 sm:items-center">
+        <div className="min-h-screen overflow-y-auto bg-slate-50 flex items-start justify-center p-4 pb-12 pt-8 sm:py-16 sm:items-center">
             <div className="w-full max-w-md space-y-4">
-                <div className="text-center space-y-2 mb-8">
+                <div className="text-center space-y-2 mb-4 sm:mb-8">
                     <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -144,7 +144,7 @@ export default function SignupPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={onSubmit} className="space-y-4">
+                        <form onSubmit={onSubmit} className="space-y-3 sm:space-y-4">
                             {error && (
                                 <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
                                     <AlertCircle className="h-4 w-4" />
