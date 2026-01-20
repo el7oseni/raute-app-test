@@ -85,6 +85,10 @@ CREATE TRIGGER on_auth_user_created
 -- Handles cases where the trigger already created the user OR failed to create it.
 -- Ensures the User is linked to the new Company correctly.
 
+-- DROP OLD SIGNATURE explicitly to avoid "function name is not unique" error
+DROP FUNCTION IF EXISTS public.complete_manager_signup(text, text, text, text);
+DROP FUNCTION IF EXISTS public.complete_manager_signup(text, text, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.complete_manager_signup(
     user_email TEXT,
     company_name TEXT,

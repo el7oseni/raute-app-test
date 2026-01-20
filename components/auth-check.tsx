@@ -59,8 +59,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 }
             } catch (error) {
                 console.error("Auth check critical failure:", error)
-                // Only redirect to login if NOT on a public route
-                if (!isPublicRoute && pathname !== '/login') {
+                // Only redirect to login if NOT on a public route AND NOT on landing page
+                if (!isPublicRoute && pathname !== '/login' && pathname !== '/') {
                     router.push('/login')
                 }
             } finally {
