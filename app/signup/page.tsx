@@ -112,7 +112,7 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen overflow-y-auto bg-slate-50 flex items-start justify-center px-4 pt-6 pb-20 sm:py-16 sm:items-center">
+        <div className="min-h-screen overflow-y-auto bg-slate-50 flex items-start justify-center px-4 pt-8 pb-20 sm:py-16 sm:items-center">
             <div className="w-full max-w-md space-y-4">
                 <div className="text-center space-y-2 mb-4 sm:mb-8">
                     <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
