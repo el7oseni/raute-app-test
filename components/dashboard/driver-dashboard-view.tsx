@@ -156,24 +156,25 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             }
 
             // 2. FETCH WEEKLY HISTORY (For Chart & On-Time Rate)
-            // Get last 7 days
-            const startOfWeek = format(subDays(new Date(), 6), 'yyyy-MM-dd')
+            // Get 7 days BEFORE selected date (so chart shows context leading up to selected day)
+            const startOfWeek = format(subDays(selectedDate, 6), 'yyyy-MM-dd')
+            const endOfWeek = format(selectedDate, 'yyyy-MM-dd')
 
             const { data: historyOrders } = await supabase
                 .from('orders')
                 .select('status, delivery_date, delivered_at')
                 .eq('driver_id', driverData.id)
                 .gte('delivery_date', startOfWeek)
-                .lte('delivery_date', format(new Date(), 'yyyy-MM-dd'))
+                .lte('delivery_date', endOfWeek)
 
             if (historyOrders) {
                 // A. Compute Chart Data
                 const chartMap: Record<string, { date: string, completed: number, failed: number }> = {}
 
-                // Initialize last 7 days empty
+                // Initialize 7 days before selected date
                 for (let i = 6; i >= 0; i--) {
-                    const d = format(subDays(new Date(), i), 'yyyy-MM-dd')
-                    const dayLabel = format(subDays(new Date(), i), 'EEE') // Mon, Tue...
+                    const d = format(subDays(selectedDate, i), 'yyyy-MM-dd')
+                    const dayLabel = format(subDays(selectedDate, i), 'EEE') // Mon, Tue...
                     chartMap[d] = { date: dayLabel, completed: 0, failed: 0 }
                 }
 
@@ -295,25 +296,27 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 </Button>
             </div>
 
-            {/* STATUS TOGGLE & GUIDE */}
-            <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${isOnline ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                        <Power size={20} />
+            {/* STATUS TOGGLE & GUIDE (Only show for TODAY) */}
+            {isToday && (
+                <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${isOnline ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                            <Power size={20} />
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Status: {isOnline ? 'Online' : 'Offline'}</p>
+                            <p className="text-xs text-slate-500">{isOnline ? 'You are receiving orders' : 'You are currently hidden'}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Status: {isOnline ? 'Online' : 'Offline'}</p>
-                        <p className="text-xs text-slate-500">{isOnline ? 'You are receiving orders' : 'You are currently hidden'}</p>
-                    </div>
+                    <Button
+                        variant={isOnline ? "default" : "secondary"}
+                        className={isOnline ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                        onClick={toggleOnlineStatus}
+                    >
+                        {isOnline ? 'Go Offline' : 'Go Online'}
+                    </Button>
                 </div>
-                <Button
-                    variant={isOnline ? "default" : "secondary"}
-                    className={isOnline ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                    onClick={toggleOnlineStatus}
-                >
-                    {isOnline ? 'Go Offline' : 'Go Online'}
-                </Button>
-            </div>
+            )}
 
             {/* Quick Setup Guide */}
             {/* Quick Setup Guide */}
