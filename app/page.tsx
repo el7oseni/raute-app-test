@@ -1,3 +1,7 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/landing/navbar'
 import { HeroSection } from '@/components/landing/hero-section'
 import { FeaturesGrid } from '@/components/landing/features-grid'
@@ -7,6 +11,15 @@ import { Footer } from '@/components/landing/footer'
 import { HowItWorks } from '@/components/landing/how-it-works'
 
 export default function LandingPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Redirect mobile users (Capacitor) to login page
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      router.push('/login')
+    }
+  }, [router])
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-blue-100 dark:selection:bg-blue-900">
 
