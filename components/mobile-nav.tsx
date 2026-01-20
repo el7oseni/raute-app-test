@@ -128,7 +128,16 @@ export function MobileNav() {
     }, [])
 
     // Hide on auth pages and verification/activation pages
-    if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname === '/verify-email' || pathname === '/pending-activation' || pathname.includes('/auth')) {
+    const isHidden = pathname === '/login' ||
+        pathname === '/signup' ||
+        pathname === '/' ||
+        pathname === '/verify-email' ||
+        pathname === '/pending-activation' ||
+        pathname.includes('/auth') ||
+        pathname === '/privacy' ||
+        pathname === '/terms';
+
+    if (isHidden) {
         return null
     }
 

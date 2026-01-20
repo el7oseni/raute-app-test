@@ -73,7 +73,8 @@ export default function SignupPage() {
                         user_email: email,
                         company_name: companyName,
                         full_name: fullName,
-                        user_password: password
+                        user_password: password,
+                        user_phone: phone
                     }),
                     new Promise((_, reject) =>
                         setTimeout(() => reject(new Error('RPC timeout - profile might still be creating')), 10000)

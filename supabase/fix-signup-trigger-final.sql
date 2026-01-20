@@ -34,8 +34,15 @@ BEGIN
 
     IF existing_driver_id IS NOT NULL THEN
       -- 🔗 SCENARIO A: Driver Self Sign-up (Manager invited them earlier)
-      INSERT INTO public.users (id, email, full_name, role, company_id)
-      VALUES (new.id, new.email, driver_name, 'driver', driver_company)
+      INSERT INTO public.users (id, email, full_name, role, company_id, phone)
+      VALUES (
+        new.id, 
+        new.email, 
+        driver_name, 
+        'driver', 
+        driver_company,
+        new.raw_user_meta_data->>'phone'
+      )
       ON CONFLICT (id) DO NOTHING;
 
       -- Link the driver record
@@ -45,12 +52,13 @@ BEGIN
 
     ELSE
       -- 🆕 SCENARIO B: New Manager/User Sign-up
-      INSERT INTO public.users (id, email, full_name, role)
+      INSERT INTO public.users (id, email, full_name, role, phone)
       VALUES (
         new.id, 
         new.email, 
         COALESCE(new.raw_user_meta_data->>'full_name', new.email),
-        'manager'
+        'manager',
+        new.raw_user_meta_data->>'phone'
       )
       ON CONFLICT (id) DO NOTHING;
     END IF;
@@ -81,7 +89,8 @@ CREATE OR REPLACE FUNCTION public.complete_manager_signup(
     user_email TEXT,
     company_name TEXT,
     full_name TEXT,
-    user_password TEXT
+    user_password TEXT,
+    user_phone TEXT DEFAULT NULL
 )
 RETURNS JSON AS $$
 DECLARE
@@ -103,13 +112,14 @@ BEGIN
     -- 2. Create or Update User Profile
     -- If trigger created it, it has no company_id. We update it.
     -- If trigger failed, we create it.
-    INSERT INTO public.users (id, email, full_name, role, company_id, status)
+    INSERT INTO public.users (id, email, full_name, role, company_id, phone, status)
     VALUES (
         new_user_id,
         user_email,
         full_name,
         'manager',
         new_comp_id,
+        user_phone,
         'active'
     )
     ON CONFLICT (id) DO UPDATE
@@ -117,6 +127,7 @@ BEGIN
         company_id = EXCLUDED.company_id, -- Link the company
         role = 'manager',                 -- Ensure role is manager
         full_name = EXCLUDED.full_name,
+        phone = COALESCE(EXCLUDED.phone, public.users.phone),
         status = 'active';
 
     RETURN json_build_object('success', true, 'user_id', new_user_id, 'company_id', new_comp_id);
