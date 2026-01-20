@@ -229,10 +229,25 @@ export default function SettingsPage() {
                                             <Input
                                                 placeholder="123 Industrial Blvd, City, State"
                                                 value={newHubAddress}
-                                                onChange={e => setNewHubAddress(e.target.value)}
-                                                onBlur={async () => {
-                                                    // Optional: Auto-search on blur if no location is set?
-                                                    // For now, let's keep the user in control with the search button to avoid jumping.
+                                                onChange={async (e) => {
+                                                    setNewHubAddress(e.target.value)
+                                                    // Auto-geocode after user stops typing (debounce)
+                                                    const address = e.target.value
+                                                    if (!address) return
+
+                                                    // Use timeout to debounce
+                                                    setTimeout(async () => {
+                                                        if (address !== newHubAddress) return // User kept typing
+                                                        try {
+                                                            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                                                            const data = await res.json()
+                                                            if (data && data[0]) {
+                                                                setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+                                                            }
+                                                        } catch (e) {
+                                                            // Silent fail
+                                                        }
+                                                    }, 1000) // Wait 1 second after user stops typing
                                                 }}
                                             />
                                             <Button
