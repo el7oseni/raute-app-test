@@ -394,10 +394,10 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                     <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">{onTimeRate}%</span>
                     <span className="text-xs text-blue-600 dark:text-blue-300 font-medium uppercase">On-Time Rate</span>
                 </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-900/50 flex flex-col items-center justify-center text-center">
-                    <AlertCircle className="text-red-600 dark:text-red-400 mb-2" size={24} />
-                    <span className="text-2xl font-bold text-red-900 dark:text-red-100">{stats.cancelled}</span>
-                    <span className="text-xs text-red-600 dark:text-red-300 font-medium uppercase">Issues</span>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-100 dark:border-orange-900/50 flex flex-col items-center justify-center text-center">
+                    <MapPin className="text-orange-600 dark:text-orange-400 mb-2" size={24} />
+                    <span className="text-2xl font-bold text-orange-900 dark:text-orange-100">{stats.total - stats.delivered - stats.cancelled}</span>
+                    <span className="text-xs text-orange-600 dark:text-orange-300 font-medium uppercase">Stops Remaining</span>
                 </div>
             </div>
 
@@ -466,8 +466,8 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                                 <div
                                     key={order.id}
                                     className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm flex items-center justify-between ${isOverdue
-                                            ? 'border-orange-300 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20'
-                                            : 'border-slate-100 dark:border-slate-800'
+                                        ? 'border-orange-300 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20'
+                                        : 'border-slate-100 dark:border-slate-800'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
