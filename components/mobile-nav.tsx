@@ -52,7 +52,7 @@ export function MobileNav() {
                     } else if (retries > 0) {
                         // Retry if profile not found yet (race condition on signup/signin)
                         console.warn(`Role not found, retrying... (${retries} left)`)
-                        setTimeout(() => fetchRole(userId, retries - 1), 800)
+                        setTimeout(() => fetchRole(userId, retries - 1), 500)
                     } else {
                         // Final failure
                         setLoading(false)
@@ -62,7 +62,7 @@ export function MobileNav() {
                 console.error('Error fetching role:', error)
                 if (mounted) {
                     if (retries > 0) {
-                        setTimeout(() => fetchRole(userId, retries - 1), 800)
+                        setTimeout(() => fetchRole(userId, retries - 1), 500)
                     } else {
                         setLoading(false)
                     }
@@ -70,13 +70,15 @@ export function MobileNav() {
             }
         }
 
-        // Safety timeout: if role fetch takes too long, give up (defaults to driver view)
+        // Safety timeout: if role fetch takes too long, give up and show UI
         timeoutId = setTimeout(() => {
             if (mounted && loading) {
-                console.warn('Role fetch timed out, defaulting to safe view.')
+                console.warn('Role fetch timed out after 3s, showing UI with fallback')
+                // Set a fallback role to prevent blank screen
+                setUserRole('driver') // Fallback to driver view for safety
                 setLoading(false)
             }
-        }, 15000) // Increased to prevent premature timeout on slow connections
+        }, 3000) // Reduced to 3 seconds for better UX
 
         // Auth Logic
         const checkSession = async () => {
