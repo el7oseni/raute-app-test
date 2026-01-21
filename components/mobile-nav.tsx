@@ -85,13 +85,6 @@ export function MobileNav() {
             const { data: { session } } = await supabase.auth.getSession()
 
             if (session?.user) {
-                // HOTFIX
-                if (session.user.email === 'driver7@gmail.com') {
-                    setUserRole('driver')
-                    // Role cached in state only - no localStorage
-                    setLoading(false)
-                    return
-                }
 
                 // OPTIMIZATION: Check metadata first
                 if (session.user.user_metadata?.role) {
