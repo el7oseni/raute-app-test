@@ -113,6 +113,16 @@ export type Order = {
     proof_url?: string | null
 }
 
+export type ProofImage = {
+    id: string
+    order_id: string
+    company_id: string
+    image_url: string
+    uploaded_at: string
+    uploaded_by: string | null
+    created_at: string
+}
+
 export type DriverActivityLog = {
     id: string
     driver_id: string
@@ -122,3 +132,4 @@ export type DriverActivityLog = {
 }
 
 export type Permission = 'create_orders' | 'delete_orders' | 'view_drivers' | 'manage_drivers' | 'view_map' | 'access_settings'
+

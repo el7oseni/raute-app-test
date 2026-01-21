@@ -2,9 +2,9 @@
 
 import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, MapPin, Calendar, User as UserIcon, Phone, Package, Edit, Trash2, Clock, Undo2, CheckCircle2, Loader2, Camera as CameraIcon } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, User as UserIcon, Phone, Package, Edit, Trash2, Clock, Undo2, CheckCircle2, Loader2, Camera as CameraIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { supabase, type Order } from "@/lib/supabase"
+import { supabase, type Order, type ProofImage } from "@/lib/supabase"
 import dynamic from "next/dynamic"
 import {
     AlertDialog,
@@ -68,6 +68,10 @@ export default function ClientOrderDetails() {
     const [isUpdating, setIsUpdating] = useState(false)
     const [userRole, setUserRole] = useState<string | null>(null)
     const [drivers, setDrivers] = useState<any[]>([])
+
+    // Proof Images State
+    const [proofImages, setProofImages] = useState<ProofImage[]>([])
+    const [isUploadingProof, setIsUploadingProof] = useState(false)
 
     // Controlled Form State
     const [formData, setFormData] = useState<Partial<Order>>({})
@@ -144,6 +148,17 @@ export default function ClientOrderDetails() {
 
             if (error) throw error
             setOrder(data)
+
+            // Fetch Proof Images
+            const { data: images, error: imagesError } = await supabase
+                .from('proof_images')
+                .select('*')
+                .eq('order_id', orderId)
+                .order('uploaded_at', { ascending: true })
+
+            if (!imagesError && images) {
+                setProofImages(images)
+            }
         } catch (error: any) {
             toast({ title: 'Error fetching order', description: error.message, type: 'error' })
         } finally {
@@ -261,6 +276,35 @@ export default function ClientOrderDetails() {
             toast({ title: 'Could not auto-fill address', description: error.message || "Unknown error", type: 'error' })
         } finally {
             setIsGeocodingReversed(false)
+        }
+    }
+
+    // Delete a specific proof image
+    async function deleteProofImage(imageId: string, imageUrl: string) {
+        try {
+            // Extract filename from URL
+            const urlParts = imageUrl.split('/')
+            const filename = urlParts[urlParts.length - 1]
+
+            // Delete from database
+            const { error: dbError } = await supabase
+                .from('proof_images')
+                .delete()
+                .eq('id', imageId)
+
+            if (dbError) throw dbError
+
+            // Delete from storage
+            await supabase.storage
+                .from('proofs')
+                .remove([filename])
+
+            // Update local state
+            setProofImages(prev => prev.filter(img => img.id !== imageId))
+
+            toast({ title: 'Image deleted successfully', type: 'success' })
+        } catch (error: any) {
+            toast({ title: 'Failed to delete image', description: error.message, type: 'error' })
         }
     }
 
@@ -411,15 +455,57 @@ export default function ClientOrderDetails() {
                     <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><MapPin size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Address</p><p className="font-medium text-slate-900">{order.address}</p><p className="text-sm text-slate-500">{[order.city, order.state].filter(Boolean).join(', ')}</p><a href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-full mt-2 hover:bg-blue-100 transition-colors">Open in Google Maps</a></div></div>
                     {order.notes && (<div className="p-4 bg-yellow-50/50"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wider mb-1">Driver Notes</p><p className="text-sm text-slate-700 italic">"{order.notes}"</p></div>)}
 
-                    {/* Proof Display for Managers & Everyone */}
-                    {order.proof_url && (
+                    {/* Proof Images Gallery */}
+                    {(proofImages.length > 0 || order.proof_url) && (
                         <div className="p-4 bg-slate-50">
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">Proof of Delivery</p>
-                            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-white group cursor-pointer" onClick={() => window.open(order.proof_url!, '_blank')}>
-                                <img src={order.proof_url} alt="Proof" className="object-cover w-full h-full hover:scale-105 transition-transform" />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                    <span className="bg-white/90 text-slate-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">View Full</span>
-                                </div>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Proof of Delivery</p>
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
+                                    {proofImages.length + (order.proof_url && proofImages.length === 0 ? 1 : 0)} {proofImages.length + (order.proof_url && proofImages.length === 0 ? 1 : 0) === 1 ? 'Photo' : 'Photos'}
+                                </span>
+                            </div>
+
+                            <div className="flex gap-3 overflow-x-auto pb-2">
+                                {/* Show new proof images from proof_images table */}
+                                {proofImages.map((img) => (
+                                    <div key={img.id} className="relative flex-shrink-0 w-40 h-32 rounded-lg overflow-hidden border-2 border-slate-200 bg-white group">
+                                        <img
+                                            src={img.image_url}
+                                            alt="Proof"
+                                            className="object-cover w-full h-full cursor-pointer hover:scale-105 transition-transform"
+                                            onClick={() => window.open(img.image_url, '_blank')}
+                                        />
+
+                                        {/* Delete Button - Only show if order is not delivered */}
+                                        {order.status !== 'delivered' && !['manager', 'admin', 'company_admin'].includes(userRole || '') && (
+                                            <button
+                                                onClick={() => deleteProofImage(img.id, img.image_url)}
+                                                className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                aria-label="Delete image"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                                    </div>
+                                ))}
+
+                                {/* Backward compatibility: Show legacy proof_url if no new images */}
+                                {order.proof_url && proofImages.length === 0 && (
+                                    <div className="relative flex-shrink-0 w-40 h-32 rounded-lg overflow-hidden border-2 border-slate-200 bg-white group">
+                                        <img
+                                            src={order.proof_url}
+                                            alt="Proof"
+                                            className="object-cover w-full h-full cursor-pointer hover:scale-105 transition-transform"
+                                            onClick={() => window.open(order.proof_url!, '_blank')}
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
+                                            <p className="text-white text-[10px] font-medium">Legacy Image</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -458,8 +544,10 @@ export default function ClientOrderDetails() {
                                 {/* Button 1: Capture Proof */}
                                 <Button
                                     variant="outline"
+                                    disabled={isUploadingProof}
                                     onClick={async () => {
                                         try {
+                                            setIsUploadingProof(true)
                                             const { Camera, CameraResultType } = await import('@capacitor/camera')
                                             const image = await Camera.getPhoto({
                                                 quality: 70,
@@ -468,7 +556,6 @@ export default function ClientOrderDetails() {
                                             })
 
                                             if (image.webPath) {
-                                                // Change text to 'Uploading...' could go here using state, but keeping it simple
                                                 // Import compression utility
                                                 const { ImageCompressor } = await import('@/lib/image-compressor')
 
@@ -488,7 +575,35 @@ export default function ClientOrderDetails() {
 
                                                 if (data) {
                                                     const { data: { publicUrl } } = supabase.storage.from('proofs').getPublicUrl(filename)
-                                                    updateOrderStatus('delivered', publicUrl)
+
+                                                    // Get company_id and user_id
+                                                    const { data: { user } } = await supabase.auth.getUser()
+                                                    const { data: userProfile } = await supabase
+                                                        .from('users')
+                                                        .select('company_id')
+                                                        .eq('id', user?.id)
+                                                        .single()
+
+                                                    // Save to proof_images table
+                                                    const { data: newImage, error: insertError } = await supabase
+                                                        .from('proof_images')
+                                                        .insert({
+                                                            order_id: orderId,
+                                                            company_id: userProfile?.company_id,
+                                                            image_url: publicUrl,
+                                                            uploaded_by: user?.id
+                                                        })
+                                                        .select()
+                                                        .single()
+
+                                                    if (insertError) throw insertError
+
+                                                    // Update local state
+                                                    if (newImage) {
+                                                        setProofImages(prev => [...prev, newImage])
+                                                    }
+
+                                                    toast({ title: 'Photo captured!', description: 'You can take more photos or mark as delivered', type: 'success' })
                                                 }
                                             }
                                         } catch (e: any) {
@@ -496,27 +611,48 @@ export default function ClientOrderDetails() {
                                             if (e.message !== 'User cancelled photos app') {
                                                 toast({ title: "Camera Failed", description: e.message, type: "error" })
                                             }
+                                        } finally {
+                                            setIsUploadingProof(false)
                                         }
                                     }}
                                     className="w-full h-12 border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300"
                                 >
-                                    <CameraIcon size={18} className="mr-2" />
-                                    Capture Proof
+                                    {isUploadingProof ? (
+                                        <>
+                                            <Loader2 size={18} className="mr-2 animate-spin" />
+                                            Uploading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CameraIcon size={18} className="mr-2" />
+                                            Capture Proof {proofImages.length > 0 && `(${proofImages.length})`}
+                                        </>
+                                    )}
                                 </Button>
 
                                 {/* Button 2: Direct Delivery */}
                                 <Button
                                     disabled={isUpdating}
                                     onClick={async () => {
-                                        if (confirm("Mark as Delivered without proof?")) {
-                                            try {
-                                                setIsUpdating(true)
-                                                await updateOrderStatus('delivered')
-                                            } catch (err: any) {
-                                                toast({ title: "Error", description: err.message, type: "error" })
-                                            } finally {
-                                                setIsUpdating(false)
-                                            }
+                                        // Check if at least one proof image exists
+                                        if (proofImages.length === 0 && !order.proof_url) {
+                                            toast({
+                                                title: "Proof Required",
+                                                description: "Please capture at least one proof of delivery photo by clicking 'Capture Proof' above.",
+                                                type: "error"
+                                            })
+                                            return
+                                        }
+
+                                        try {
+                                            setIsUpdating(true)
+                                            // Use first proof image URL or fallback to legacy proof_url
+                                            const proofUrl = proofImages[0]?.image_url || order.proof_url
+                                            await updateOrderStatus('delivered', proofUrl)
+                                        } catch (err: any) {
+                                            toast({ title: "Error", description: err.message, type: "error" })
+                                        } finally {
+                                            setIsUpdating(false)
                                         }
                                     }}
                                     className="w-full bg-green-600 hover:bg-green-700 text-white h-14 rounded-xl shadow-lg shadow-green-200 text-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
