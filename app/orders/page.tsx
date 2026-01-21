@@ -214,7 +214,14 @@ export default function OrdersPage() {
     function filterOrders() {
         let filtered = orders
         if (statusFilter !== "all") {
-            filtered = filtered.filter(order => order.status === statusFilter)
+            // ASSIGNED tab should show both 'assigned' and 'in_progress' orders (active tasks)
+            if (statusFilter === "assigned") {
+                filtered = filtered.filter(order =>
+                    order.status === "assigned" || order.status === "in_progress"
+                )
+            } else {
+                filtered = filtered.filter(order => order.status === statusFilter)
+            }
         }
         if (searchQuery) {
             filtered = filtered.filter(order =>
