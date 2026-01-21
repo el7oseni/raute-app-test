@@ -120,9 +120,8 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 .eq('driver_id', driverData.id)
                 .order('priority', { ascending: false })
 
-            if (isToday) {
-                // query = query.neq('status', 'cancelled') // Removed to include cancellations in stats
-            } else {
+            if (!isToday) {
+                // Historical view: show only orders for that specific date
                 query = query.eq('delivery_date', dateStr)
             }
 
@@ -131,13 +130,20 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             if (orders) {
                 let relevantOrders = orders
                 if (isToday) {
+                    // TODAY VIEW: Show today's orders + overdue from past days
                     relevantOrders = orders.filter(o => {
-                        if (o.status === 'delivered') {
-                            // Robust Date Check (Timezone Safe)
-                            if (!o.delivered_at) return true
-                            return isSameDay(new Date(o.delivered_at), new Date())
+                        const orderDate = o.delivery_date
+
+                        // Include if scheduled for today
+                        if (orderDate === dateStr) return true
+
+                        // Include if OVERDUE (past date + not delivered yet)
+                        if (orderDate < dateStr && o.status !== 'delivered' && o.status !== 'cancelled') {
+                            return true
                         }
-                        return true
+
+                        // Exclude delivered/cancelled orders from past days
+                        return false
                     })
                 }
                 setOrdersList(relevantOrders)
@@ -332,8 +338,8 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden transition-all">
                 {/* Success Checkmark - Shows when 100% complete */}
                 <div className={`absolute top-0 right-0 p-4 transition-opacity duration-500 ${completionPercentage === 100 && stats.total > 0
-                        ? 'opacity-20 dark:opacity-10'
-                        : 'opacity-5'
+                    ? 'opacity-20 dark:opacity-10'
+                    : 'opacity-5'
                     }`}>
                     <CheckCircle2 size={120} className={completionPercentage === 100 ? "text-green-500" : "dark:text-white"} />
                 </div>
@@ -452,40 +458,58 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {ordersList.map(order => (
-                            <div key={order.id} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${order.status === 'delivered' ? 'bg-green-500' :
-                                        order.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-500'}`} />
-                                    <div>
-                                        <p className="font-bold text-sm text-slate-900 dark:text-slate-200">{order.customer_name}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">{order.address?.split(',')[0]}</p>
+                        {ordersList.map(order => {
+                            // Check if order is overdue (past date + not delivered)
+                            const isOverdue = isToday && order.delivery_date < format(new Date(), 'yyyy-MM-dd') && order.status !== 'delivered'
+
+                            return (
+                                <div
+                                    key={order.id}
+                                    className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm flex items-center justify-between ${isOverdue
+                                            ? 'border-orange-300 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20'
+                                            : 'border-slate-100 dark:border-slate-800'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-2 h-2 rounded-full ${order.status === 'delivered' ? 'bg-green-500' :
+                                            order.status === 'cancelled' ? 'bg-red-500' : isOverdue ? 'bg-orange-500' : 'bg-blue-500'}`} />
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-sm text-slate-900 dark:text-slate-200">{order.customer_name}</p>
+                                                {isOverdue && (
+                                                    <span className="text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                                                        Overdue
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">{order.address?.split(',')[0]}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold inline-block ${order.status === 'delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                                            order.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                            }`}>
+                                            {order.status === 'delivered' ? 'Done' :
+                                                order.status === 'cancelled' ? 'Failed' : 'Active'}
+                                        </span>
+                                        {/* Timestamp Display */}
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium flex items-center justify-end gap-1">
+                                            {order.status === 'delivered' && order.delivered_at ? (
+                                                <>
+                                                    <CheckCircle2 size={10} />
+                                                    {format(new Date(order.delivered_at), 'h:mm a')}
+                                                </>
+                                            ) : (order.time_window_start || order.time_window_end) ? (
+                                                <>
+                                                    <Clock size={10} />
+                                                    {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
+                                                </>
+                                            ) : null}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className={`text-xs px-2 py-1 rounded-full font-bold inline-block ${order.status === 'delivered' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                        order.status === 'cancelled' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                        }`}>
-                                        {order.status === 'delivered' ? 'Done' :
-                                            order.status === 'cancelled' ? 'Failed' : 'Active'}
-                                    </span>
-                                    {/* Timestamp Display */}
-                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium flex items-center justify-end gap-1">
-                                        {order.status === 'delivered' && order.delivered_at ? (
-                                            <>
-                                                <CheckCircle2 size={10} />
-                                                {format(new Date(order.delivered_at), 'h:mm a')}
-                                            </>
-                                        ) : (order.time_window_start || order.time_window_end) ? (
-                                            <>
-                                                <Clock size={10} />
-                                                {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
-                                            </>
-                                        ) : null}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>
