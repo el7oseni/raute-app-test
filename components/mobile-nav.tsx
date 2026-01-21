@@ -74,11 +74,11 @@ export function MobileNav() {
         timeoutId = setTimeout(() => {
             if (mounted && loading) {
                 console.warn('Role fetch timed out after 3s, showing UI with fallback')
-                // Set a fallback role to prevent blank screen
-                setUserRole('driver') // Fallback to driver view for safety
+                // Don't set a fallback role - let the UI decide based on available data
+                // Setting a default role can show wrong navigation to managers
                 setLoading(false)
             }
-        }, 3000) // Reduced to 3 seconds for better UX
+        }, 5000) // Increased to 5 seconds to give RLS queries more time
 
         // Auth Logic
         const checkSession = async () => {
@@ -138,6 +138,9 @@ export function MobileNav() {
 
     // Don't show anything while determining role to prevent flickering
     if (loading) return null
+
+    // Don't render nav if we don't have a role yet
+    if (!userRole) return null
 
     const isDriver = userRole === 'driver'
     const isManager = userRole === 'manager' || userRole === 'admin'
