@@ -73,7 +73,7 @@ export function MobileNav() {
         // Safety timeout: if role fetch takes too long, give up and show UI
         timeoutId = setTimeout(() => {
             if (mounted && loading) {
-                console.warn('Role fetch timed out after 3s, showing UI with fallback')
+                console.warn('Role fetch timed out after 5s, showing UI with fallback')
                 // Don't set a fallback role - let the UI decide based on available data
                 // Setting a default role can show wrong navigation to managers
                 setLoading(false)
@@ -90,9 +90,12 @@ export function MobileNav() {
                 if (session.user.user_metadata?.role) {
                     setUserRole(session.user.user_metadata.role)
                     setLoading(false)
-                    // We can still fetch from DB to update if needed, but UI is ready
+                    // Clear timeout since we already have the role
+                    clearTimeout(timeoutId)
+                    return // ← Skip DB query - we have the role!
                 }
 
+                // Only fetch from DB if metadata doesn't have role
                 fetchRole(session.user.id)
             } else {
                 // FALLBACK: Check for custom session (Driver Login)
