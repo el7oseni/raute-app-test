@@ -22,18 +22,43 @@ class GeoService {
         }
     }
 
+
     async getCurrentLocation() {
         try {
+            // Try Capacitor first (mobile)
             const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
             return {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
                 accuracy: position.coords.accuracy
             };
-        } catch (e) {
-            console.error('Geo Error', e);
-            toast({ title: 'Location Error', description: 'Please enable location services', type: 'error' });
-            return null;
+        } catch (capacitorError) {
+            // Fallback to browser geolocation API (web)
+            console.log('📍 Capacitor not available, using browser geolocation...');
+
+            if (!navigator.geolocation) {
+                console.error('Geolocation not supported by browser');
+                toast({ title: 'Location Error', description: 'Location services not supported', type: 'error' });
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        });
+                    },
+                    (error) => {
+                        console.error('Browser Geo Error:', error);
+                        toast({ title: 'Location Error', description: 'Please enable location services', type: 'error' });
+                        resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
         }
     }
 
