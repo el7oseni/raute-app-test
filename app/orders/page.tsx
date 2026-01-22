@@ -79,6 +79,9 @@ export default function OrdersPage() {
     // Bulk Delete State
     const [selectedOrders, setSelectedOrders] = useState<string[]>([])
 
+    // Location Tracking State  
+    const [userId, setUserId] = useState<string | null>(null)
+
     useEffect(() => {
         fetchData()
     }, [])
