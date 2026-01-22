@@ -180,6 +180,13 @@ export default function OrdersPage() {
 
                 setDriverId(driverData.id)
                 // IMPORTANT: Set initial state from DB to prevent flip-flopping
+                // Also check localStorage for instant UI feedback
+                const cachedOnlineStatus = localStorage.getItem('driver_online_status')
+                if (cachedOnlineStatus !== null) {
+                    // Show cached status immediately for instant feedback
+                    setIsOnline(cachedOnlineStatus === 'true')
+                }
+                // Then update from DB (source of truth)
                 setIsOnline(driverData.is_online === true)
 
                 const { data, error } = await supabase
@@ -244,6 +251,8 @@ export default function OrdersPage() {
 
         // 1. Optimistic Update
         setIsOnline(newStatus)
+        // Save to localStorage for persistence across refreshes
+        localStorage.setItem('driver_online_status', String(newStatus))
 
         try {
             // 2. Perform DB Update
