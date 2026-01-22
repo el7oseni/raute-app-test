@@ -24,9 +24,12 @@ class GeoService {
 
 
     async getCurrentLocation(): Promise<{ lat: number; lng: number; accuracy: number } | null> {
+        console.log('🔍 getCurrentLocation() called');
         try {
             // Try Capacitor first (mobile)
+            console.log('Trying Capacitor...');
             const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+            console.log('✅ Capacitor success:', position.coords.latitude, position.coords.longitude);
             return {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
@@ -37,14 +40,16 @@ class GeoService {
             console.log('📍 Capacitor not available, using browser geolocation...');
 
             if (!navigator.geolocation) {
-                console.error('Geolocation not supported by browser');
+                console.error('❌ Geolocation not supported by browser');
                 toast({ title: 'Location Error', description: 'Location services not supported', type: 'error' });
                 return null;
             }
 
+            console.log('Requesting browser location...');
             return new Promise((resolve) => {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
+                        console.log('✅ Browser geolocation success:', position.coords.latitude, position.coords.longitude);
                         resolve({
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
@@ -52,8 +57,8 @@ class GeoService {
                         });
                     },
                     (error) => {
-                        console.error('Browser Geo Error:', error);
-                        toast({ title: 'Location Error', description: 'Please enable location services', type: 'error' });
+                        console.error('❌ Browser Geo Error:', error.code, error.message);
+                        toast({ title: 'Location Error', description: `Error: ${error.message}`, type: 'error' });
                         resolve(null);
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -108,10 +113,21 @@ class GeoService {
     }
 
     private async logLocation() {
-        if (!this.driverId || !this.companyId) return;
+        console.log('📝 logLocation() called - driverId:', this.driverId, 'companyId:', this.companyId);
+
+        if (!this.driverId || !this.companyId) {
+            console.warn('⚠️ Missing driverId or companyId - skipping location log');
+            return;
+        }
 
         const loc = await this.getCurrentLocation();
-        if (!loc) return;
+
+        if (!loc) {
+            console.error('❌ getCurrentLocation returned null - aborting sync');
+            return;
+        }
+
+        console.log('📍 Got location:', loc);
 
         let isIdle = false;
 
