@@ -105,14 +105,22 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
     }
 }
 
+export interface ReverseGeocodeResult {
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    fullAddress: string;
+}
+
 /**
  * Reverse geocode coordinates to an address
  * 
  * @param lat - Latitude
  * @param lng - Longitude
- * @returns Promise with formatted address, or null if not found
+ * @returns Promise with address components, or null if not found
  */
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult | null> {
     if (!lat || !lng) {
         console.error('❌ [Reverse Geocoding] Invalid coordinates provided');
         return null;
@@ -166,7 +174,21 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
 
         console.log(`✅ [Reverse Geocoding] Found address: ${data.display_name}`);
 
-        return data.display_name;
+        // Extract address components
+        const addressData = data.address || {};
+
+        const address = addressData.road || addressData.street || addressData.pedestrian || '';
+        const city = addressData.city || addressData.town || addressData.village || addressData.hamlet || '';
+        const state = addressData.state || '';
+        const zip = addressData.postcode || '';
+
+        return {
+            address,
+            city,
+            state,
+            zip,
+            fullAddress: data.display_name
+        };
 
     } catch (error: any) {
         if (error.name === 'AbortError') {
