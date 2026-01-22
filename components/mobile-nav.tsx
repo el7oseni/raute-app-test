@@ -47,7 +47,10 @@ export function MobileNav() {
                 if (mounted) {
                     if (userProfile?.role) {
                         setUserRole(userProfile.role)
-                        // Role cached in state only - no localStorage
+                        // 🚀 Cache role in localStorage for instant next load
+                        if (typeof window !== 'undefined') {
+                            localStorage.setItem('raute_user_role', userProfile.role)
+                        }
                         setLoading(false)
                     } else if (retries > 0) {
                         // Retry if profile not found yet (race condition on signup/signin)
@@ -86,7 +89,7 @@ export function MobileNav() {
 
             if (session?.user) {
 
-                // OPTIMIZATION: Check metadata first
+                // OPTIMIZATION 1: Check metadata first
                 if (session.user.user_metadata?.role) {
                     setUserRole(session.user.user_metadata.role)
                     setLoading(false)
@@ -95,7 +98,19 @@ export function MobileNav() {
                     return // ← Skip DB query - we have the role!
                 }
 
-                // Only fetch from DB if metadata doesn't have role
+                // OPTIMIZATION 2: Check localStorage cache
+                const cachedRole = typeof window !== 'undefined' ? localStorage.getItem('raute_user_role') : null
+                if (cachedRole) {
+                    console.log('✅ Using cached role:', cachedRole)
+                    setUserRole(cachedRole)
+                    setLoading(false)
+                    clearTimeout(timeoutId)
+                    // Refresh role from DB in background (non-blocking)
+                    fetchRole(session.user.id)
+                    return
+                }
+
+                // OPTIMIZATION 3: Only fetch from DB if no cached role
                 fetchRole(session.user.id)
             } else {
                 // FALLBACK: Check for custom session (Driver Login)
