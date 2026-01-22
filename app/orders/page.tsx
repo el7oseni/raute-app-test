@@ -164,6 +164,7 @@ export default function OrdersPage() {
             setUserRole(userProfile.role)
             setUserName(userProfile.full_name || 'Driver')
             setCompanyId(userProfile.company_id) // Save to State
+            setUserId(currentUserId) // Save userId for DriverTracker
 
             // Fetch Data based on Role
             if (userProfile.role === 'driver') {
@@ -580,7 +581,7 @@ export default function OrdersPage() {
 
         return (
             <div className="p-4 space-y-6 pb-24 max-w-lg mx-auto bg-background min-h-screen">
-                {driverId && <DriverTracker driverId={driverId} isOnline={isOnline} />}
+                {driverId && userId && <DriverTracker driverId={driverId} isOnline={isOnline} userId={userId} />}
 
                 {/* Driver Header with Toggle */}
                 <div className="flex items-center justify-between mb-2">
