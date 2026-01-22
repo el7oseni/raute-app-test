@@ -23,7 +23,7 @@ class GeoService {
     }
 
 
-    async getCurrentLocation() {
+    async getCurrentLocation(): Promise<{ lat: number; lng: number; accuracy: number } | null> {
         try {
             // Try Capacitor first (mobile)
             const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
