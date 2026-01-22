@@ -269,7 +269,9 @@ export default function DashboardPage() {
         }
 
         const filtered = orders.filter(order => {
-            const orderDate = new Date(order.created_at)
+            // Use updated_at (or delivered_at/created_at as fallback) to show TODAY's activity
+            // This ensures drivers who delivered orders today appear in Live Fleet
+            const orderDate = new Date(order.updated_at || order.delivered_at || order.created_at)
             return isSameDay(orderDate, selectedDate)
         })
 
