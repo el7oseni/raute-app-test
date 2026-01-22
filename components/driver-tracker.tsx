@@ -1,5 +1,6 @@
-import { useEffect } from "react" // Removing useRef
+import { useEffect } from "react"
 import { geoService } from "@/lib/geo-service"
+import { supabase } from "@/lib/supabase"
 
 interface DriverTrackerProps {
     driverId: string
@@ -9,7 +10,7 @@ interface DriverTrackerProps {
 
 export function DriverTracker({ driverId, isOnline, userId }: DriverTrackerProps) {
     useEffect(() => {
-        if (userId) geoService.init(userId)
+        if (userId) geoService.init(userId, supabase) // Pass authenticated client
     }, [userId])
 
     useEffect(() => {

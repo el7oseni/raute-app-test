@@ -1,6 +1,6 @@
 import { Geolocation } from '@capacitor/geolocation';
 import { Device } from '@capacitor/device';
-import { supabase } from './supabase';
+import { supabase as defaultSupabase } from './supabase';
 import { toast } from '@/lib/toast-utils';
 
 const LOCATION_TRACKING_INTERVAL = 300000; // 5 minutes (in milliseconds)
@@ -11,11 +11,16 @@ class GeoService {
     private userId: string | null = null;
     private companyId: string | null = null;
     private driverId: string | null = null;
+    private supabaseClient: any = defaultSupabase; // Use authenticated client when available
 
-    async init(userId: string) {
+    async init(userId: string, authenticatedClient?: any) {
         this.userId = userId;
+        // Store authenticated client for RLS-compliant operations
+        if (authenticatedClient) {
+            this.supabaseClient = authenticatedClient;
+        }
         // Fetch driver & company ID
-        const { data } = await supabase.from('drivers').select('id, company_id').eq('user_id', userId).single();
+        const { data } = await this.supabaseClient.from('drivers').select('id, company_id').eq('user_id', userId).single();
         if (data) {
             this.driverId = data.id;
             this.companyId = data.company_id;
@@ -151,7 +156,7 @@ class GeoService {
         }
 
         // Insert History (Always logs history for playback)
-        await supabase.from('driver_locations').insert({
+        await this.supabaseClient.from('driver_locations').insert({
             driver_id: this.driverId,
             company_id: this.companyId,
             latitude: loc.lat,
@@ -184,7 +189,10 @@ class GeoService {
             updates.idle_since = null;
         }
 
-        await supabase.from('drivers').update(updates).eq('id', this.driverId);
+        const { error } = await this.supabaseClient.from('drivers').update(updates).eq('id', this.driverId);
+        if (error) {
+            console.error('❌ Failed to update driver location:', error);
+        }
 
         console.log(`Location Synced: ${loc.lat}, ${loc.lng}, Idle: ${isIdle}`);
     }
