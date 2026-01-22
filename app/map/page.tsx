@@ -119,8 +119,15 @@ export default function MapPage() {
                 .maybeSingle()
 
             if (!userProfile) {
+                console.log('❌ Map: No user profile found!');
                 return
             }
+
+            console.log('🗺️ Map fetchData:', {
+                userId: currentUserId,
+                role: userProfile.role,
+                companyId: userProfile.company_id
+            });
 
             setUserRole(userProfile.role) // Store user role
 
@@ -140,10 +147,17 @@ export default function MapPage() {
                     .select('*')
                     .eq('company_id', userProfile.company_id)
 
-                const { data: driversData } = await supabase
+                const { data: driversData, error: driversError } = await supabase
                     .from('drivers')
                     .select('*')
                     .eq('company_id', userProfile.company_id)
+
+                console.log('🗺️ Map drivers fetch result:', {
+                    driversCount: driversData?.length || 0,
+                    drivers: driversData,
+                    error: driversError,
+                    companyIdQuery: userProfile.company_id
+                });
 
                 setOrders(ordersData || [])
                 setDrivers(driversData || [])
