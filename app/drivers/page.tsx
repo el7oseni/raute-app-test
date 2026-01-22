@@ -811,17 +811,17 @@ export default function DriversPage() {
 
                                                 try {
                                                     const { reverseGeocode } = await import('@/lib/geocoding')
-                                                    const address = await reverseGeocode(lat, lng)
+                                                    const result = await reverseGeocode(lat, lng)
 
                                                     // Update with real address if found
                                                     setDefaultStartLoc({
-                                                        address: address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                                                        address: result?.fullAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
                                                         lat,
                                                         lng
                                                     })
 
-                                                    if (address) {
-                                                        toast({ title: "Location Pinned", description: address, type: "success" })
+                                                    if (result) {
+                                                        toast({ title: "Location Pinned", description: result.fullAddress, type: "success" })
                                                     }
                                                 } catch (e) {
                                                     // Fallback already set
@@ -1244,8 +1244,8 @@ export default function DriversPage() {
                                                     try {
                                                         const result = await reverseGeocode(lat, lng)
                                                         if (result) {
-                                                            setDefaultStartLoc({ lat, lng, address: result })
-                                                            toast({ title: "Location Updated", description: result, type: "success" })
+                                                            setDefaultStartLoc({ lat, lng, address: result.fullAddress })
+                                                            toast({ title: "Location Updated", description: result.fullAddress, type: "success" })
                                                         } else {
                                                             setDefaultStartLoc({ lat, lng, address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})` })
                                                             toast({ title: "Location Set", description: "Pinned coordinates.", type: "success" })
