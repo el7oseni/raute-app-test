@@ -133,12 +133,21 @@ export default function MapPage() {
 
             // Driver: Only see own stuff
             if (userProfile.role === 'driver') {
-                const { data: driverData } = await supabase.from('drivers').select('id').eq('user_id', currentUserId).maybeSingle()
+                const { data: driverData } = await supabase
+                    .from('drivers')
+                    .select('*')  // Get full driver data including location
+                    .eq('user_id', currentUserId)
+                    .maybeSingle()
+
                 if (driverData) {
                     setSelectedDriverId(driverData.id) // Auto-select self
-                    const { data } = await supabase.from('orders').select('*').eq('driver_id', driverData.id)
+                    setDrivers([driverData]) // Show own location on map
+
+                    const { data } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .eq('driver_id', driverData.id)
                     setOrders(data || [])
-                    setDrivers([]) // Drivers don't need to see other drivers
                 }
             } else {
                 // Manager: See all
