@@ -17,7 +17,9 @@ import {
     Lock,
     Clock,
     ShieldCheck,
-    ShieldAlert
+    ShieldAlert,
+    Loader2,
+    MoreHorizontal
 } from "lucide-react"
 import {
     Sheet,
@@ -72,6 +74,16 @@ export default function DriversPage() {
     const [selectedHubId, setSelectedHubId] = useState<string>("")
     const [customFields, setCustomFields] = useState<any[]>([])
 
+    // Add Driver Form Controlled State (Fix for reset bug)
+    const [driverForm, setDriverForm] = useState({
+        name: '',
+        email: '',
+        password: '',
+        vehicleType: ''
+    })
+    const [isCreatingDriver, setIsCreatingDriver] = useState(false)
+    const [isGeocoding, setIsGeocoding] = useState(false)
+
     const { theme } = useTheme()
     const { toast } = useToast()
 
@@ -108,6 +120,17 @@ export default function DriversPage() {
             setEditPhoneValue(editingDriver.phone || '')
         }
     }, [editingDriver])
+
+    // Reset form when dialog closes
+    useEffect(() => {
+        if (!isAddDriverOpen) {
+            setDriverForm({ name: '', email: '', password: '', vehicleType: '' })
+            setPhoneValue(undefined)
+            setDefaultStartLoc(null)
+            setSelectedHubId('')
+            setLocationMode('hub')
+        }
+    }, [isAddDriverOpen])
 
     function filterDrivers() {
         let filtered = [...drivers]
@@ -235,7 +258,47 @@ export default function DriversPage() {
         if (data) setHubs(data)
     }
 
+    async function handleFindAddress() {
+        const addressInput = (document.querySelector('input[name="default_start_address"]') as HTMLInputElement)?.value
+
+        if (!addressInput || addressInput.trim().length === 0) {
+            toast({ title: 'Please enter an address', type: 'error' })
+            return
+        }
+
+        setIsGeocoding(true)
+        try {
+            const { geocodeAddress } = await import('@/lib/geocoding')
+            const result = await geocodeAddress(addressInput)
+
+            if (result) {
+                setDefaultStartLoc({
+                    lat: result.lat,
+                    lng: result.lng,
+                    address: result.displayAddress
+                })
+                toast({ title: '✅ Address found!', description: `Located at (${result.lat.toFixed(4)}, ${result.lng.toFixed(4)})`, type: 'success' })
+            } else {
+                toast({ title: 'Address not found', description: 'Please try another address or use the map picker', type: 'error' })
+            }
+        } catch (error: any) {
+            console.error('Geocoding error:', error)
+            toast({ title: 'Geocoding failed', description: error.message || 'An error occurred', type: 'error' })
+        } finally {
+            setIsGeocoding(false)
+        }
+    }
+
+    async function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
+        await handleCreateDriver(formData)
+    }
+
     async function handleCreateDriver(formData: FormData) {
+        console.log('🚀 handleCreateDriver called')
+        setIsCreatingDriver(true)
+
         try {
             const name = formData.get('name') as string
             const email = formData.get('email') as string
@@ -243,8 +306,11 @@ export default function DriversPage() {
             const phone = phoneValue
             const vehicleType = formData.get('vehicle_type') as string
 
+            console.log('📝 Form data:', { name, email, phone, vehicleType })
+
             // 🛑 ENFORCE DRIVER LIMIT
             if (drivers.length >= maxDrivers) {
+                console.log('⚠️ Driver limit reached:', drivers.length, '/', maxDrivers)
                 setIsAddDriverOpen(false)
                 setShowUpgradeModal(true)
                 return
@@ -259,7 +325,11 @@ export default function DriversPage() {
 
             // Pure Session Auth (Post-Purge)
             const userId = (await supabase.auth.getSession()).data.session?.user?.id
-            if (!userId) return
+            if (!userId) {
+                console.error('❌ No user session found')
+                toast({ title: 'Authentication required', description: 'Please log in again', type: 'error' })
+                return
+            }
 
             const { data: userProfile } = await supabase
                 .from('users')
@@ -267,13 +337,19 @@ export default function DriversPage() {
                 .eq('id', userId)
                 .maybeSingle()
 
-            if (!userProfile) return
+            if (!userProfile) {
+                console.error('❌ User profile not found')
+                toast({ title: 'Profile error', description: 'Could not load user profile', type: 'error' })
+                return
+            }
 
             const defaultStartAddress = formData.get('default_start_address') as string
             const defaultStartLat = formData.get('default_start_lat') ? parseFloat(formData.get('default_start_lat') as string) : null
             const defaultStartLng = formData.get('default_start_lng') ? parseFloat(formData.get('default_start_lng') as string) : null
 
-            // RPC Call
+            console.log('📍 Location data:', { defaultStartAddress, defaultStartLat, defaultStartLng })
+            console.log('🔄 Calling RPC create_driver_account...')
+
             // RPC Call (Now enhanced to create Auth User directly)
             const { data: result, error } = await supabase.rpc('create_driver_account', {
                 email,
@@ -288,20 +364,31 @@ export default function DriversPage() {
                 default_start_lng: defaultStartLng
             })
 
+            console.log('📦 RPC Response:', { result, error })
+
             if (error || (result && result.success === false)) {
+                console.error('❌ Driver creation failed:', error?.message || result?.error)
                 toast({ title: "Failed", description: error?.message || result?.error || 'Unknown error', type: "error" })
                 return
             }
 
+            console.log('✅ Driver created successfully!')
             toast({ title: '✅ Driver created!', description: `Password: ${password}`, type: 'success' })
+
+            // Reset form state
             setIsAddDriverOpen(false)
+            setDriverForm({ name: '', email: '', password: '', vehicleType: '' })
             setPhoneValue(undefined)
             setDefaultStartLoc(null)
             setSelectedHubId("")
             setLocationMode('hub')
+
             fetchDrivers()
         } catch (error: any) {
+            console.error('💥 Exception in handleCreateDriver:', error)
             toast({ title: 'Error adding driver', description: error.message, type: 'error' })
+        } finally {
+            setIsCreatingDriver(false)
         }
     }
 
@@ -561,18 +648,35 @@ export default function DriversPage() {
                         <SheetHeader className="mb-6">
                             <SheetTitle className="text-2xl font-bold text-primary">Add New Driver</SheetTitle>
                         </SheetHeader>
-                        <form action={handleCreateDriver} className="space-y-5 pb-20">
+                        <form onSubmit={handleFormSubmit} className="space-y-5 pb-20">
                             <div className="space-y-2">
                                 <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input id="name" name="name" placeholder="John Doe" required className="pl-9 h-11 bg-muted/30 border-input/50 focus:bg-background transition-all" />
+                                    <Input
+                                        id="name"
+                                        name="name"
+                                        value={driverForm.name}
+                                        onChange={(e) => setDriverForm(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="John Doe"
+                                        required
+                                        className="pl-9 h-11 bg-muted/30 border-input/50 focus:bg-background transition-all"
+                                    />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="email">Email Address <span className="text-red-500">*</span></Label>
-                                <Input id="email" name="email" type="email" placeholder="john@example.com" required className="h-11 bg-muted/30 border-input/50 focus:bg-background transition-all" />
+                                <Input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    value={driverForm.email}
+                                    onChange={(e) => setDriverForm(prev => ({ ...prev, email: e.target.value }))}
+                                    placeholder="john@example.com"
+                                    required
+                                    className="h-11 bg-muted/30 border-input/50 focus:bg-background transition-all"
+                                />
                             </div>
 
                             <div className="space-y-2">
@@ -589,14 +693,30 @@ export default function DriversPage() {
 
                             <div className="space-y-2">
                                 <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
-                                <PasswordInput id="password" name="password" placeholder="Create a password" required minLength={6} className="h-11 bg-muted/30 border-input/50 focus-within:bg-background transition-all" />
+                                <PasswordInput
+                                    id="password"
+                                    name="password"
+                                    value={driverForm.password}
+                                    onChange={(e) => setDriverForm(prev => ({ ...prev, password: e.target.value }))}
+                                    placeholder="Create a password"
+                                    required
+                                    minLength={6}
+                                    className="h-11 bg-muted/30 border-input/50 focus-within:bg-background transition-all"
+                                />
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="vehicle_type">Vehicle Type</Label>
                                 <div className="relative">
                                     <Truck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input id="vehicle_type" name="vehicle_type" placeholder="e.g. Van, Box Truck" className="pl-9 h-11 bg-muted/30 border-input/50 focus:bg-background transition-all" />
+                                    <Input
+                                        id="vehicle_type"
+                                        name="vehicle_type"
+                                        value={driverForm.vehicleType}
+                                        onChange={(e) => setDriverForm(prev => ({ ...prev, vehicleType: e.target.value }))}
+                                        placeholder="e.g. Van, Box Truck"
+                                        className="pl-9 h-11 bg-muted/30 border-input/50 focus:bg-background transition-all"
+                                    />
                                 </div>
                             </div>
 
@@ -648,17 +768,68 @@ export default function DriversPage() {
 
                                 ) : (
                                     <div className="space-y-2">
-                                        <Input
-                                            name="default_start_address"
-                                            value={defaultStartLoc?.address || ''}
-                                            placeholder="Enter address manually or pin on map"
-                                            className="h-11 bg-muted/30 border-input/50 focus:bg-background transition-all"
-                                            onChange={(e) => setDefaultStartLoc(prev => ({ ...prev, address: e.target.value, lat: prev?.lat || 0, lng: prev?.lng || 0 }))}
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                name="default_start_address"
+                                                value={defaultStartLoc?.address || ''}
+                                                placeholder="Enter address (e.g., 123 Main St, Los Angeles, CA)"
+                                                className="h-11 bg-muted/30 border-input/50 focus:bg-background transition-all flex-1"
+                                                onChange={(e) => setDefaultStartLoc(prev => ({ ...prev, address: e.target.value, lat: prev?.lat || 0, lng: prev?.lng || 0 }))}
+                                            />
+                                            <Button
+                                                type="button"
+                                                onClick={handleFindAddress}
+                                                disabled={isGeocoding || !defaultStartLoc?.address}
+                                                variant="outline"
+                                                className="h-11 px-4 gap-2"
+                                            >
+                                                {isGeocoding ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Finding...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Search className="h-4 w-4" />
+                                                        Find
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                        {defaultStartLoc?.lat && defaultStartLoc?.lng && (
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <MapPin className="h-3 w-3" />
+                                                Coordinates: {defaultStartLoc.lat.toFixed(4)}, {defaultStartLoc.lng.toFixed(4)}
+                                            </p>
+                                        )}
                                         <LocationPicker
                                             initialPosition={defaultStartLoc?.lat ? { lat: defaultStartLoc.lat, lng: defaultStartLoc.lng } : null}
-                                            onLocationSelect={(lat, lng) => {
+                                            onLocationSelect={async (lat, lng) => {
+                                                // Temporarily set coords while we fetch address
                                                 setDefaultStartLoc({ address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, lat, lng })
+                                                setIsGeocoding(true)
+
+                                                try {
+                                                    const { reverseGeocode } = await import('@/lib/geocoding')
+                                                    const address = await reverseGeocode(lat, lng)
+
+                                                    // Update with real address if found
+                                                    setDefaultStartLoc({
+                                                        address: address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                                                        lat,
+                                                        lng
+                                                    })
+
+                                                    if (address) {
+                                                        toast({ title: "Location Pinned", description: address, type: "success" })
+                                                    }
+                                                } catch (e) {
+                                                    // Fallback already set
+                                                    console.error("Reverse geocoding failed", e)
+                                                } finally {
+                                                    setIsGeocoding(false)
+                                                    // setLocationMode('hub') - Removed to keep address input visible
+                                                }
                                             }}
                                         />
                                     </div>
@@ -705,8 +876,8 @@ export default function DriversPage() {
                             )}
 
                             <div className="pt-4">
-                                <Button type="submit" className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20" disabled={isLoading}>
-                                    {isLoading ? 'Creating...' : 'Create Driver Account'}
+                                <Button type="submit" className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20" disabled={isCreatingDriver}>
+                                    {isCreatingDriver ? 'Creating...' : 'Create Driver Account'}
                                 </Button>
                             </div>
                         </form>
@@ -1072,9 +1243,9 @@ export default function DriversPage() {
                                                     // 2. Reverse Geocode for real address
                                                     try {
                                                         const result = await reverseGeocode(lat, lng)
-                                                        if (result && result.address) {
-                                                            setDefaultStartLoc({ lat, lng, address: result.address })
-                                                            toast({ title: "Location Updated", description: result.address, type: "success" })
+                                                        if (result) {
+                                                            setDefaultStartLoc({ lat, lng, address: result })
+                                                            toast({ title: "Location Updated", description: result, type: "success" })
                                                         } else {
                                                             setDefaultStartLoc({ lat, lng, address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})` })
                                                             toast({ title: "Location Set", description: "Pinned coordinates.", type: "success" })

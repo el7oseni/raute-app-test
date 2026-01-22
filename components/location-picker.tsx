@@ -53,15 +53,23 @@ export default function LocationPicker({
     const [isOpen, setIsOpen] = useState(alwaysOpen)
 
     // Sync state if prop changes (e.g. form reset or address search)
+    // Sync state if prop changes (e.g. form reset or address search)
     useEffect(() => {
         if (initialPosition) {
+            // Check if position is effectively the same to prevent auto-reopening after external update (e.g. from handleConfirm)
+            const latDiff = position ? Math.abs(position[0] - initialPosition.lat) : 1
+            const lngDiff = position ? Math.abs(position[1] - initialPosition.lng) : 1
+            const isSame = latDiff < 0.000001 && lngDiff < 0.000001
+
             setPosition([initialPosition.lat, initialPosition.lng])
-            // If we receive a new position externally, force open if not always open
-            if (!alwaysOpen) setIsOpen(true)
+
+            // If we receive a new position externally, force open ONLY if it's different and not always open
+            if (!alwaysOpen && !isSame) setIsOpen(true)
         } else {
             // Keep existing position if null passed? Or reset? 
             // Usually if initialPosition becomes null, we might want to reset, but let's be careful.
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialPosition, alwaysOpen])
 
     const handleConfirm = () => {
