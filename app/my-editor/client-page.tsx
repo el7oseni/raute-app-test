@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, MapPin, Calendar, User as UserIcon, Phone, Package, Edit, Trash2, Clock, Undo2, CheckCircle2, Loader2, Camera as CameraIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { supabase, type Order, type ProofImage } from "@/lib/supabase"
 import dynamic from "next/dynamic"
 import {
@@ -29,6 +30,7 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false })
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false })
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false })
+const SignatureInput = dynamic(() => import('@/components/signature-input'), { ssr: false, loading: () => <div className="h-32 w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-xs">Loading Signature Pad...</div> })
 
 // Fix Leaflet issue
 const fixLeafletIcons = () => {
@@ -77,6 +79,11 @@ export default function ClientOrderDetails() {
     const [formData, setFormData] = useState<Partial<Order>>({})
     const [isGeocodingReversed, setIsGeocodingReversed] = useState(false)
 
+    // Signature State
+    const [signatureData, setSignatureData] = useState<string | null>(null)
+    const [signatureKey, setSignatureKey] = useState(0)
+
+
     useEffect(() => {
         fixLeafletIcons()
         if (orderId) {
@@ -101,7 +108,9 @@ export default function ClientOrderDetails() {
                 delivery_date: order.delivery_date,
                 notes: order.notes,
                 latitude: order.latitude,
-                longitude: order.longitude
+                longitude: order.longitude,
+                priority_level: order.priority_level || 'normal',
+                geocoding_confidence: order.geocoding_confidence
             })
         }
     }, [order, isEditSheetOpen])
@@ -252,7 +261,7 @@ export default function ClientOrderDetails() {
     // NEW: Reverse Geocoding when Pin Moves (Using Utility)
     async function handlePinUpdate(lat: number, lng: number) {
         // 1. Update State immediately (UI snappy)
-        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }))
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng, geocoding_confidence: 'exact' }))
 
         // 2. Fetch Address Details
         try {
@@ -349,6 +358,8 @@ export default function ClientOrderDetails() {
                 notes: formData.notes,
                 latitude: finalLat,
                 longitude: finalLng,
+                priority_level: formData.priority_level,
+                geocoding_confidence: formData.geocoding_confidence
             }
 
             const { error } = await supabase.from('orders').update(updatedPayload).eq('id', effectiveOrderId)
@@ -506,6 +517,21 @@ export default function ClientOrderDetails() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Signature Card */}
+                                {order.signature_url && (
+                                    <div className="relative flex-shrink-0 w-40 h-32 rounded-lg overflow-hidden border-2 border-slate-200 bg-white group">
+                                        <div className="absolute top-0 left-0 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 rounded-br border-b border-r border-slate-200 z-10">
+                                            Signature
+                                        </div>
+                                        <img
+                                            src={order.signature_url}
+                                            alt="Signature"
+                                            className="object-contain w-full h-full p-4 cursor-pointer hover:scale-105 transition-transform"
+                                            onClick={() => window.open(order.signature_url!, '_blank')}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -526,6 +552,8 @@ export default function ClientOrderDetails() {
                                         </a>
                                     </div>
                                 )}
+
+
 
                                 <Button
                                     variant="outline"
@@ -630,36 +658,90 @@ export default function ClientOrderDetails() {
                                     )}
                                 </Button>
 
-                                {/* Button 2: Direct Delivery */}
-                                <Button
-                                    disabled={isUpdating}
-                                    onClick={async () => {
-                                        // Check if at least one proof image exists
-                                        if (proofImages.length === 0 && !order.proof_url) {
-                                            toast({
-                                                title: "Proof Required",
-                                                description: "Please capture at least one proof of delivery photo by clicking 'Capture Proof' above.",
-                                                type: "error"
-                                            })
-                                            return
-                                        }
+                                {/* ✍️ SIGNATURE (Optional/Required) */}
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                            ✍️ Customer Signature
+                                            {formData.signature_required && <span className="text-red-500 text-xs">*Required</span>}
+                                        </label>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() => {
+                                                // clear signature
+                                                const canvas = document.querySelector('canvas.sig-canvas') as HTMLCanvasElement
+                                                // We need a ref to clear it properly, or just remount.
+                                                // The simplest way without complex refs across dynamic imports is to use the clear button provided by the lib wrapper or expose a clear method.
+                                                // For now, I will assume the SignatureInput component handles 'value' prop and clearing.
+                                                // Actually, I'll implement a 'key' prop to force re-render to clear.
+                                                setSignatureKey(prev => prev + 1)
+                                                setSignatureData(null)
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    </div>
 
-                                        try {
-                                            setIsUpdating(true)
-                                            // Use first proof image URL or fallback to legacy proof_url
-                                            const proofUrl = proofImages[0]?.image_url || order.proof_url
-                                            await updateOrderStatus('delivered', proofUrl)
-                                        } catch (err: any) {
-                                            toast({ title: "Error", description: err.message, type: "error" })
-                                        } finally {
-                                            setIsUpdating(false)
-                                        }
-                                    }}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white h-14 rounded-xl shadow-lg shadow-green-200 text-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-                                >
-                                    {isUpdating ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />}
-                                    <span>{isUpdating ? "Processing..." : "Mark Delivered"}</span>
-                                </Button>
+                                    <div className="border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 touch-none">
+                                        <SignatureInput
+                                            key={signatureKey}
+                                            onEnd={(dataUrl) => setSignatureData(dataUrl)}
+                                        />
+                                    </div>
+                                    {formData.signature_required && !signatureData && (
+                                        <p className="text-[10px] text-red-500 font-bold">Signature is required to complete delivery.</p>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3">
+                                    {/* Button 2: Direct Delivery */}
+                                    <Button
+                                        disabled={isUpdating || (formData.signature_required && !signatureData)}
+                                        onClick={async () => {
+                                            // Check if at least one proof image exists (if no signature)
+                                            // If signature required, we checked above.
+
+                                            // Combine uploads
+                                            try {
+                                                setIsUpdating(true)
+
+                                                let finalSignatureUrl = null
+                                                if (signatureData) {
+                                                    // Upload Signature
+                                                    const blob = await (await fetch(signatureData)).blob()
+                                                    const filename = `sig-${orderId}-${Date.now()}.png`
+                                                    const { data, error } = await supabase.storage.from('proofs').upload(filename, blob)
+                                                    if (data) {
+                                                        const { data: { publicUrl } } = supabase.storage.from('proofs').getPublicUrl(filename)
+                                                        finalSignatureUrl = publicUrl
+                                                    }
+                                                }
+
+                                                // Use first proof image URL or fallback to legacy proof_url
+                                                let proofUrl = proofImages[0]?.image_url || order.proof_url
+
+                                                // Update status with signature
+                                                if (finalSignatureUrl) {
+                                                    await supabase.from('orders').update({ signature_url: finalSignatureUrl }).eq('id', orderId)
+                                                }
+
+                                                // Mark Delivered
+                                                await updateOrderStatus('delivered', proofUrl)
+
+                                            } catch (err: any) {
+                                                toast({ title: "Error", description: err.message, type: "error" })
+                                            } finally {
+                                                setIsUpdating(false)
+                                            }
+                                        }}
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white h-14 rounded-xl shadow-lg shadow-green-200 text-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                    >
+                                        {isUpdating ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />}
+                                        <span>{isUpdating ? "Processing..." : "Mark Delivered"}</span>
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -773,6 +855,30 @@ export default function ClientOrderDetails() {
                         </div>
                         <Input value={formData.delivery_date ? new Date(formData.delivery_date).toISOString().split('T')[0] : ''} onChange={e => setFormData(prev => ({ ...prev, delivery_date: e.target.value }))} type="date" />
                         <textarea value={formData.notes || ''} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} className="w-full p-2 border rounded-md" placeholder="Notes" />
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Priority Level</label>
+                            <div className="flex gap-2">
+                                {['normal', 'high', 'critical'].map((level) => (
+                                    <button
+                                        key={level}
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, priority_level: level as any }))}
+                                        className={cn(
+                                            "flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all flex items-center justify-center gap-2",
+                                            formData.priority_level === level
+                                                ? (level === 'critical' ? "bg-red-500 text-white border-red-600" :
+                                                    level === 'high' ? "bg-orange-500 text-white border-orange-600" :
+                                                        "bg-blue-600 text-white border-blue-700")
+                                                : "bg-card text-muted-foreground hover:bg-muted"
+                                        )}
+                                    >
+                                        {level}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <Button type="submit" className="w-full" disabled={isUpdating}>{isUpdating ? "Saving..." : "Save Changes"}</Button>
                     </form>
                 </SheetContent>

@@ -16,6 +16,9 @@ export interface ParsedOrder {
   order_number: string;
   delivery_date: string;
   notes: string;
+  priority_level?: 'normal' | 'high' | 'critical';
+  time_window_start?: string;
+  time_window_end?: string;
 }
 
 // Convert File to Base64 or Text helper
@@ -69,7 +72,7 @@ It is common for some details (like Customer Name, Phone, or Notes) to be missin
 - Treat each address found as a separate order.
 
 Extract the orders and return them as a JSON OBJECT with a key "orders" containing an ARRAY of objects.
-Example: { "orders": [ { "customer_name": "John", "address": "123 Main St" }, { "customer_name": "", "address": "456 Side Ave" } ] }
+Example: { "orders": [ { "customer_name": "John", "address": "123 Main St", "priority_level": "normal", "time_window_start": "09:00", "time_window_end": "12:00" } ] }
 
 Fields to extract for each order:
 - customer_name (string): Name of the recipient. If missing, use "".
@@ -81,6 +84,17 @@ Fields to extract for each order:
 - order_number (string)
 - delivery_date (string): YYYY-MM-DD.
 - notes (string)
+- priority_level (string): 'normal', 'high', or 'critical'. Infer from keywords:
+    - 'Critical', 'Emergency', 'Life Threatening' -> 'critical'
+    - 'High', 'Urgent', 'ASAP', 'Rush' -> 'high'
+    - Otherwise 'normal'.
+- time_window_start (string): HH:MM (24h format). Start of delivery window. Empty if none.
+- time_window_end (string): HH:MM (24h format). End of delivery window. Empty if none.
+    - Examples:
+    - "Deliver by 5pm" -> start: "", end: "17:00"
+    - "Window 9am - 1pm" -> start: "09:00", end: "13:00"
+    - "After 14:00" -> start: "14:00", end: ""
+    - "At 10:30" -> start: "10:15", end: "10:45" (approx window)
 
 If a field is missing, use "".
 RETURN ONLY THE RAW JSON.

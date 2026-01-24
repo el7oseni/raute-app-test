@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Package, Truck, CheckCircle2, Clock, MapPin, ArrowRight, AlertCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, Timer, HelpCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { format, isSameDay, subDays, startOfDay, endOfDay } from "date-fns"
+import { format, isSameDay, subDays, startOfDay, endOfDay, eachDayOfInterval, differenceInDays, startOfMonth, endOfMonth } from "date-fns"
+import { DateRange } from "react-day-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
@@ -23,7 +24,7 @@ import { Power } from 'lucide-react'
 export function DriverDashboardView({ userId }: { userId: string }) {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(true)
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date()) // Default Today
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() })
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
@@ -83,7 +84,7 @@ export function DriverDashboardView({ userId }: { userId: string }) {
         }
         fetchDriverStats()
         return () => console.log("❌ DriverDashboardView UNMOUNTED")
-    }, [userId, selectedDate])
+    }, [userId, dateRange])
 
     async function fetchDriverStats() {
         setIsLoading(true)
@@ -110,50 +111,47 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 setIsOnline(driverData.is_online || false)
             }
 
-            const dateStr = format(selectedDate, 'yyyy-MM-dd')
-            const isToday = isSameDay(selectedDate, new Date())
+            const startStr = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+            const endStr = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : startStr
+            const isToday = dateRange?.from && isSameDay(dateRange.from, new Date()) && (!dateRange.to || isSameDay(dateRange.to, new Date()))
+            const isSingleDay = startStr === endStr
 
-            // 1. FETCH MAIN ORDERS LIST (For Selected Day)
+            // 1. FETCH ORDERS (Range)
             let query = supabase
                 .from('orders')
                 .select('*')
                 .eq('driver_id', driverData.id)
                 .order('priority', { ascending: false })
 
-            if (!isToday) {
-                // Historical view: show only orders for that specific date
-                query = query.eq('delivery_date', dateStr)
+            // Apply Date Range Filter
+            if (isSingleDay && isToday) {
+                // TODAY: Fetch unlimited (or filtered by status) to allow finding overdue tasks
+                // We don't apply a strict date filter here, we filter in memory below
+            } else {
+                // HISTORY or RANGE: Strict Date Filter
+                // Use gte/lte even for single day to ensure consistent behavior with charts
+                query = query.gte('delivery_date', startStr).lte('delivery_date', endStr)
             }
 
             const { data: orders } = await query
 
             if (orders) {
                 let relevantOrders = orders
-                if (isToday) {
-                    // TODAY VIEW: Show today's orders + overdue from past days
+                if (isToday && isSingleDay) {
+                    // TODAY VIEW logic
                     relevantOrders = orders.filter(o => {
                         const orderDate = o.delivery_date
-
-                        // Include if scheduled for today
-                        if (orderDate === dateStr) return true
-
-                        // Include if OVERDUE (past date + not delivered yet)
-                        if (orderDate < dateStr && o.status !== 'delivered' && o.status !== 'cancelled') {
-                            return true
-                        }
-
-                        // Exclude delivered/cancelled orders from past days
+                        if (orderDate === startStr) return true
+                        if (orderDate < startStr && o.status !== 'delivered' && o.status !== 'cancelled') return true
                         return false
                     })
                 }
                 setOrdersList(relevantOrders)
 
-                // Calculate Daily Stats
-                const dailyTotal = relevantOrders.length
                 const dailyDelivered = relevantOrders.filter(o => o.status === 'delivered').length
 
                 setStats({
-                    total: dailyTotal,
+                    total: relevantOrders.length,
                     pending: relevantOrders.filter(o => o.status === 'assigned' || o.status === 'pending').length,
                     in_progress: relevantOrders.filter(o => o.status === 'in_progress').length,
                     delivered: dailyDelivered,
@@ -161,44 +159,65 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                 })
             }
 
-            // 2. FETCH WEEKLY HISTORY (For Chart & On-Time Rate)
-            // Get 7 days BEFORE selected date (so chart shows context leading up to selected day)
-            const startOfWeek = format(subDays(selectedDate, 6), 'yyyy-MM-dd')
-            const endOfWeek = format(selectedDate, 'yyyy-MM-dd')
-
+            // 2. CHART DATA (For Range)
             const { data: historyOrders } = await supabase
                 .from('orders')
                 .select('status, delivery_date, delivered_at')
                 .eq('driver_id', driverData.id)
-                .gte('delivery_date', startOfWeek)
-                .lte('delivery_date', endOfWeek)
+                .gte('delivery_date', startStr)
+                .lte('delivery_date', endStr)
 
             if (historyOrders) {
-                // A. Compute Chart Data
                 const chartMap: Record<string, { date: string, completed: number, failed: number }> = {}
 
-                // Initialize 7 days before selected date
-                for (let i = 6; i >= 0; i--) {
-                    const d = format(subDays(selectedDate, i), 'yyyy-MM-dd')
-                    const dayLabel = format(subDays(selectedDate, i), 'EEE') // Mon, Tue...
-                    chartMap[d] = { date: dayLabel, completed: 0, failed: 0 }
+                // If range > 0 days, iterate days. If single day, maybe show previous 6 days context?
+                // User asked for "Total ... select date range". If they select a range, chart should show that range.
+                // If they select today (single), showing weekly context (previous behavior) is nice.
+
+                let chartStart = startStr
+                let chartEnd = endStr
+
+                if (isSingleDay) {
+                    // Keep looking back 7 days for context if single day
+                    chartStart = format(subDays(new Date(startStr), 6), 'yyyy-MM-dd')
+                }
+
+                const days = eachDayOfInterval({ start: new Date(chartStart), end: new Date(chartEnd) })
+
+                days.forEach(d => {
+                    const dStr = format(d, 'yyyy-MM-dd')
+                    chartMap[dStr] = { date: format(d, 'EEE dd'), completed: 0, failed: 0 }
+                })
+
+                // Reuse the previously fetched history logic but adapted
+                // If we are in single day mode, we need to fetch history specifically for chart because `orders` above might be just for that day
+                // The query above (historyOrders) uses current range. 
+                // IF isSingleDay, we need to fetch the 7-day lookback explicitly.
+
+                let chartOrders = historyOrders
+
+                if (isSingleDay) {
+                    const { data: lookback } = await supabase
+                        .from('orders')
+                        .select('status, delivery_date, delivered_at')
+                        .eq('driver_id', driverData.id)
+                        .gte('delivery_date', chartStart)
+                        .lte('delivery_date', chartEnd)
+                    chartOrders = lookback || []
                 }
 
                 let onTimeCount = 0
                 let totalDeliveredHistory = 0
 
-                historyOrders.forEach(o => {
+                chartOrders.forEach(o => {
                     const d = o.delivery_date
                     if (chartMap[d]) {
                         if (o.status === 'delivered') {
                             chartMap[d].completed++
                             totalDeliveredHistory++
-                            // On-Time Check: Did they deliver on the scheduled date?
-                            // Only count as on-time if delivered_at exists AND matches delivery_date
                             if (o.delivered_at && o.delivered_at.startsWith(d)) {
                                 onTimeCount++
                             }
-                            // NOTE: If delivered_at missing, we DON'T count it as on-time
                         } else if (o.status === 'cancelled') {
                             chartMap[d].failed++
                         }
@@ -207,9 +226,6 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
                 setWeeklyData(Object.values(chartMap))
 
-                // B. Compute On-Time Rate
-                // Rate = (OnTime / TotalDelivered) * 100
-                // If no deliveries, show 0% (not 100%)
                 if (totalDeliveredHistory > 0) {
                     setOnTimeRate(Math.round((onTimeCount / totalDeliveredHistory) * 100))
                 } else {
@@ -258,35 +274,90 @@ export function DriverDashboardView({ userId }: { userId: string }) {
     if (isLoading) return <DriverDashboardSkeleton />
 
     const completionPercentage = stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0
-    const isToday = isSameDay(selectedDate, new Date())
+    const isToday = dateRange?.from && isSameDay(dateRange.from, new Date()) && (!dateRange.to || isSameDay(dateRange.to, new Date()))
+    const isRange = dateRange?.from && dateRange.to && !isSameDay(dateRange.from, dateRange.to)
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 p-4 space-y-6">
             {/* Header with Date Picker */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                        {isToday ? "My Route Today" : "History Report"} {isToday && "🚛"}
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        {isToday ? "My Route Today" : isRange ? "Period Reports" : "History Log"} {isToday && "🚛"}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        {isToday ? "Let's get moving!" : format(selectedDate, 'EEEE, MMM d, yyyy')}
+                        {isRange
+                            ? `${dateRange?.from ? format(dateRange.from, 'MMM d') : ''} - ${dateRange?.to ? format(dateRange.to, 'MMM d, yyyy') : ''}`
+                            : isToday ? "Let's get moving!" : dateRange?.from ? format(dateRange.from, 'EEEE, MMM d, yyyy') : ''}
                     </p>
                 </div>
 
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full text-slate-500">
-                            <CalendarIcon size={20} />
+                        <Button
+                            variant="outline"
+                            className={cn(
+                                "w-[240px] justify-start text-left font-normal",
+                                !dateRange && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (
+                                dateRange.to ? (
+                                    <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                    </>
+                                ) : (
+                                    format(dateRange.from, "LLL dd, y")
+                                )
+                            ) : (
+                                <span>Pick a date</span>
+                            )}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
+                        <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+                            <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase tracking-wider">Quick Select</h4>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-8 flex-1 bg-slate-50"
+                                    onClick={() => setDateRange({ from: new Date(), to: new Date() })}
+                                >
+                                    Today
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-8 flex-1 bg-slate-50"
+                                    onClick={() => setDateRange({ from: subDays(new Date(), 6), to: new Date() })}
+                                >
+                                    Last 7 Days
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-8 flex-1 bg-slate-50"
+                                    onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}
+                                >
+                                    This Month
+                                </Button>
+                            </div>
+                        </div>
                         <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(date) => date && setSelectedDate(date)}
+                            mode="range"
+                            selected={dateRange}
+                            onSelect={setDateRange}
                             disabled={(date) => date > new Date() || date < new Date("2024-01-01")}
                             initialFocus
                         />
+                        <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-center">
+                            <p className="text-[10px] text-slate-500">
+                                💡 Tip: Click start date, then click end date to select a range.
+                            </p>
+                        </div>
                     </PopoverContent>
                 </Popover>
 
@@ -465,7 +536,8 @@ export function DriverDashboardView({ userId }: { userId: string }) {
                             return (
                                 <div
                                     key={order.id}
-                                    className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm flex items-center justify-between ${isOverdue
+                                    onClick={() => router.push(`/my-editor?id=${order.id}`)}
+                                    className={`bg-white dark:bg-slate-900 p-3 rounded-xl border shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-all active:scale-[0.99] ${isOverdue
                                         ? 'border-orange-300 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20'
                                         : 'border-slate-100 dark:border-slate-800'
                                         }`}

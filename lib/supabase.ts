@@ -60,6 +60,10 @@ export type Driver = {
     default_start_address?: string | null
     default_start_lat?: number | null
     default_start_lng?: number | null
+    starting_point_lat?: number | null
+    starting_point_lng?: number | null
+    starting_point_address?: string | null
+    use_manual_start?: boolean
     current_lat?: number | null
     current_lng?: number | null
     last_location_update?: string | null
@@ -98,19 +102,28 @@ export type Order = {
     delivery_date: string | null
     status: 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'cancelled'
     priority: number
+    priority_level?: 'normal' | 'high' | 'critical'
+    is_pinned?: boolean
     notes: string | null
     latitude: number | null
     longitude: number | null
     custom_fields: Record<string, any> // Dynamic custom field values
     driver_visible_overrides: string[] // Field IDs to show to driver for this order
-    route_index?: number | null // For route sequencing (1, 2, 3...)
-    locked_to_driver?: boolean // If true, AI won't unassign
+    route_index?: number | null
+    pin_reason?: string
+    assigned_at?: string // For route sequencing (1, 2, 3...)
+    // locked_to_driver removed in favor of is_pinned
     time_window_start?: string | null // HH:MM:SS
     time_window_end?: string | null // HH:MM:SS
     delivered_at: string | null
+    geocoding_confidence?: 'exact' | 'approximate' | 'low' | 'failed'
+    geocoded_address?: string
+    geocoding_attempted_at?: string
     created_at: string
     updated_at: string
     proof_url?: string | null
+    signature_url?: string | null
+    signature_required?: boolean
 }
 
 export type ProofImage = {

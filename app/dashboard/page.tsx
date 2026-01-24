@@ -10,7 +10,8 @@ import { useRouter } from 'next/navigation'
 import { SetupGuide } from '@/components/setup-guide'
 import Link from 'next/link'
 import { DriverDashboardView } from '@/components/dashboard/driver-dashboard-view'
-import { format, isSameDay } from 'date-fns'
+import { format, isSameDay, startOfMonth, endOfMonth, subDays, startOfDay, endOfDay } from 'date-fns'
+import { DateRange } from "react-day-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ManagerActivityFeed } from '@/components/manager-activity-feed'
@@ -25,7 +26,7 @@ export default function DashboardPage() {
     const [filteredOrders, setFilteredOrders] = useState<any[]>([])
 
     // Filter State
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date()) // Default Today
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() })
 
     const [userRole, setUserRole] = useState<string | null>(null)
     const [userId, setUserId] = useState<string | null>(null)
@@ -261,22 +262,42 @@ export default function DashboardPage() {
         }
     }, [userId, userRole, totalDriversCount, stats.total, hasHubs, showSetup])
 
-    // 📅 DATE FILTER - Filter orders when date changes
+    // 📅 DATE FILTER & STATS CALCULATION
     useEffect(() => {
         if (!orders.length) {
             setFilteredOrders([])
+            setStats({ total: 0, pending: 0, assigned: 0, inProgress: 0, delivered: 0, cancelled: 0 })
             return
         }
 
-        const filtered = orders.filter(order => {
-            // Use updated_at (or delivered_at/created_at as fallback) to show TODAY's activity
-            // This ensures drivers who delivered orders today appear in Live Fleet
-            const orderDate = new Date(order.updated_at || order.delivered_at || order.created_at)
-            return isSameDay(orderDate, selectedDate)
-        })
+        let filtered = orders
+
+        if (dateRange?.from) {
+            const start = startOfDay(dateRange.from)
+            const end = endOfDay(dateRange.to || dateRange.from)
+
+            filtered = orders.filter(order => {
+                const d = new Date(order.updated_at || order.delivered_at || order.created_at)
+                return d >= start && d <= end
+            })
+        }
 
         setFilteredOrders(filtered)
-    }, [selectedDate, orders])
+
+        // Recalculate Stats based on FILTERED view (Selected Period)
+        const pendingCount = filtered.filter(o => o.status === 'pending').length
+        const cancelledCount = filtered.filter(o => o.status === 'cancelled').length
+
+        setStats({
+            total: filtered.length,
+            pending: pendingCount,
+            assigned: filtered.filter(o => o.status === 'assigned').length,
+            inProgress: filtered.filter(o => o.status === 'in_progress').length,
+            delivered: filtered.filter(o => o.status === 'delivered').length,
+            cancelled: cancelledCount + pendingCount // Treat Unassigned (Pending) as Issues
+        })
+
+    }, [dateRange, orders])
 
 
     const getGreeting = () => {
@@ -286,7 +307,8 @@ export default function DashboardPage() {
         return 'Good Evening'
     }
 
-    const isToday = isSameDay(selectedDate, new Date())
+    const isToday = dateRange?.from && isSameDay(dateRange.from, new Date()) && (!dateRange.to || isSameDay(dateRange.to, new Date()))
+    const isRange = dateRange?.from && dateRange.to && !isSameDay(dateRange.from, dateRange.to)
 
     if (isLoading) return <DashboardSkeleton />
 
@@ -324,7 +346,9 @@ export default function DashboardPage() {
                         {isToday ? getGreeting() : "Report View"}, {userName.split(' ')[0]}! 👋
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mt-1">
-                        {isToday ? "Live Operations Overview" : `Historical Report for ${format(selectedDate, 'MMM dd, yyyy')}`}
+                        {isToday ? "Live Operations Overview" :
+                            isRange ? `Period Report: ${format(dateRange?.from!, 'MMM d')} - ${format(dateRange?.to!, 'MMM d, yyyy')}` :
+                                `Historical Report for ${format(dateRange?.from || new Date(), 'MMM dd, yyyy')}`}
                         {isToday && <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
                     </p>
                 </div>
@@ -333,19 +357,43 @@ export default function DashboardPage() {
                     {/* DATE PICKER */}
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("justify-start text-left font-normal w-full md:w-[240px] dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200", !selectedDate && "text-muted-foreground")}>
+                            <Button variant="outline" className={cn("justify-start text-left font-normal w-full md:w-[260px] dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200", !dateRange && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                {dateRange?.from ? (
+                                    dateRange.to ? (
+                                        <>
+                                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                                            {format(dateRange.to, "LLL dd, y")}
+                                        </>
+                                    ) : (
+                                        format(dateRange.from, "LLL dd, y")
+                                    )
+                                ) : (
+                                    <span>Pick a date range</span>
+                                )}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
+                            <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+                                <h4 className="font-bold text-xs text-slate-500 mb-2 uppercase tracking-wider">Quick Select</h4>
+                                <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" className="text-xs h-8 flex-1 bg-slate-50" onClick={() => setDateRange({ from: new Date(), to: new Date() })}>Today</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-8 flex-1 bg-slate-50" onClick={() => setDateRange({ from: subDays(new Date(), 6), to: new Date() })}>Last 7 Days</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-8 flex-1 bg-slate-50" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>This Month</Button>
+                                </div>
+                            </div>
                             <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={(date) => date && setSelectedDate(date)}
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={setDateRange}
                                 disabled={(date) => date > new Date() || date < new Date("2024-01-01")}
                                 initialFocus
                             />
+                            <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-center">
+                                <p className="text-[10px] text-slate-500">
+                                    💡 Tip: Click start date, then click end date to select a range.
+                                </p>
+                            </div>
                         </PopoverContent>
                     </Popover>
 

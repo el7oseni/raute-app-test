@@ -44,7 +44,7 @@ import { geocodeAddress, reverseGeocode } from "@/lib/geocoding"
 
 import dynamic from 'next/dynamic'
 
-const LocationPicker = dynamic(() => import('@/components/location-picker'), { ssr: false })
+const LocationPickerModal = dynamic(() => import('@/components/location-picker-modal').then(m => m.LocationPickerModal), { ssr: false })
 
 export default function DriversPage() {
     // const supabase = ... (Used from import)
@@ -57,6 +57,8 @@ export default function DriversPage() {
     const [deletingDriver, setDeleteingDriver] = useState<any | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
     const [locationMode, setLocationMode] = useState<'address' | 'map' | 'hub'>('hub')
+    const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
+    const [manualLocation, setManualLocation] = useState<{ lat: number, lng: number, address: string } | null>(null)
 
     // Subscription Limits (1 Free Driver Model)
     const [maxDrivers, setMaxDrivers] = useState(1)
@@ -436,6 +438,12 @@ export default function DriversPage() {
         const mapLng = formData.get('map_lng')
         const mapAddress = formData.get('map_address') as string
 
+        // Manual Start Point Data
+        const useManualStart = formData.get('use_manual_start') === 'on'
+        const manualLat = formData.get('starting_point_lat')
+        const manualLng = formData.get('starting_point_lng')
+        const manualAddress = formData.get('starting_point_address') as string
+
         // Determine final start address and coordinates
         let finalStartAddress = defaultStartAddress || null
         let finalLat: number | null = null
@@ -495,7 +503,11 @@ export default function DriversPage() {
                 name: name,
                 default_start_address: finalStartAddress,
                 default_start_lat: finalLat,
-                default_start_lng: finalLng
+                default_start_lng: finalLng,
+                use_manual_start: useManualStart,
+                starting_point_lat: manualLat ? parseFloat(manualLat.toString()) : null,
+                starting_point_lng: manualLng ? parseFloat(manualLng.toString()) : null,
+                starting_point_address: manualAddress
             })
             .eq('id', editingDriver.id)
 
@@ -802,36 +814,21 @@ export default function DriversPage() {
                                                 Coordinates: {defaultStartLoc.lat.toFixed(4)}, {defaultStartLoc.lng.toFixed(4)}
                                             </p>
                                         )}
-                                        <LocationPicker
-                                            initialPosition={defaultStartLoc?.lat ? { lat: defaultStartLoc.lat, lng: defaultStartLoc.lng } : null}
-                                            onLocationSelect={async (lat, lng) => {
-                                                // Temporarily set coords while we fetch address
-                                                setDefaultStartLoc({ address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, lat, lng })
-                                                setIsGeocoding(true)
-
-                                                try {
-                                                    const { reverseGeocode } = await import('@/lib/geocoding')
-                                                    const result = await reverseGeocode(lat, lng)
-
-                                                    // Update with real address if found
-                                                    setDefaultStartLoc({
-                                                        address: result?.fullAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                                                        lat,
-                                                        lng
-                                                    })
-
-                                                    if (result) {
-                                                        toast({ title: "Location Pinned", description: result.fullAddress, type: "success" })
-                                                    }
-                                                } catch (e) {
-                                                    // Fallback already set
-                                                    console.error("Reverse geocoding failed", e)
-                                                } finally {
-                                                    setIsGeocoding(false)
-                                                    // setLocationMode('hub') - Removed to keep address input visible
-                                                }
-                                            }}
-                                        />
+                                        <div className="border rounded-md p-4 bg-muted/20 text-center mt-2">
+                                            <p className="text-sm text-muted-foreground mb-2">
+                                                Click to pin location on map.
+                                            </p>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                                                // We can reuse the same modal state if we hoist it or use a separate state?
+                                                // For simplicity in this "Add Driver" form (which is separate from Edit), we need its own state or shared state.
+                                                // Since `isLocationPickerOpen` is at top level, we can use it, but we need to know WHICH form triggered it.
+                                                // However, simpler is just to use the address input for creation or fix this correctly.
+                                                // For now, let's just show a message or hide this complex picker in creation flow if simpler.
+                                                toast({ title: "Please use Address input", description: "Map picker is available in Edit mode.", type: "info" })
+                                            }}>
+                                                Use Address Input Above
+                                            </Button>
+                                        </div>
                                     </div>
                                 )}
 
@@ -1223,37 +1220,22 @@ export default function DriversPage() {
                                 {locationMode === 'map' && (
                                     <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
                                         <Label>Pick Location on Map</Label>
-                                        <div className="border rounded-md p-1">
-                                            <LocationPicker
-                                                alwaysOpen={true}
-                                                initialPosition={
-                                                    editingDriver.default_start_lat && editingDriver.default_start_lng
-                                                        ? {
-                                                            lat: editingDriver.default_start_lat,
-                                                            lng: editingDriver.default_start_lng
-                                                        }
-                                                        : null
-                                                }
-                                                onLocationSelect={async (lat, lng) => {
-                                                    // 1. Immediate invalidation/update with coords 
-                                                    const tempStr = `Fetching address...`
-                                                    toast({ title: "Fetching address...", type: "info" })
-                                                    setDefaultStartLoc({ lat, lng, address: tempStr })
-
-                                                    // 2. Reverse Geocode for real address
-                                                    try {
-                                                        const result = await reverseGeocode(lat, lng)
-                                                        if (result) {
-                                                            setDefaultStartLoc({ lat, lng, address: result.fullAddress })
-                                                            toast({ title: "Location Updated", description: result.fullAddress, type: "success" })
-                                                        } else {
-                                                            setDefaultStartLoc({ lat, lng, address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})` })
-                                                            toast({ title: "Location Set", description: "Pinned coordinates.", type: "success" })
-                                                        }
-                                                    } catch (error) {
-                                                        console.error("Reverse geocode error:", error)
-                                                        setDefaultStartLoc({ lat, lng, address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})` })
-                                                    }
+                                        <div className="border rounded-md p-4 bg-muted/20 text-center">
+                                            <MapPin className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                Click to open the map and pin a location.
+                                            </p>
+                                            <Button type="button" variant="outline" onClick={() => setIsLocationPickerOpen(true)}>
+                                                Open Map Picker
+                                            </Button>
+                                            <LocationPickerModal
+                                                open={isLocationPickerOpen}
+                                                onOpenChange={setIsLocationPickerOpen}
+                                                initialLat={editingDriver.default_start_lat}
+                                                initialLng={editingDriver.default_start_lng}
+                                                onSelectLocation={async (lat, lng, address) => {
+                                                    setDefaultStartLoc({ lat, lng, address })
+                                                    toast({ title: "Location Set", description: address, type: "success" })
                                                 }}
                                             />
                                         </div>

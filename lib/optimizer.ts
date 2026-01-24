@@ -19,6 +19,8 @@ const MAX_ASSIGNMENT_DISTANCE_KM = 2500
 // Penalty per existing order to encourage load balancing (in effective km)
 const LOAD_PENALTY_KM = 10
 
+export type OptimizationStrategy = 'fastest' | 'balanced' | 'efficient'
+
 /**
  * Calculates straight-line distance between two points (Haversine approximation)
  */
@@ -46,33 +48,89 @@ function deg2rad(deg: number): number {
  * 2. Scoring: Distance + Load Penalty.
  * 3. Sorting: Respect Time Windows inside driver routes.
  */
-export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise<OptimizationResult> {
+export async function optimizeRoute(
+    orders: Order[],
+    drivers: Driver[],
+    strategy: OptimizationStrategy = 'fastest',
+    mode: 'morning' | 'reoptimize' = 'morning'
+): Promise<OptimizationResult> {
 
     let updatedOrders = [...orders]
 
     // FILTER: Ignore 'delivered' or 'cancelled' orders from re-assignment
     const activeOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled')
 
-    // 1. Separate Locked vs Unlocked Orders
-    const lockedOrders = activeOrders.filter(o => o.locked_to_driver && o.driver_id)
-    // Fix: Available = All active orders NOT in the locked list (handles locked=true but driver=null case)
-    const availableOrders = activeOrders.filter(o => !lockedOrders.includes(o))
+    // 0. Separate Pinned vs Unpinned Orders
+    const pinnedOrders = activeOrders.filter(o => o.is_pinned && o.driver_id)
+    const unpinnedOrders = activeOrders.filter(o => !pinnedOrders.includes(o))
+
+    // 1. Available Orders (Pinned orders are excluded from optimization pool)
+    const availableOrders = unpinnedOrders
+
+    // Pre-Assign Pinned Orders directly
+    pinnedOrders.forEach(order => {
+        const orderIndex = updatedOrders.findIndex(o => o.id === order.id)
+        if (orderIndex !== -1) {
+            updatedOrders[orderIndex] = {
+                ...updatedOrders[orderIndex],
+                is_pinned: true,
+                status: 'assigned'
+            }
+        }
+    })
 
     // Map drivers to their starting positions
     // Fallback logic: If driver has NO location, we try to use the average location of their LOCKED orders, 
     // otherwise we skip auto-assigning to them (safer than defaulting to Cairo implied).
     const driverPositions = drivers.map(d => {
-        let lat = d.current_lat || d.default_start_lat
-        let lng = d.current_lng || d.default_start_lng
-        let usedInferred = false
+        let lat, lng, source, address
 
-        // If no start location, check if they have locked orders to infer a "region"
-        if (!lat || !lng) {
-            const driversLockedOrders = lockedOrders.filter(lo => lo.driver_id === d.id && lo.latitude)
+        // Priority 1: Manual Start Point (Manager override) -> ALWAYS FIRST
+        if (d.use_manual_start && d.starting_point_lat && d.starting_point_lng) {
+            lat = d.starting_point_lat
+            lng = d.starting_point_lng
+            address = d.starting_point_address || 'Manual Start Point'
+            source = 'manual'
+        }
+        // Priority 2: Check Mode
+        else if (mode === 'reoptimize') {
+            // Mid-Day Mode: Prioritize Live GPS
+            if (d.current_lat && d.current_lng) {
+                lat = d.current_lat
+                lng = d.current_lng
+                address = 'Live Location'
+                source = 'live'
+            }
+            // Fallback to Depot
+            else if (d.default_start_lat && d.default_start_lng) {
+                lat = d.default_start_lat
+                lng = d.default_start_lng
+                address = d.default_start_address || 'Default Depot'
+                source = 'default'
+            }
+        }
+        // Priority 3: Morning Mode (Default) -> Prioritize Depot
+        else if (d.default_start_lat && d.default_start_lng) {
+            lat = d.default_start_lat
+            lng = d.default_start_lng
+            address = d.default_start_address || 'Default Depot'
+            source = 'default'
+        }
+        // Priority 4: Live GPS fallback for Morning Mode
+        else if (d.current_lat && d.current_lng) {
+            lat = d.current_lat
+            lng = d.current_lng
+            address = 'Live Location'
+            source = 'live'
+        }
+        // Priority 4: Infer from locked orders (Last resort)
+        else {
+            const driversLockedOrders = pinnedOrders.filter(lo => lo.driver_id === d.id && lo.latitude)
             if (driversLockedOrders.length > 0) {
                 lat = driversLockedOrders[0].latitude
                 lng = driversLockedOrders[0].longitude
-                usedInferred = true
+                address = 'Inferred from Orders'
+                source = 'inferred'
             }
         }
 
@@ -81,10 +139,10 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
             name: d.name,
             lat,
             lng,
-            address: d.default_start_address || (d.current_lat ? 'Live Location' : 'No Address'),
-            load: lockedOrders.filter(o => o.driver_id === d.id).length,
+            address,
+            load: pinnedOrders.filter(o => o.driver_id === d.id).length,
             valid: !!(lat && lng), // Only optimize for drivers with a known location
-            source: usedInferred ? 'inferred' : (d.current_lat ? 'live' : 'default')
+            source
         }
     })
 
@@ -97,6 +155,15 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
     // I will split this into two tool calls to be safe.
     // First call: Update the driverPositions map.
 
+
+    // Determine Strategy Weights
+    // Fastest: Low penalty (0.5km equivalent) -> Focus on proximity
+    // Balanced: High penalty (50km equivalent) -> Focus on equal count
+    // Efficient: Moderate (10km equivalent) -> Trade-off
+    let loadBalanceWeight = 10
+    if (strategy === 'fastest') loadBalanceWeight = 0.5
+    else if (strategy === 'balanced') loadBalanceWeight = 50
+    else loadBalanceWeight = 10
 
     // 2. Assign Available Orders to Nearest Valid Driver
     for (const order of availableOrders) {
@@ -115,7 +182,7 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
             if (distance > MAX_ASSIGNMENT_DISTANCE_KM) continue
 
             // Calculate Load Balance Score
-            const loadPenalty = driver.load * LOAD_PENALTY_KM
+            const loadPenalty = driver.load * loadBalanceWeight
             const totalScore = distance + loadPenalty
 
             if (totalScore < minScore) {
@@ -132,7 +199,7 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
                     ...updatedOrders[orderIndex],
                     driver_id: bestDriverId,
                     status: 'assigned',
-                    locked_to_driver: false
+                    is_pinned: false
                 }
 
                 // Update Driver Load
@@ -154,6 +221,8 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
         let currentLng = driver.current_lng || driver.default_start_lng
 
         // If no start point, use first order's location as start (implied start)
+        // Note: With priority sorting, this logic might need adjustment if the first order is urgent but far away.
+        // But generally, we route from start point.
         if ((!currentLat || !currentLng) && driverOrders[0].latitude) {
             currentLat = driverOrders[0].latitude
             currentLng = driverOrders[0].longitude
@@ -162,12 +231,39 @@ export async function optimizeRoute(orders: Order[], drivers: Driver[]): Promise
         const sortedDriverOrders: Order[] = []
         let unrouted = [...driverOrders]
 
-        // Sort unrouted by Time Window Start
+        // SORT CANDIDATES BY PRIORITY FIRST, THEN TIME WINDOW
+        // We want to process Urgent orders first in the route if possible? 
+        // OR do we just sequence them first?
+        // The requirement is "Urgent orders will be delivered first in the route sequence".
+        // So we should pick them first.
+
+        // Priority value map
+        const getPriorityValue = (o: Order) => {
+            if (o.priority_level === 'critical') return 3
+            if (o.priority_level === 'high') return 2
+            return 1
+        }
+
+        // Sort unrouted set:
+        // 1. Pinned (Always top)
+        // 2. Time Window (Earliest Start First) - Hard Constraint
+        // 3. Priority (Critical > High > Normal) - Soft Constraint
         unrouted.sort((a, b) => {
+            if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+
+            // 1. Time Window Check
+            // If both have windows, earlier window start goes first
+            if (a.time_window_start && b.time_window_start) {
+                return a.time_window_start.localeCompare(b.time_window_start)
+            }
+            // Orders WITH windows generally take precedence (Scheduled > Flexible)
             if (a.time_window_start && !b.time_window_start) return -1
             if (!a.time_window_start && b.time_window_start) return 1
-            if (a.time_window_start && b.time_window_start) return a.time_window_start.localeCompare(b.time_window_start)
-            return 0
+
+            // 2. Priority
+            const pA = getPriorityValue(a)
+            const pB = getPriorityValue(b)
+            return pB - pA
         })
 
         while (unrouted.length > 0) {

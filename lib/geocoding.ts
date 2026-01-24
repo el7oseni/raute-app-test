@@ -12,6 +12,10 @@ export interface GeocodingResult {
     lat: number;
     lng: number;
     displayAddress: string;
+    // New fields
+    confidence: 'exact' | 'approximate' | 'low';
+    foundAddress: string;
+    originalQuery: string;
 }
 
 // Rate limiting: Track last request time
@@ -82,17 +86,37 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
         const result = data[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
+        const addressDetails = result.address || {};
+
+        // Calculate Confidence
+        let confidence: 'exact' | 'approximate' | 'low' = 'low';
+
+        // EXACT: Has house number
+        if (addressDetails.house_number) {
+            confidence = 'exact';
+        }
+        // APPROXIMATE: Has road/street but no house number
+        else if (addressDetails.road || addressDetails.street || addressDetails.pedestrian) {
+            confidence = 'approximate';
+        }
+        // LOW: Just city/state/postcode level, no street info
+        else {
+            confidence = 'low';
+        }
 
         // Build display address from response
         const displayAddress = result.display_name || address;
 
-        console.log(`✅ [Geocoding] Found coordinates: (${lat}, ${lng})`);
+        console.log(`✅ [Geocoding] Found coordinates: (${lat}, ${lng}) - Confidence: ${confidence}`);
         console.log(`📍 [Geocoding] Display address: ${displayAddress}`);
 
         return {
             lat,
             lng,
-            displayAddress
+            displayAddress,
+            confidence,
+            foundAddress: displayAddress,
+            originalQuery: address
         };
 
     } catch (error: any) {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle } from "lucide-react"
+import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
@@ -59,6 +59,14 @@ export default function OrdersPage() {
         lng: number
     } | null>(null)
 
+    // Address Verification State
+    const [verificationResult, setVerificationResult] = useState<{
+        confidence: 'exact' | 'approximate' | 'low' | 'failed',
+        foundAddress: string,
+        lat: number,
+        lng: number
+    } | null>(null)
+
     // Form Hooks
     const [address, setAddress] = useState('')
     const [city, setCity] = useState('')
@@ -81,6 +89,7 @@ export default function OrdersPage() {
 
     // Location Tracking State  
     const [userId, setUserId] = useState<string | null>(null)
+    const [priorityLevel, setPriorityLevel] = useState<'normal' | 'high' | 'critical'>('normal')
 
     useEffect(() => {
         fetchData()
@@ -89,6 +98,31 @@ export default function OrdersPage() {
     useEffect(() => {
         filterOrders()
     }, [orders, searchQuery, statusFilter])
+
+    // Real-time Address Verification
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (activeTab === 'manual' && address.length > 5) {
+                const res = await geocodeAddress(address, city, state)
+                if (res) {
+                    setVerificationResult({
+                        confidence: res.confidence,
+                        foundAddress: res.foundAddress,
+                        lat: res.lat,
+                        lng: res.lng
+                    })
+                    // Auto-update map picker view if not manually set
+                    if (!pickedLocation) {
+                        setPickedLocation({ lat: res.lat, lng: res.lng })
+                    }
+                } else {
+                    setVerificationResult(null)
+                }
+            }
+        }, 1000) // 1s debounce
+
+        return () => clearTimeout(timer)
+    }, [address, city, state, zipCode, activeTab])
 
     // 🔔 REAL-TIME NOTIFICATIONS FOR DRIVER
     useEffect(() => {
@@ -134,6 +168,27 @@ export default function OrdersPage() {
             supabase.removeChannel(channel)
         }
     }, [driverId])
+
+    // Check for Duplicates
+    useEffect(() => {
+        async function checkDupes() {
+            const lat = pickedLocation?.lat || verificationResult?.lat
+            const lng = pickedLocation?.lng || verificationResult?.lng
+
+            if (activeTab === 'manual' && lat && lng) {
+                const count = await checkForDuplicateGPS(lat, lng)
+                if (count > 0) {
+                    toast({
+                        title: "Duplicate GPS Detected",
+                        description: `Note: ${count} other order(s) exist at this exact location.`,
+                        type: "error"
+                    })
+                }
+            }
+        }
+        const timer = setTimeout(checkDupes, 1500)
+        return () => clearTimeout(timer)
+    }, [pickedLocation, verificationResult, activeTab])
 
     async function fetchData() {
         setIsLoading(true)
@@ -224,6 +279,18 @@ export default function OrdersPage() {
 
     function filterOrders() {
         let filtered = orders
+
+        // DRIVER: Daily Reset (Hide old completed/cancelled)
+        if (userRole === 'driver') {
+            filtered = filtered.filter(o => {
+                // Always show active
+                if (['assigned', 'in_progress', 'pending'].includes(o.status)) return true
+                // Show completed/cancelled ONLY if from today
+                const d = new Date(o.delivered_at || o.updated_at || o.delivery_date || new Date())
+                return d.toDateString() === new Date().toDateString()
+            })
+        }
+
         if (statusFilter !== "all") {
             // ASSIGNED tab should show both 'assigned' and 'in_progress' orders (active tasks)
             if (statusFilter === "assigned") {
@@ -287,7 +354,7 @@ export default function OrdersPage() {
         }
     }
 
-    async function geocodeAddress(address: string, city?: string, state?: string): Promise<{ lat: number; lng: number } | null> {
+    async function geocodeAddress(address: string, city?: string, state?: string): Promise<{ lat: number; lng: number, confidence: 'exact' | 'approximate' | 'low' | 'failed', foundAddress: string } | null> {
         const fullAddress = [address, city, state].filter(Boolean).join(', ')
         if (!fullAddress.trim()) return null
 
@@ -304,20 +371,48 @@ export default function OrdersPage() {
             const data = await response.json()
 
             if (data.status === 'OK' && data.results && data.results.length > 0) {
-                const location = data.results[0].geometry.location
-                return { lat: location.lat, lng: location.lng } // Google returns numbers directly
+                const result = data.results[0]
+                const location = result.geometry.location
+                const locationType = result.geometry.location_type
+
+                let confidence: 'exact' | 'approximate' | 'low' = 'low'
+                if (locationType === 'ROOFTOP') confidence = 'exact'
+                else if (locationType === 'RANGE_INTERPOLATED') confidence = 'approximate'
+                else confidence = 'low'
+
+                return {
+                    lat: location.lat,
+                    lng: location.lng,
+                    confidence,
+                    foundAddress: result.formatted_address
+                }
             } else {
                 return null;
             }
         } catch (error) {
-            // Fallback to Nominatim (OpenStreetMap) if Google fails or key is missing
+            // Fallback to Nominatim (OpenStreetMap)
             try {
                 const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1&addressdetails=1`,
                     { headers: { 'User-Agent': 'Raute Delivery App' } }
                 )
                 const data = await response.json()
-                if (data && data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+                if (data && data.length > 0) {
+                    const result = data[0]
+                    const addressDetails = result.address || {}
+
+                    // Calculate Confidence
+                    let confidence: 'exact' | 'approximate' | 'low' = 'low';
+                    if (addressDetails.house_number) confidence = 'exact';
+                    else if (addressDetails.road || addressDetails.street) confidence = 'approximate';
+
+                    return {
+                        lat: parseFloat(result.lat),
+                        lng: parseFloat(result.lon),
+                        confidence,
+                        foundAddress: result.display_name
+                    }
+                }
             } catch (err) {
                 // Silent fail
             }
@@ -379,8 +474,14 @@ export default function OrdersPage() {
                         notes: result.notes || '',
                         status: 'pending',
                         priority: 0,
+                        priority: 0,
+                        priority_level: result.priority_level || 'normal',
+                        time_window_start: result.time_window_start || null,
+                        time_window_end: result.time_window_end || null,
                         latitude: coords?.lat || null,
-                        longitude: coords?.lng || null
+                        longitude: coords?.lng || null,
+                        geocoding_confidence: coords?.confidence || null,
+                        geocoded_address: coords?.foundAddress || null
                     })
                 }
 
@@ -432,6 +533,9 @@ export default function OrdersPage() {
         if (data.zip_code) setVal('zip_code', data.zip_code)
         if (data.phone) setVal('phone', data.phone)
         if (data.delivery_date) setVal('delivery_date', data.delivery_date)
+        if (data.delivery_date) setVal('delivery_date', data.delivery_date)
+        if (data.time_window_start) setVal('time_window_start', data.time_window_start)
+        if (data.time_window_end) setVal('time_window_end', data.time_window_end)
         if (data.notes) setVal('notes', data.notes)
     }
 
@@ -471,6 +575,18 @@ export default function OrdersPage() {
         } catch (error: any) {
             toast({ title: 'Delete error', description: error.message, type: 'error' })
         }
+    }
+
+    async function checkForDuplicateGPS(lat: number, lng: number): Promise<number> {
+        const { count } = await supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('latitude', lat)
+            .eq('longitude', lng)
+            .neq('status', 'delivered')
+            .neq('status', 'cancelled')
+
+        return count || 0
     }
 
     async function handleAddOrder(formData: FormData) {
@@ -515,7 +631,27 @@ export default function OrdersPage() {
             }
 
             const city = formData.get('city') as string; const state = formData.get('state') as string; const zipCode = formData.get('zip_code') as string
-            const newOrder = {
+
+            // Final Verification Check on Submit
+            let confidence = 'low'
+            let lat = null
+            let lng = null
+            let usedAddress = null // To track if we used verification address
+
+            if (pickedLocation) {
+                // Priority 1: User Manually Picked Location (Most Accurate)
+                lat = pickedLocation.lat
+                lng = pickedLocation.lng
+                confidence = 'exact'
+            } else if (verificationResult?.lat && verificationResult?.lng) {
+                // Priority 2: Auto-Verification
+                lat = verificationResult.lat
+                lng = verificationResult.lng
+                confidence = verificationResult.confidence
+                usedAddress = verificationResult.foundAddress
+            }
+
+            const newOrder: any = {
                 company_id: userProfile.company_id,
                 order_number: formData.get('order_number') as string,
                 customer_name: customerName,
@@ -528,13 +664,17 @@ export default function OrdersPage() {
                 notes: formData.get('notes') as string,
                 status: 'pending' as const,
                 priority: 0,
-                latitude: pickedLocation?.lat || null,
-                longitude: pickedLocation?.lng || null,
+                priority_level: formData.get('priority_level') || 'normal',
+                latitude: lat,
+                longitude: lng,
+                geocoding_confidence: confidence,
+                geocoded_address: verificationResult?.foundAddress,
+                geocoding_attempted_at: new Date().toISOString()
             }
 
             const { error } = await supabase.from('orders').insert(newOrder)
             if (error) throw error
-            setIsAddOrderOpen(false); setPickedLocation(null); setPhoneValue(undefined); fetchData()
+            setIsAddOrderOpen(false); setPickedLocation(null); setPhoneValue(undefined); setVerificationResult(null); fetchData()
             toast({ title: "Order created successfully", type: "success" })
         } catch (error) {
             toast({ title: "Failed to create order", type: "error" })
@@ -580,7 +720,12 @@ export default function OrdersPage() {
     // DRIVER UI
     if (userRole === 'driver') {
         const activeCount = orders.filter(o => o.status === 'assigned' || o.status === 'in_progress').length
-        const completedCount = orders.filter(o => o.status === 'delivered').length
+        // Only count TODAY's completed orders
+        const completedCount = orders.filter(o => {
+            if (o.status !== 'delivered') return false
+            const d = new Date(o.delivered_at || o.updated_at || new Date())
+            return d.toDateString() === new Date().toDateString()
+        }).length
 
         return (
             <div className="p-4 space-y-6 pb-24 max-w-lg mx-auto bg-background min-h-screen">
@@ -691,7 +836,18 @@ export default function OrdersPage() {
                         ) : (
                             (() => {
                                 // 1. Prepare Sorted List
-                                const sortedOrders = [...filteredOrders].sort((a, b) => (a.route_index || 999) - (b.route_index || 999))
+                                const sortedOrders = [...filteredOrders].sort((a, b) => {
+                                    // Primary: Route Index (Optimized vs Unoptimized)
+                                    const idxA = a.route_index ?? 999
+                                    const idxB = b.route_index ?? 999
+                                    if (idxA !== idxB) return idxA - idxB
+
+                                    // Secondary: Priority (Critical > High > Normal)
+                                    const pMap: Record<string, number> = { critical: 3, high: 2, normal: 1 }
+                                    const pA = pMap[a.priority_level as string] || 1
+                                    const pB = pMap[b.priority_level as string] || 1
+                                    return pB - pA
+                                })
 
                                 // 2. Identify NEXT Active Order
                                 const nextOrder = sortedOrders.find(o => o.status === 'assigned' || o.status === 'pending' || o.status === 'in_progress')
@@ -717,7 +873,7 @@ export default function OrdersPage() {
                                                 )} />
 
                                                 <div className="flex justify-between items-start mb-3 pl-3">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         {/* Route Sequence Badge */}
                                                         {order.route_index && (
                                                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black dark:bg-white text-white dark:text-black text-xs font-bold shadow-sm">
@@ -725,6 +881,18 @@ export default function OrdersPage() {
                                                             </span>
                                                         )}
                                                         <span className="font-mono text-xs text-muted-foreground">#{order.order_number}</span>
+
+                                                        {/* PRIORITY BADGE */}
+                                                        {order.priority_level === 'critical' && (
+                                                            <span className="text-[10px] font-bold bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                                                                <AlertCircle size={10} /> CRITICAL
+                                                            </span>
+                                                        )}
+                                                        {order.priority_level === 'high' && (
+                                                            <span className="text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                                HIGH
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     {/* Time Window Badge */}
@@ -1027,7 +1195,58 @@ export default function OrdersPage() {
                                                 />
                                             </div>
                                         </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Priority Level</label>
+                                            <div className="flex gap-2">
+                                                {['normal', 'high', 'critical'].map((level) => (
+                                                    <button
+                                                        key={level}
+                                                        type="button"
+                                                        onClick={() => setPriorityLevel(level as any)}
+                                                        className={cn(
+                                                            "flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all flex items-center justify-center gap-2",
+                                                            priorityLevel === level
+                                                                ? (level === 'critical' ? "bg-red-500 text-white border-red-600 shadow-md" :
+                                                                    level === 'high' ? "bg-orange-500 text-white border-orange-600 shadow-md" :
+                                                                        "bg-blue-600 text-white border-blue-700 shadow-md")
+                                                                : "bg-card text-muted-foreground hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        {level === 'critical' && <AlertCircle size={14} />}
+                                                        {level === 'high' && <AlertTriangle size={14} />}
+                                                        {level}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <input type="hidden" name="priority_level" value={priorityLevel} />
+                                        </div>
+
+                                        {/* ADDRESS VERIFICATION WARNING */}
+                                        {verificationResult && verificationResult.confidence !== 'exact' && (
+                                            <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                                <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
+                                                        Address Verification Warning
+                                                    </p>
+                                                    <p className="text-xs text-orange-700 dark:text-orange-400">
+                                                        Could not find exact location for this address.
+                                                    </p>
+                                                    <div className="text-xs bg-orange-100 dark:bg-orange-900/40 p-1.5 rounded text-orange-800 dark:text-orange-200 font-mono mt-1">
+                                                        Using {verificationResult.confidence} location: "{verificationResult.foundAddress}"
+                                                    </div>
+                                                    <p className="text-[10px] text-orange-600 dark:text-orange-500 mt-1">
+                                                        Please verify the pin on the map above.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="space-y-2"><label className="text-sm font-medium">Delivery Date</label><Input name="delivery_date" type="date" /></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2"><label className="text-sm font-medium">Start Time Window</label><Input name="time_window_start" type="time" /></div>
+                                            <div className="space-y-2"><label className="text-sm font-medium">End Time Window</label><Input name="time_window_end" type="time" /></div>
+                                        </div>
                                         <div className="space-y-2"><label className="text-sm font-medium">Notes</label><textarea name="notes" className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Notes..." /></div>
                                         <Button
                                             type="button"
@@ -1132,6 +1351,18 @@ export default function OrdersPage() {
                                             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium">
                                                 <UserIcon size={14} className="text-primary/70" />
                                                 {order.customer_name}
+                                                {/* PRIORITY BADGE */}
+                                                {(order.priority_level === 'high' || order.priority_level === 'critical') && (
+                                                    <span className={cn(
+                                                        "ml-2 flex items-center gap-1 text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded border shadow-sm",
+                                                        order.priority_level === 'critical'
+                                                            ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900"
+                                                            : "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-900"
+                                                    )}>
+                                                        {order.priority_level === 'critical' ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
+                                                        {order.priority_level}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <span className={cn("px-2.5 py-0.5 text-[10px] font-bold rounded-full border uppercase tracking-wider",
@@ -1145,8 +1376,23 @@ export default function OrdersPage() {
                                             <MapPin size={14} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
                                             <span className="leading-snug">{order.address}{order.city ? `, ${order.city}` : ""}</span>
                                         </div>
+
+                                        {/* GPS Warnings */}
+                                        {(!order.latitude || !order.longitude) && (
+                                            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded w-fit border border-red-100 ml-6">
+                                                <AlertCircle size={10} />
+                                                <span>No GPS</span>
+                                            </div>
+                                        )}
+                                        {(order.geocoding_confidence && order.geocoding_confidence !== 'exact') && (
+                                            <div className={`mt-1 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded w-fit border ml-6 ${order.geocoding_confidence === 'failed' ? 'text-red-600 bg-red-50 border-red-100' : 'text-orange-600 bg-orange-50 border-orange-100'}`}>
+                                                <AlertTriangle size={10} />
+                                                <span>{order.geocoding_confidence === 'failed' ? 'GPS Failed' : 'Unverified GPS'}</span>
+                                            </div>
+                                        )}
+
                                         {order.delivery_date && (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 mt-1">
                                                 <Calendar size={14} className="flex-shrink-0 text-muted-foreground/70" />
                                                 <span>{new Date(order.delivery_date).toLocaleDateString()}</span>
                                             </div>
