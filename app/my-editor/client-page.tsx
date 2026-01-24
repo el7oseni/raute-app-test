@@ -97,7 +97,7 @@ export default function ClientOrderDetails() {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 setCurrentUserId(user.id)
-                const { data: d } = await supabase.from('drivers').select('id').eq('user_id', user.id).single()
+                const { data: d } = await supabase.from('drivers').select('id').eq('user_id', user.id).maybeSingle()
                 if (d) setCurrentDriverId(d.id)
             }
         }

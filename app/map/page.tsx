@@ -150,7 +150,7 @@ export default function MapPage() {
                     setOrders(data || [])
                 }
             } else {
-                // Manager: See all
+                // Manager: See all active + today's delivered
                 const { data: ordersData } = await supabase
                     .from('orders')
                     .select('*')
@@ -161,14 +161,24 @@ export default function MapPage() {
                     .select('*')
                     .eq('company_id', userProfile.company_id)
 
-                console.log('🗺️ Map drivers fetch result:', {
-                    driversCount: driversData?.length || 0,
-                    drivers: driversData,
-                    error: driversError,
-                    companyIdQuery: userProfile.company_id
+                // Filter logic: Hide delivered orders unless they were updated today
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+
+                const visibleOrders = (ordersData || []).filter(o => {
+                    if (o.status !== 'delivered' && o.status !== 'cancelled') return true;
+                    // Show cancelled/delivered only if they happened today
+                    const updateTime = new Date(o.updated_at);
+                    return updateTime >= todayStart;
                 });
 
-                setOrders(ordersData || [])
+                console.log('🗺️ Map drivers fetch result:', {
+                    driversCount: driversData?.length || 0,
+                    visibleOrders: visibleOrders.length,
+                    totalOrders: ordersData?.length || 0
+                });
+
+                setOrders(visibleOrders)
                 setDrivers(driversData || [])
             }
         } catch (error) {
