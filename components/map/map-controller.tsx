@@ -29,13 +29,19 @@ export default function MapController({ orders, drivers, selectedDriverId }: Map
             if (d.current_lat && d.current_lng) points.push([d.current_lat, d.current_lng])
         })
 
-        if (points.length > 0) {
+        if (selectedDriverId) {
+            // -- FOLLOW MODE --
+            // If a specific driver is selected, lock camera to them (Zoom 16)
+            const driver = drivers.find(d => d.id === selectedDriverId)
+            if (driver?.current_lat && driver?.current_lng) {
+                map.flyTo([driver.current_lat, driver.current_lng], 16, { animate: true, duration: 1.5 })
+            }
+        } else if (points.length > 0) {
+            // -- GLOBAL OVERVIEW --
+            // If no driver selected, show everything
             const bounds = L.latLngBounds(points)
-            // If focused on a single driver with few points, don't zoom in *too* much
-            const padding = selectedDriverId ? [50, 50] : [30, 30]
-
             map.fitBounds(bounds, {
-                padding: padding as [number, number],
+                padding: [50, 50],
                 maxZoom: 16,
                 animate: true,
                 duration: 1
