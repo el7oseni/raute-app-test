@@ -3,7 +3,7 @@ import { Device } from '@capacitor/device';
 import { supabase as defaultSupabase } from './supabase';
 import { toast } from '@/lib/toast-utils';
 
-const LOCATION_TRACKING_INTERVAL = 300000; // 5 minutes (in milliseconds)
+const LOCATION_TRACKING_INTERVAL = 10000; // 10 seconds (for live testing)
 const WATCH_ID_KEY = 'geo_watch_id';
 
 class GeoService {
