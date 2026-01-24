@@ -518,9 +518,8 @@ export default function PlannerPage() {
 
             if (allowedDrivers.length < selectedDriverObjects.length) {
                 toast({
-                    toast({
-                        title: "Subscription Restricted",
-                        description: `Optimization will only use your first ${driverLimit} selected driver${ driverLimit === 1 ? '' : 's'}. Upgrade to unlock parallel routing for all ${ selectedDriverObjects.length } drivers.`,
+                    title: "Subscription Restricted",
+                    description: `Optimization will only use your first ${driverLimit} selected driver${driverLimit === 1 ? '' : 's'}. Upgrade to unlock parallel routing for all ${selectedDriverObjects.length} drivers.`,
                     type: "info"
                 })
             }
@@ -620,7 +619,7 @@ export default function PlannerPage() {
 
             toast({
                 title: "Optimization Complete",
-                description: `${ assignedOrders.length } orders assigned to ${ driverBreakdown.length } drivers.`,
+                description: `${assignedOrders.length} orders assigned to ${driverBreakdown.length} drivers.`,
                 type: 'success',
             })
 
@@ -628,11 +627,11 @@ export default function PlannerPage() {
             // Try to extract useful info
             let msg = 'Unknown Error'
             if (error?.message) msg = error.message
-            if (error?.code) msg += ` (Code: ${ error.code })`
-            if (error?.details) msg += ` Details: ${ error.details } `
-            if (error?.hint) msg += ` Hint: ${ error.hint } `
+            if (error?.code) msg += ` (Code: ${error.code})`
+            if (error?.details) msg += ` Details: ${error.details} `
+            if (error?.hint) msg += ` Hint: ${error.hint} `
 
-            alert(`Optimization Failed: ${ msg } `)
+            alert(`Optimization Failed: ${msg} `)
         } finally {
             setIsLoading(false)
         }
@@ -663,7 +662,7 @@ export default function PlannerPage() {
                 if (driverIndex >= driverLimit) {
                     toast({
                         title: "Subscription Limit Reached",
-                        description: `You can only assign orders to your first ${ driverLimit } driver${ driverLimit === 1 ? '' : 's' }. Upgrade to unlock more slots.`,
+                        description: `You can only assign orders to your first ${driverLimit} driver${driverLimit === 1 ? '' : 's'}. Upgrade to unlock more slots.`,
                         type: "error"
                     })
                     return // Block the assignment
@@ -755,25 +754,22 @@ export default function PlannerPage() {
                                 <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
                                     <button
                                         onClick={() => setStrategy('fastest')}
-                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${
-                strategy === 'fastest' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
-            } `}
+                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${strategy === 'fastest' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            } `}
                                     >
                                         Fastest
                                     </button>
                                     <button
                                         onClick={() => setStrategy('balanced')}
-                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${
-                strategy === 'balanced' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
-            } `}
+                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${strategy === 'balanced' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            } `}
                                     >
                                         Balanced
                                     </button>
                                     <button
                                         onClick={() => setStrategy('efficient')}
-                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${
-                strategy === 'efficient' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
-            } `}
+                                        className={`text - [10px] font - medium py - 1.5 rounded - md transition - all ${strategy === 'efficient' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            } `}
                                     >
                                         Efficient
                                     </button>
@@ -822,9 +818,8 @@ export default function PlannerPage() {
                                             return (
                                                 <label
                                                     key={driver.id}
-                                                    className={`flex items - center gap - 2 p - 2 rounded cursor - pointer transition - colors ${
-                isSelected ? 'bg-primary/10 border border-primary/20' : 'hover:bg-muted/50 border border-transparent'
-            } `}
+                                                    className={`flex items - center gap - 2 p - 2 rounded cursor - pointer transition - colors ${isSelected ? 'bg-primary/10 border border-primary/20' : 'hover:bg-muted/50 border border-transparent'
+                                                        } `}
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -840,22 +835,19 @@ export default function PlannerPage() {
                                                     />
 
                                                     {/* Online Status */}
-                                                    <div className={`w - 1.5 h - 1.5 rounded - full ${
-                isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'
-            } `} />
+                                                    <div className={`w - 1.5 h - 1.5 rounded - full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'
+                                                        } `} />
 
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between">
-                                                            <span className={`text - xs font - medium truncate ${
-                isOnline ? 'text-foreground' : 'text-muted-foreground'
-            } `}>
+                                                            <span className={`text - xs font - medium truncate ${isOnline ? 'text-foreground' : 'text-muted-foreground'
+                                                                } `}>
                                                                 {driver.name}
                                                             </span>
-                                                            <span className={`text - [9px] px - 1 py - 0.5 rounded font - medium ${
-                isOnline
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-            } `}>
+                                                            <span className={`text - [9px] px - 1 py - 0.5 rounded font - medium ${isOnline
+                                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                                                } `}>
                                                                 {isOnline ? 'Online' : 'Offline'}
                                                             </span>
                                                         </div>
@@ -891,7 +883,7 @@ export default function PlannerPage() {
                                 disabled={isLoading}
                                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all active:scale-95 border-0"
                             >
-                                <Sparkles size={16} className={`mr - 2 ${ isLoading ? 'animate-spin' : '' } `} />
+                                <Sparkles size={16} className={`mr - 2 ${isLoading ? 'animate-spin' : ''} `} />
                                 {isLoading ? 'Optimizing...' : 'Smart Optimize'}
                             </Button>
                         </div>
@@ -972,7 +964,7 @@ export default function PlannerPage() {
                     </div>
 
                     <div style={{ height: '100%', width: '100%' }}>
-                        <MapContainer key={`${ mapCenter[0] } -${ mapCenter[1] } `} center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                        <MapContainer key={`${mapCenter[0]} -${mapCenter[1]} `} center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                 url={mapTheme === 'dark'
@@ -983,7 +975,7 @@ export default function PlannerPage() {
                             {drivers.map(driver => (
                                 driver.default_start_lat && driver.default_start_lng && (
                                     <Marker
-                                        key={`driver - ${ driver.id } `}
+                                        key={`driver - ${driver.id} `}
                                         position={[driver.default_start_lat, driver.default_start_lng]}
                                         icon={typeof window !== 'undefined' ? require('leaflet').icon({
                                             iconUrl: 'https://cdn-icons-png.flaticon.com/512/713/713342.png',
@@ -1023,7 +1015,7 @@ export default function PlannerPage() {
                                 const color = colors[index % colors.length]
 
                                 return (
-                                    <React.Fragment key={`route - ${ driver.id } `}>
+                                    <React.Fragment key={`route - ${driver.id} `}>
                                         <Polyline positions={positions} pathOptions={{ color, weight: 4, opacity: 0.7 }} />
                                     </React.Fragment>
                                 )
@@ -1056,7 +1048,7 @@ export default function PlannerPage() {
                                                 <strong className="block text-sm">{order.customer_name}</strong>
                                                 <div className="text-xs text-slate-500 mb-1">{order.address}</div>
                                                 <div className="flex gap-1">
-                                                    <div className={`text - [10px] font - bold px - 1 rounded w - fit ${ order.driver_id ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700' } `}>
+                                                    <div className={`text - [10px] font - bold px - 1 rounded w - fit ${order.driver_id ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'} `}>
                                                         {order.driver_id ? 'Assigned' : 'Unassigned'}
                                                     </div>
                                                     {order.route_index !== null && order.driver_id && (
@@ -1103,7 +1095,7 @@ export default function PlannerPage() {
                             <div className="flex gap-4">
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                                    <span className={`inline - block px - 2 py - 1 rounded - full text - xs font - bold ${ selectedOrder.status === 'assigned' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800' } `}>
+                                    <span className={`inline - block px - 2 py - 1 rounded - full text - xs font - bold ${selectedOrder.status === 'assigned' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} `}>
                                         {selectedOrder.status}
                                     </span>
                                 </div>
@@ -1114,7 +1106,7 @@ export default function PlannerPage() {
                             </div>
 
                             <div className="pt-4 border-t">
-                                <Button className="w-full" onClick={() => router.push(`/ my - editor ? id = ${ selectedOrder.id } `)}>
+                                <Button className="w-full" onClick={() => router.push(`/ my - editor ? id = ${selectedOrder.id} `)}>
                                     <ExternalLink size={14} className="mr-2" />
                                     Open Full Editor
                                 </Button>
@@ -1237,11 +1229,11 @@ export default function PlannerPage() {
                                     </h3>
                                     <div className="grid grid-cols-1 gap-2">
                                         {optimizationReport.driverDiagnostics.map((d, i) => (
-                                            <div key={i} className={`flex items - center justify - between p - 2 rounded text - xs border ${ d.valid ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-300' : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300' } `}>
+                                            <div key={i} className={`flex items - center justify - between p - 2 rounded text - xs border ${d.valid ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-300' : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300'} `}>
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold">{d.name}</span>
                                                     <span className="opacity-70 text-[10px] truncate max-w-[250px] block" title={d.address}>
-                                                        {d.address || `Lat: ${ d.lat?.toFixed(4) || '?' }, Lng: ${ d.lng?.toFixed(4) || '?' } `}
+                                                        {d.address || `Lat: ${d.lat?.toFixed(4) || '?'}, Lng: ${d.lng?.toFixed(4) || '?'} `}
                                                     </span>
                                                 </div>
                                                 <span className="font-bold">{d.valid ? 'READY' : 'INVALID LOC'}</span>
@@ -1289,7 +1281,7 @@ export default function PlannerPage() {
                             <SheetHeader>
                                 <div className="flex items-center justify-between">
                                     <SheetTitle>Order #{selectedOrder.order_number}</SheetTitle>
-                                    <span className={`text - xs px - 2 py - 1 rounded - full border uppercase font - bold ${ selectedOrder.status === 'assigned' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-yellow-100 text-yellow-800 border-yellow-200' } `}>
+                                    <span className={`text - xs px - 2 py - 1 rounded - full border uppercase font - bold ${selectedOrder.status === 'assigned' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-yellow-100 text-yellow-800 border-yellow-200'} `}>
                                         {selectedOrder.status}
                                     </span>
                                 </div>
@@ -1363,7 +1355,7 @@ export default function PlannerPage() {
 
                                 {/* ACTION BUTTONS */}
                                 <div className="pt-4 border-t border-border space-y-3">
-                                    <Link href={`/ my - editor ? id = ${ selectedOrder.id } `} className="block w-full">
+                                    <Link href={`/ my - editor ? id = ${selectedOrder.id} `} className="block w-full">
                                         <Button variant="outline" className="w-full">
                                             <Edit className="mr-2 h-4 w-4" /> Edit Order Details
                                         </Button>
