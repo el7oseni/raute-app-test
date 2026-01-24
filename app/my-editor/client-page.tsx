@@ -25,6 +25,7 @@ import { geoService } from '@/lib/geo-service'
 import { useToast } from "@/components/toast-provider"
 import LocationPicker from "@/components/location-picker"
 import { DebugLocationStatus } from "@/components/debug-location-status"
+import { DriverTracker } from "@/components/driver-tracker"
 
 // Dynamically import map to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
@@ -71,6 +72,9 @@ export default function ClientOrderDetails() {
     const [isUpdating, setIsUpdating] = useState(false)
     const [userRole, setUserRole] = useState<string | null>(null)
     const [drivers, setDrivers] = useState<any[]>([])
+    const [currentDriverId, setCurrentDriverId] = useState<string | null>(null)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
 
     // Proof Images State
     const [proofImages, setProofImages] = useState<ProofImage[]>([])
@@ -87,6 +91,18 @@ export default function ClientOrderDetails() {
 
     useEffect(() => {
         fixLeafletIcons()
+
+        // Identify User & Driver
+        const identifyUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                setCurrentUserId(user.id)
+                const { data: d } = await supabase.from('drivers').select('id').eq('user_id', user.id).single()
+                if (d) setCurrentDriverId(d.id)
+            }
+        }
+        identifyUser()
+
         if (orderId) {
             fetchOrder(true)
         } else {
@@ -884,6 +900,15 @@ export default function ClientOrderDetails() {
                     </form>
                 </SheetContent>
             </Sheet>
+
+            {/* DRIVER TRACKER - Only if user is a driver */}
+            {userRole === 'driver' && currentDriverId && (
+                <DriverTracker
+                    driverId={currentDriverId}
+                    isOnline={true} // Driver in active order flow is assumed online
+                    userId={currentUserId || undefined}
+                />
+            )}
 
             <DebugLocationStatus />
         </div >
