@@ -179,7 +179,9 @@ class GeoService {
         const updates: any = {
             current_lat: loc.lat,
             current_lng: loc.lng,
-            last_location_update: new Date().toISOString()
+            last_location_update: new Date().toISOString(),
+            is_online: true, // Explicitly mark as online
+            status: 'active' // Ensure functionality
         };
 
         // Battery Check
