@@ -161,21 +161,30 @@ export default function MapPage() {
                     .select('*')
                     .eq('company_id', userProfile.company_id)
 
-                // Filter logic: Hide delivered orders unless they were updated today
-                const todayStart = new Date();
-                todayStart.setHours(0, 0, 0, 0);
+                // Filter logic: Hide delivered orders unless they are scheduled for TODAY
+                // We use the user's local date to determine "Today"
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const todayString = `${year}-${month}-${day}`;
+
+                console.log('📅 Date Filter:', todayString);
 
                 const visibleOrders = (ordersData || []).filter(o => {
+                    // Always show active orders (Pending, Assigned, In Progress)
                     if (o.status !== 'delivered' && o.status !== 'cancelled') return true;
-                    // Show cancelled/delivered only if they happened today
-                    const updateTime = new Date(o.updated_at);
-                    return updateTime >= todayStart;
+
+                    // For Done orders (Delivered/Cancelled), ONLY show if delivery_date matches Today
+                    // This prevents old history from cluttering the map (even if recently updated)
+                    return o.delivery_date === todayString;
                 });
 
                 console.log('🗺️ Map drivers fetch result:', {
                     driversCount: driversData?.length || 0,
                     visibleOrders: visibleOrders.length,
-                    totalOrders: ordersData?.length || 0
+                    totalOrders: ordersData?.length || 0,
+                    todayString
                 });
 
                 setOrders(visibleOrders)
