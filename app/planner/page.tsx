@@ -1371,7 +1371,8 @@ export default function PlannerPage() {
                                                 } else {
                                                     toast({
                                                         title: newPinState ? "Order Pinned 🔒" : "Order Unpinned 🔓",
-                                                        description: newPinState ? "Optimization will NOT move this order." : "Optimization can now move this order."
+                                                        description: newPinState ? "Optimization will NOT move this order." : "Optimization can now move this order.",
+                                                        type: 'success'
                                                     })
                                                 }
                                             }}
