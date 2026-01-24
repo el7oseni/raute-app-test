@@ -24,6 +24,7 @@ import { offlineManager } from '@/lib/offline-manager'
 import { geoService } from '@/lib/geo-service'
 import { useToast } from "@/components/toast-provider"
 import LocationPicker from "@/components/location-picker"
+import { DebugLocationStatus } from "@/components/debug-location-status"
 
 // Dynamically import map to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
@@ -883,6 +884,8 @@ export default function ClientOrderDetails() {
                     </form>
                 </SheetContent>
             </Sheet>
+
+            <DebugLocationStatus />
         </div >
     )
 }

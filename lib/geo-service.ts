@@ -13,6 +13,16 @@ class GeoService {
     private driverId: string | null = null;
     private supabaseClient: any = defaultSupabase; // Use authenticated client when available
 
+    public debugState = {
+        lastAttempt: null as string | null,
+        lastError: null as string | null,
+        lastStatus: 'idle', // idle, syncing, success, error
+        lastLocation: null as any,
+        isTracking: false,
+        driverId: null as string | null
+    }
+
+
     async init(userId: string, authenticatedClient?: any) {
         this.userId = userId;
         // Store authenticated client for RLS-compliant operations
@@ -192,7 +202,16 @@ class GeoService {
         const { error } = await this.supabaseClient.from('drivers').update(updates).eq('id', this.driverId);
         if (error) {
             console.error('❌ Failed to update driver location:', error);
+            this.debugState.lastStatus = 'error';
+            this.debugState.lastError = error.message;
+        } else {
+            this.debugState.lastStatus = 'success';
+            this.debugState.lastError = null;
         }
+
+        this.debugState.lastLocation = loc;
+        this.debugState.lastAttempt = new Date().toISOString();
+        this.debugState.driverId = this.driverId;
 
         console.log(`Location Synced: ${loc.lat}, ${loc.lng}, Idle: ${isIdle}`);
     }
