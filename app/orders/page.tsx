@@ -474,7 +474,6 @@ export default function OrdersPage() {
                         notes: result.notes || '',
                         status: 'pending',
                         priority: 0,
-                        priority: 0,
                         priority_level: result.priority_level || 'normal',
                         time_window_start: result.time_window_start || null,
                         time_window_end: result.time_window_end || null,
