@@ -12,6 +12,7 @@ import { useToast } from "@/components/toast-provider"
 import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { isValidPhoneNumber } from "react-phone-number-input"
 import { Navbar } from "@/components/landing/navbar"
+import { Footer } from "@/components/landing/footer"
 
 export default function SignupPage() {
     const router = useRouter()
@@ -48,7 +49,6 @@ export default function SignupPage() {
         }
 
         try {
-            // 1. Sign up the user
             // 1. Sign up the user
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
@@ -113,31 +113,38 @@ export default function SignupPage() {
     }
 
     return (
-        <>
+        <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
+            {/* Navbar */}
             <Navbar />
-            <div className="min-h-screen overflow-y-auto bg-slate-50 flex items-start justify-center px-4 pt-24 pb-20 sm:pt-28 sm:pb-20 sm:items-center">
-                <div className="w-full max-w-md space-y-4">
-                    <div className="text-center space-y-2 mb-4 sm:mb-8">
-                        <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg overflow-hidden">
+
+            {/* Main Content */}
+            <main className="flex-grow flex items-center justify-center px-4 pt-24 pb-12 relative overflow-hidden">
+                {/* Background Blobs */}
+                <div className="absolute top-[20%] right-[10%] w-[400px] h-[400px] bg-blue-100/50 dark:bg-blue-900/10 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute bottom-[20%] left-[10%] w-[300px] h-[300px] bg-indigo-100/50 dark:bg-indigo-900/10 rounded-full blur-[80px] pointer-events-none" />
+
+                <div className="w-full max-w-md space-y-8 relative z-10">
+                    <div className="text-center space-y-2">
+                        <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-xl overflow-hidden ring-1 ring-slate-200 dark:ring-slate-700">
                             <img
                                 src="/logo.png"
                                 alt="Raute Logo"
                                 className="h-14 w-14 object-contain"
                             />
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Get Started</h1>
-                        <p className="text-sm text-slate-500">Create a new company account</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Get Started</h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Create a new company account</p>
                     </div>
 
-                    <Card className="border-0 shadow-lg sm:border sm:shadow-sm">
-                        <CardHeader className="space-y-1">
-                            <CardTitle className="text-xl">Create Account</CardTitle>
-                            <CardDescription>
+                    <Card className="border-0 shadow-xl sm:border sm:shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm ring-1 ring-slate-200 dark:ring-slate-800">
+                        <CardHeader className="space-y-1 pb-4">
+                            <CardTitle className="text-xl text-center">Create Account</CardTitle>
+                            <CardDescription className="text-center text-slate-500">
                                 Start managing your deliveries today
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <form onSubmit={onSubmit} className="space-y-3 sm:space-y-4">
+                            <form onSubmit={onSubmit} className="space-y-4">
                                 {error && (
                                     <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
                                         <AlertCircle className="h-4 w-4" />
@@ -147,7 +154,7 @@ export default function SignupPage() {
 
                                 <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="full_name">
+                                        <label className="text-sm font-medium leading-none" htmlFor="full_name">
                                             Full Name
                                         </label>
                                         <div className="relative">
@@ -157,13 +164,13 @@ export default function SignupPage() {
                                                 name="full_name"
                                                 placeholder="John Doe"
                                                 type="text"
-                                                className="pl-9 h-11"
+                                                className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                 required
                                             />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="company_name">
+                                        <label className="text-sm font-medium leading-none" htmlFor="company_name">
                                             Company
                                         </label>
                                         <div className="relative">
@@ -173,7 +180,7 @@ export default function SignupPage() {
                                                 name="company_name"
                                                 placeholder="Acme Inc."
                                                 type="text"
-                                                className="pl-9 h-11"
+                                                className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                 required
                                             />
                                         </div>
@@ -181,7 +188,7 @@ export default function SignupPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="phone">
+                                    <label className="text-sm font-medium leading-none" htmlFor="phone">
                                         Phone Number
                                     </label>
                                     <StyledPhoneInput
@@ -189,13 +196,13 @@ export default function SignupPage() {
                                         value={phoneValue}
                                         onChange={setPhoneValue}
                                         placeholder="Enter your phone number"
-                                        className="h-11"
+                                        className="h-11 bg-white/50 dark:bg-slate-950/50"
                                         required
                                     />
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">
+                                    <label className="text-sm font-medium leading-none" htmlFor="email">
                                         Email
                                     </label>
                                     <div className="relative">
@@ -208,14 +215,14 @@ export default function SignupPage() {
                                             autoCapitalize="none"
                                             autoComplete="email"
                                             autoCorrect="off"
-                                            className="pl-9 h-11"
+                                            className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                             required
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
+                                    <label className="text-sm font-medium leading-none" htmlFor="password">
                                         Password
                                     </label>
                                     <div className="relative">
@@ -227,7 +234,7 @@ export default function SignupPage() {
                                             type={showPassword ? "text" : "password"}
                                             autoCapitalize="none"
                                             autoComplete="new-password"
-                                            className="pl-9 pr-9 h-11"
+                                            className="pl-9 pr-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                             required
                                             minLength={8}
                                         />
@@ -252,7 +259,7 @@ export default function SignupPage() {
                                     </p>
                                 </div>
 
-                                <Button className="w-full h-11 text-base mt-2" type="submit" disabled={isLoading}>
+                                <Button className="w-full h-11 text-base font-semibold shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white" type="submit" disabled={isLoading}>
                                     {isLoading ? (
                                         <div className="flex items-center gap-2">
                                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -266,20 +273,19 @@ export default function SignupPage() {
                                 {/* OAuth Divider */}
                                 <div className="relative my-4">
                                     <div className="absolute inset-0 flex items-center">
-                                        <div className="w-full border-t border-border"></div>
+                                        <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                                     </div>
                                     <div className="relative flex justify-center text-xs uppercase">
-                                        <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                                        <span className="bg-white/80 dark:bg-slate-900 px-2 text-slate-500 rounded-full">Or continue with</span>
                                     </div>
                                 </div>
 
                                 {/* OAuth Buttons */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    {/* Apple Sign In */}
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        className="w-full h-11"
+                                        className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
                                         onClick={async () => {
                                             setIsLoading(true)
                                             try {
@@ -307,11 +313,10 @@ export default function SignupPage() {
                                         Apple
                                     </Button>
 
-                                    {/* Google Sign In */}
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        className="w-full h-11"
+                                        className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
                                         onClick={async () => {
                                             setIsLoading(true)
                                             try {
@@ -347,14 +352,17 @@ export default function SignupPage() {
                         <CardFooter className="flex flex-col gap-4 text-center pb-6">
                             <div className="text-sm text-slate-500">
                                 Already have an account?{" "}
-                                <Link href="/login" className="font-semibold text-primary hover:underline">
+                                <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline">
                                     Sign in
                                 </Link>
                             </div>
                         </CardFooter>
                     </Card>
                 </div>
-            </div>
-        </>
+            </main>
+
+            {/* Footer */}
+            <Footer />
+        </div>
     )
 }

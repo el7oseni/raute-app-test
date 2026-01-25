@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Raute',
   webDir: 'out',
   server: {
-    url: 'https://raute-app-test.vercel.app',
+    url: 'https://raute.io',
     cleartext: true
   }
 };
