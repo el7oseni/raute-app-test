@@ -161,11 +161,20 @@ export default function OnboardingPage() {
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Phone Number</label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                            <div className="flex gap-2">
+                                <select
+                                    className="h-11 w-[100px] rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                                    defaultValue="+1"
+                                >
+                                    <option value="+1">🇺🇸 +1</option>
+                                    <option value="+20">🇪🇬 +20</option>
+                                    <option value="+44">🇬🇧 +44</option>
+                                    <option value="+966">🇸🇦 +966</option>
+                                    <option value="+971">🇦🇪 +971</option>
+                                </select>
                                 <Input
-                                    placeholder="+1 (555) 000-0000"
-                                    className="pl-9 h-11"
+                                    placeholder="(555) 000-0000"
+                                    className="flex-1 h-11"
                                     type="tel"
                                     value={formData.phone}
                                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
