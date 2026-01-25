@@ -2,6 +2,14 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+    // Force HTTPS redirect (before any other checks)
+    const proto = request.headers.get('x-forwarded-proto')
+    if (proto === 'http') {
+        const url = request.nextUrl.clone()
+        url.protocol = 'https:'
+        return NextResponse.redirect(url, 301)
+    }
+
     // Skip middleware entirely for landing page and marketing pages
     const marketingPages = ['/', '/privacy', '/terms']
     if (marketingPages.includes(request.nextUrl.pathname)) {
