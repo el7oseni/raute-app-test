@@ -45,7 +45,7 @@ export default function DashboardPage() {
     const router = useRouter()
     const [hasHubs, setHasHubs] = useState(false)
     const [driversMap, setDriversMap] = useState<Record<string, any>>({})
-    const [showSetup, setShowSetup] = useState(true) // Show setup by default for new accounts
+    const [showSetup, setShowSetup] = useState(false) // Setup guide disabled - commented out for production
     const { toast } = useToast()
     const isMountedRef = useRef(true)
 
