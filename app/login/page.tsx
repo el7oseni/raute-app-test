@@ -305,13 +305,7 @@ export default function LoginPage() {
                         </CardFooter>
                     </Card>
 
-                    {/* Security Badge */}
-                    <div className="text-center">
-                        <div className="inline-flex items-center gap-2 text-xs text-slate-400 bg-white/50 dark:bg-slate-950/50 px-3 py-1 rounded-full border border-slate-100 dark:border-slate-800 backdrop-blur-sm">
-                            <Lock size={10} />
-                            <span>Secure SSL Encrypted Connection</span>
-                        </div>
-                    </div>
+
                 </div>
             </main>
 

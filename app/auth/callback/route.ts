@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const next = requestUrl.searchParams.get('next') || '/dashboard'
 
     if (code) {
+        // Create a response object first to handle cookies
+        // We use the 'next' URL but origin from request to be safe
         let response = NextResponse.redirect(new URL(next, requestUrl.origin))
 
         const supabase = createServerClient(
@@ -18,6 +20,7 @@ export async function GET(request: NextRequest) {
                         return request.cookies.get(name)?.value
                     },
                     set(name: string, value: string, options: CookieOptions) {
+                        // VERY IMPORTANT: Set cookie on the response object
                         response.cookies.set({
                             name,
                             value,
@@ -25,6 +28,7 @@ export async function GET(request: NextRequest) {
                         })
                     },
                     remove(name: string, options: CookieOptions) {
+                        // VERY IMPORTANT: Remove cookie from the response object
                         response.cookies.set({
                             name,
                             value: '',
@@ -45,25 +49,36 @@ export async function GET(request: NextRequest) {
 
         // Check if user profile exists in database
         if (data.user) {
-            const { data: profile } = await supabase
-                .from('users')
-                .select('id')
-                .eq('id', data.user.id)
-                .single()
+            try {
+                // Ensure the session is set by refreshing it immediately
+                await supabase.auth.refreshSession()
 
-            // If no profile, create one for OAuth users
-            if (!profile) {
-                console.log('Creating profile for OAuth user:', data.user.email)
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('id', data.user.id)
+                    .single()
 
-                const fullName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
+                // If no profile, create one for OAuth users
+                if (!profile) {
+                    console.log('Creating profile for OAuth user:', data.user.email)
 
-                await supabase.from('users').insert({
-                    id: data.user.id,
-                    email: data.user.email,
-                    full_name: fullName,
-                    role: 'manager', // Default role for OAuth signups
-                    phone: data.user.user_metadata?.phone || null
-                })
+                    const fullName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
+
+                    // Insert the user profile
+                    // We use upsert to avoid race conditions
+                    await supabase.from('users').upsert({
+                        id: data.user.id,
+                        email: data.user.email,
+                        full_name: fullName,
+                        role: 'manager', // Default role for OAuth signups
+                        phone: data.user.user_metadata?.phone || null,
+                        created_at: new Date().toISOString()
+                    }, { onConflict: 'id' })
+                }
+            } catch (err) {
+                console.error('Error in profile creation:', err)
+                // Continue anyway, as the auth session is valid
             }
         }
 

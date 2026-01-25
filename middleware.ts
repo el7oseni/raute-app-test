@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
     // 4. FETCH USER ROLE FROM DATABASE (CRITICAL SECURITY CHECK)
     const { data: userData } = await supabase
         .from('users')
-        .select('role')
+        .select('role, company_id')
         .eq('id', session.user.id)
         .single()
 
@@ -109,14 +109,26 @@ export async function middleware(request: NextRequest) {
         return logoutResponse
     }
 
-    const role = userData.role
+    const { role, company_id } = userData
 
     // Allow access to pending-activation page
     if (request.nextUrl.pathname === '/pending-activation') {
         return response
     }
 
-    // 5. DRIVER ACTIVATION CHECK
+    // 5. ONBOARDING CHECK (New Managers must create company)
+    // If manager has no company, force redirection to onboarding
+    // Exclude the onboarding page itself and the API route to prevent loops
+    if (role === 'manager' && !company_id) {
+        const isOnboardingValues = request.nextUrl.pathname.startsWith('/onboarding') || request.nextUrl.pathname.startsWith('/api/onboarding')
+
+        if (!isOnboardingValues) {
+            console.log(`🚀 New Manager detected: ${session.user.id} - Redirecting to Onboarding`)
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+        }
+    }
+
+    // 6. DRIVER ACTIVATION CHECK
     // Check if DRIVER is activated (dispatchers skip this step)
     if (role === 'driver') {
         const { data: driverData } = await supabase
@@ -132,7 +144,7 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // 6. ROLE-BASED PROTECTION
+    // 7. ROLE-BASED PROTECTION
     // LIST OF MANAGER ONLY ROUTES
     const managerRoutes = ['/planner', '/drivers', '/companies', '/settings']
 
