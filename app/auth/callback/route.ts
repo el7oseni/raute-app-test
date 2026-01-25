@@ -36,11 +36,35 @@ export async function GET(request: NextRequest) {
         )
 
         // Exchange code for session
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (error) {
             console.error('Auth callback error:', error)
             return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin))
+        }
+
+        // Check if user profile exists in database
+        if (data.user) {
+            const { data: profile } = await supabase
+                .from('users')
+                .select('id')
+                .eq('id', data.user.id)
+                .single()
+
+            // If no profile, create one for OAuth users
+            if (!profile) {
+                console.log('Creating profile for OAuth user:', data.user.email)
+
+                const fullName = data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
+
+                await supabase.from('users').insert({
+                    id: data.user.id,
+                    email: data.user.email,
+                    full_name: fullName,
+                    role: 'manager', // Default role for OAuth signups
+                    phone: data.user.user_metadata?.phone || null
+                })
+            }
         }
 
         return response
