@@ -33,14 +33,15 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Create Company
-        // Note: Relation "companies" already exists, so we insert into it.
-        const { data: company, error: companyError } = await supabase
+        // We generate ID here to avoid RLS select issues (user can't see company yet)
+        const newCompanyId = crypto.randomUUID()
+
+        const { error: companyError } = await supabase
             .from('companies')
             .insert({
+                id: newCompanyId,
                 name: companyName
             })
-            .select()
-            .single()
 
         if (companyError) {
             console.error('Company creation error:', companyError)
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         const { error: userError } = await supabase
             .from('users')
             .update({
-                company_id: company.id,
+                company_id: newCompanyId,
                 full_name: fullName,
                 phone: phone,
                 role: 'manager', // Enforce manager role for company creator
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         // 4. Force Session Refresh (Optional but recommended so token gets updated claims if using Custom Claims, though here we rely on DB)
         // We can't easily refresh session server-side for the client, but the client router.refresh() will handle data re-fetching.
 
-        return NextResponse.json({ success: true, companyId: company.id })
+        return NextResponse.json({ success: true, companyId: newCompanyId })
 
     } catch (error: any) {
         console.error('Onboarding API Error:', error)
