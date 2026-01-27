@@ -12,9 +12,18 @@ export function MobileAuthWrapper({
 
     useEffect(() => {
         // Detect if running in Capacitor (mobile app)
-        if (typeof window !== 'undefined' && (window as any).Capacitor) {
-            setIsMobile(true)
+        const checkMobile = async () => {
+            if (typeof window !== 'undefined' && (window as any).Capacitor) {
+                // Check if it's actually native platform (iOS/Android) not just web with Capacitor injected
+                const isNative = (window as any).Capacitor.isNativePlatform?.() ||
+                    (window as any).Capacitor.getPlatform?.() !== 'web';
+
+                if (isNative) {
+                    setIsMobile(true)
+                }
+            }
         }
+        checkMobile()
     }, [])
 
     // Show mobile version for Capacitor, web version otherwise
