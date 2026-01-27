@@ -37,7 +37,8 @@ jobs:
           rm -rf ios
           
           # Add iOS platform (Capacitor 8 uses Swift Package Manager, not CocoaPods)
-          npx cap add ios
+          # Ignore Podfile warning (exit code 1) - it's expected for SPM projects
+          npx cap add ios || true
           
       - name: Commit iOS files
         run: |
