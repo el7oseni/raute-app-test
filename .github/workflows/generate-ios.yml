@@ -33,6 +33,11 @@ jobs:
           # Add iOS platform
           npx cap add ios
           
+          # Install CocoaPods dependencies (this generates the .xcworkspace)
+          cd ios/App
+          pod install
+          cd ../..
+          
           # Sync to ensure everything is up to date
           npx cap sync ios
           
