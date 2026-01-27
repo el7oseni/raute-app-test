@@ -32,20 +32,23 @@ jobs:
         run: npm run appflow:build
         
       - name: Generate iOS platform
+        continue-on-error: true
+        id: cap-add
         run: |
           # Remove existing ios directory if it exists
           rm -rf ios
           
-          # Disable errexit for this command (Capacitor SPM shows Podfile warning)
-          set +e
+          # Add iOS platform (Capacitor 8 uses Swift Package Manager)
+          # This will show a Podfile warning but still succeeds
           npx cap add ios
-          set -e
           
-          # Verify ios directory was created
+      - name: Verify iOS platform created
+        run: |
           if [ ! -d "ios" ]; then
             echo "Error: iOS platform was not created"
             exit 1
           fi
+          echo "iOS platform created successfully!"
           
       - name: Commit iOS files
         run: |
