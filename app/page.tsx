@@ -15,9 +15,18 @@ export default function LandingPage() {
 
   useEffect(() => {
     // Redirect mobile users (Capacitor) to login page
-    if (typeof window !== 'undefined' && (window as any).Capacitor) {
-      router.push('/login')
+    const checkMobile = async () => {
+      if (typeof window !== 'undefined' && (window as any).Capacitor) {
+        // Check if it's actually native platform (iOS/Android) not just web with Capacitor injected
+        const isNative = (window as any).Capacitor.isNativePlatform?.() ||
+          (window as any).Capacitor.getPlatform?.() !== 'web';
+
+        if (isNative) {
+          router.push('/login')
+        }
+      }
     }
+    checkMobile()
   }, [router])
 
   return (
