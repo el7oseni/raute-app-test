@@ -1,0 +1,39 @@
+name: Generate iOS Platform
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-ios:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate iOS platform
+        run: |
+          # Remove existing ios directory if it exists
+          rm -rf ios
+          
+          # Add iOS platform
+          npx cap add ios
+          
+          # Sync to ensure everything is up to date
+          npx cap sync ios
+          
+      - name: Commit iOS files
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add ios/
+          git commit -m "chore: Generate iOS platform files with .xcworkspace" || echo "No changes to commit"
+          git push origin main
