@@ -187,8 +187,23 @@ export default function MapPage() {
                     todayString
                 });
 
+                // Auto-Offline Logic: Mark drivers offline if last update > 5 minutes ago
+                const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+                const processedDrivers = (driversData || []).map(driver => {
+                    if (!driver.is_online) return driver // Already offline
+
+                    const lastUpdate = driver.last_location_update ? new Date(driver.last_location_update).getTime() : 0
+                    const now = Date.now()
+                    const isStale = (now - lastUpdate) > OFFLINE_THRESHOLD_MS
+
+                    if (isStale) {
+                        return { ...driver, is_online: false }
+                    }
+                    return driver
+                })
+
                 setOrders(visibleOrders)
-                setDrivers(driversData || [])
+                setDrivers(processedDrivers)
             }
         } catch (error) {
             // Error fetching map data
