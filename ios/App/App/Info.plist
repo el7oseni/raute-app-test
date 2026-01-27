@@ -65,5 +65,9 @@
         <string>fetch</string>
         <string>remote-notification</string>
     </array>
+    
+    <!-- Push Notifications Permission -->
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>We send notifications when new orders are assigned to you or when order statuses change.</string>
 </dict>
 </plist>

@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import AuthCheck from "@/components/auth-check";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast-provider";
+import { NetworkStatusBanner } from "@/components/network-status-banner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -26,6 +27,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content', // Handles virtual keyboard gracefully
 };
 
 import PwaElementsLoader from "@/components/pwa-elements-loader";
@@ -45,6 +47,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <PwaElementsLoader />
+          <NetworkStatusBanner />
           <ToastProvider>
             <AuthCheck>
               <main className="h-full overflow-y-auto pb-20 safe-area-pb">

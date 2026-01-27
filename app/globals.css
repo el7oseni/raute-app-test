@@ -104,6 +104,16 @@
     display: none;
     /* Chrome, Safari, Opera */
   }
+
+  /* Prevent iOS zoom on focus for inputs */
+  @media screen and (max-width: 768px) {
+
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* Custom Leaflet Marker Styles */

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:mobile": "node scripts/prepare-mobile-build.js && cross-env NEXT_PUBLIC_CAPACITOR_BUILD=true next build && node scripts/restore-api.js",
     "start": "next start",
     "lint": "eslint"
   },
@@ -63,6 +64,7 @@
     "@types/react-dom": "^19",
     "@types/react-signature-canvas": "^1.0.7",
     "autoprefixer": "^10.4.23",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "postcss": "^8.5.6",
