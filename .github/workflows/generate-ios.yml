@@ -25,21 +25,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
         
+      - name: Build web assets
+        run: npm run appflow:build
+        
       - name: Generate iOS platform
         run: |
           # Remove existing ios directory if it exists
           rm -rf ios
           
-          # Add iOS platform
+          # Add iOS platform (this will copy web assets from out/)
           npx cap add ios
           
           # Install CocoaPods dependencies (this generates the .xcworkspace)
           cd ios/App
           pod install
           cd ../..
-          
-          # Sync to ensure everything is up to date
-          npx cap sync ios
           
       - name: Commit iOS files
         run: |
