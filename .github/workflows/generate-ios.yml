@@ -36,13 +36,8 @@ jobs:
           # Remove existing ios directory if it exists
           rm -rf ios
           
-          # Add iOS platform (this will copy web assets from out/)
+          # Add iOS platform (Capacitor 8 uses Swift Package Manager, not CocoaPods)
           npx cap add ios
-          
-          # Install CocoaPods dependencies (this generates the .xcworkspace)
-          cd ios/App
-          pod install
-          cd ../..
           
       - name: Commit iOS files
         run: |
