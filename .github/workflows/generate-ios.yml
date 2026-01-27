@@ -36,9 +36,16 @@ jobs:
           # Remove existing ios directory if it exists
           rm -rf ios
           
-          # Add iOS platform (Capacitor 8 uses Swift Package Manager, not CocoaPods)
-          # Ignore Podfile warning (exit code 1) - it's expected for SPM projects
-          npx cap add ios || true
+          # Disable errexit for this command (Capacitor SPM shows Podfile warning)
+          set +e
+          npx cap add ios
+          set -e
+          
+          # Verify ios directory was created
+          if [ ! -d "ios" ]; then
+            echo "Error: iOS platform was not created"
+            exit 1
+          fi
           
       - name: Commit iOS files
         run: |
