@@ -150,9 +150,14 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
 
     // Filter logic
     const displayedOrders = useMemo(() => {
-        if (!selectedDriverId) return orders
+        if (!selectedDriverId) {
+            // Global view: Show only orders for ONLINE drivers
+            const onlineDriverIds = new Set(drivers.filter(d => d.is_online).map(d => d.id))
+            return orders.filter(o => !o.driver_id || onlineDriverIds.has(o.driver_id))
+        }
+        // Selected view: Show all orders for selected driver
         return orders.filter(o => o.driver_id === selectedDriverId)
-    }, [orders, selectedDriverId])
+    }, [orders, drivers, selectedDriverId])
 
     const displayedDrivers = useMemo(() => {
         if (!selectedDriverId) {
