@@ -155,7 +155,11 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
     }, [orders, selectedDriverId])
 
     const displayedDrivers = useMemo(() => {
-        if (!selectedDriverId) return drivers
+        if (!selectedDriverId) {
+            // Global view: Show ONLY online drivers
+            return drivers.filter(d => d.is_online)
+        }
+        // Selected view: Show selected driver even if offline (last known location)
         return drivers.filter(d => d.id === selectedDriverId)
     }, [drivers, selectedDriverId])
 
