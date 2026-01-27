@@ -40,10 +40,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Force add .xcworkspace (it's in .gitignore but we need it)
+          git add -f ios/App/App.xcworkspace/
           git add ios/
+          
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: Generate iOS platform files with .xcworkspace"
+            git commit -m "chore: Add iOS platform files including .xcworkspace"
             git push origin main
           fi
