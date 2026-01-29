@@ -12,6 +12,8 @@ import { useToast } from "@/components/toast-provider"
 import { Navbar } from "@/components/landing/navbar"
 import { Footer } from "@/components/landing/footer"
 import { MobileAuthWrapper } from "@/components/mobile-auth-wrapper"
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -239,13 +241,20 @@ export default function LoginPage() {
                                                 onClick={async () => {
                                                     setIsLoading(true)
                                                     try {
-                                                        const { error } = await supabase.auth.signInWithOAuth({
+                                                        const isNative = Capacitor.isNativePlatform()
+                                                        const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'apple',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`
+                                                                redirectTo: `${window.location.origin}/auth/callback`,
+                                                                skipBrowserRedirect: isNative
                                                             }
                                                         })
                                                         if (error) throw error
+
+                                                        // Open in-app browser on mobile
+                                                        if (isNative && data?.url) {
+                                                            await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                        }
                                                     } catch (err: any) {
                                                         toast({
                                                             title: "Sign in failed",
@@ -270,13 +279,20 @@ export default function LoginPage() {
                                                 onClick={async () => {
                                                     setIsLoading(true)
                                                     try {
-                                                        const { error } = await supabase.auth.signInWithOAuth({
+                                                        const isNative = Capacitor.isNativePlatform()
+                                                        const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'google',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`
+                                                                redirectTo: `${window.location.origin}/auth/callback`,
+                                                                skipBrowserRedirect: isNative
                                                             }
                                                         })
                                                         if (error) throw error
+
+                                                        // Open in-app browser on mobile
+                                                        if (isNative && data?.url) {
+                                                            await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                        }
                                                     } catch (err: any) {
                                                         toast({
                                                             title: "Sign in failed",
@@ -455,13 +471,20 @@ export default function LoginPage() {
                                             onClick={async () => {
                                                 setIsLoading(true)
                                                 try {
-                                                    const { error } = await supabase.auth.signInWithOAuth({
+                                                    const isNative = Capacitor.isNativePlatform()
+                                                    const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'apple',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`
+                                                            redirectTo: `${window.location.origin}/auth/callback`,
+                                                            skipBrowserRedirect: isNative
                                                         }
                                                     })
                                                     if (error) throw error
+
+                                                    // Open in-app browser on mobile
+                                                    if (isNative && data?.url) {
+                                                        await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                    }
                                                 } catch (err: any) {
                                                     toast({
                                                         title: "Sign in failed",
@@ -486,13 +509,20 @@ export default function LoginPage() {
                                             onClick={async () => {
                                                 setIsLoading(true)
                                                 try {
-                                                    const { error } = await supabase.auth.signInWithOAuth({
+                                                    const isNative = Capacitor.isNativePlatform()
+                                                    const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'google',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`
+                                                            redirectTo: `${window.location.origin}/auth/callback`,
+                                                            skipBrowserRedirect: isNative
                                                         }
                                                     })
                                                     if (error) throw error
+
+                                                    // Open in-app browser on mobile
+                                                    if (isNative && data?.url) {
+                                                        await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                    }
                                                 } catch (err: any) {
                                                     toast({
                                                         title: "Sign in failed",
