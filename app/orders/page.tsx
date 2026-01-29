@@ -24,6 +24,7 @@ import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { isValidPhoneNumber } from "react-phone-number-input"
 import { DriverActivityHistory } from "@/components/driver-activity-history"
 import { format } from "date-fns"
+import { PullToRefresh } from "@/components/pull-to-refresh"
 
 const statusColors = {
     pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
