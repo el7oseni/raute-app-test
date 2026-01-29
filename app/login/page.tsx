@@ -238,6 +238,8 @@ export default function LoginPage() {
                                                 type="button"
                                                 variant="outline"
                                                 className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
+                                                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                                onContextMenu={(e) => e.preventDefault()}
                                                 onClick={async () => {
                                                     setIsLoading(true)
                                                     try {
@@ -276,6 +278,8 @@ export default function LoginPage() {
                                                 type="button"
                                                 variant="outline"
                                                 className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
+                                                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                                onContextMenu={(e) => e.preventDefault()}
                                                 onClick={async () => {
                                                     setIsLoading(true)
                                                     try {
@@ -468,6 +472,8 @@ export default function LoginPage() {
                                             type="button"
                                             variant="outline"
                                             className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
+                                            style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                            onContextMenu={(e) => e.preventDefault()}
                                             onClick={async () => {
                                                 setIsLoading(true)
                                                 try {
@@ -506,6 +512,8 @@ export default function LoginPage() {
                                             type="button"
                                             variant="outline"
                                             className="w-full h-11 bg-white/50 dark:bg-slate-950/50"
+                                            style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                            onContextMenu={(e) => e.preventDefault()}
                                             onClick={async () => {
                                                 setIsLoading(true)
                                                 try {
