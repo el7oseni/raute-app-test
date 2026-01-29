@@ -127,7 +127,11 @@ export function Navbar() {
 
                         {user ? (
                             <Link href="/dashboard">
-                                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 shadow-lg shadow-blue-500/20">
+                                <Button
+                                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 shadow-lg shadow-blue-500/20"
+                                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                >
                                     Dashboard
                                     <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
@@ -135,12 +139,21 @@ export function Navbar() {
                         ) : (
                             <div className="flex items-center gap-3">
                                 <Link href="/login">
-                                    <Button variant="ghost" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium">
+                                    <Button
+                                        variant="ghost"
+                                        className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
+                                        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                        onContextMenu={(e) => e.preventDefault()}
+                                    >
                                         Log in
                                     </Button>
                                 </Link>
                                 <Link href="/signup">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 shadow-lg shadow-blue-500/20">
+                                    <Button
+                                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6 shadow-lg shadow-blue-500/20"
+                                        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                        onContextMenu={(e) => e.preventDefault()}
+                                    >
                                         Get Started
                                     </Button>
                                 </Link>
@@ -184,19 +197,32 @@ export function Navbar() {
                     <div className="h-px bg-slate-100 dark:bg-slate-800 my-2" />
                     {user ? (
                         <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg">
+                            <Button
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                onContextMenu={(e) => e.preventDefault()}
+                            >
                                 Go to Dashboard
                             </Button>
                         </Link>
                     ) : (
                         <div className="flex flex-col gap-3">
                             <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                                <Button variant="ghost" className="w-full justify-start text-lg">
+                                <Button
+                                    variant="ghost"
+                                    className="w-full justify-start text-lg"
+                                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                >
                                     Log in
                                 </Button>
                             </Link>
                             <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg">
+                                <Button
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                                    style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                >
                                     Get Started
                                 </Button>
                             </Link>
