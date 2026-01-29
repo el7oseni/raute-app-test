@@ -26,6 +26,8 @@ import { useToast } from "@/components/toast-provider"
 import LocationPicker from "@/components/location-picker"
 import { DebugLocationStatus } from "@/components/debug-location-status"
 import { DriverTracker } from "@/components/driver-tracker"
+import { ImageViewerModal } from "@/components/image-viewer-modal"
+import { Capacitor } from '@capacitor/core'
 
 // Dynamically import map to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
@@ -87,6 +89,11 @@ export default function ClientOrderDetails() {
     // Signature State
     const [signatureData, setSignatureData] = useState<string | null>(null)
     const [signatureKey, setSignatureKey] = useState(0)
+
+    // Image Viewer State
+    const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null)
+    const [viewerImageTitle, setViewerImageTitle] = useState<string>('')
+
 
 
     useEffect(() => {
@@ -480,7 +487,24 @@ export default function ClientOrderDetails() {
                 {/* Info Cards */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
                     <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><UserIcon size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Customer</p><p className="font-medium text-slate-900">{order.customer_name}</p>{order.phone && (<a href={`tel:${order.phone}`} className="text-blue-600 text-sm font-medium flex items-center gap-1 mt-1"><Phone size={12} /> {order.phone}</a>)}</div></div>
-                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><MapPin size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Address</p><p className="font-medium text-slate-900">{order.address}</p><p className="text-sm text-slate-500">{[order.city, order.state].filter(Boolean).join(', ')}</p><a href={`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-full mt-2 hover:bg-blue-100 transition-colors">Open in Google Maps</a></div></div>
+                    <div className="p-4 flex gap-4"><div className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shrink-0"><MapPin size={20} /></div><div><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Address</p><p className="font-medium text-slate-900">{order.address}</p><p className="text-sm text-slate-500">{[order.city, order.state].filter(Boolean).join(', ')}</p><button
+                        onClick={() => {
+                            const isNative = Capacitor.isNativePlatform()
+                            if (isNative) {
+                                // Open native Maps app
+                                const url = Capacitor.getPlatform() === 'ios'
+                                    ? `maps://?q=${order.latitude},${order.longitude}`
+                                    : `geo:${order.latitude},${order.longitude}?q=${order.latitude},${order.longitude}`
+                                window.location.href = url
+                            } else {
+                                // Web: open in new tab
+                                window.open(`https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`, '_blank')
+                            }
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-full mt-2 hover:bg-blue-100 transition-colors"
+                    >
+                        Open in Google Maps
+                    </button></div></div>
                     {order.notes && (<div className="p-4 bg-yellow-50/50"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wider mb-1">Driver Notes</p><p className="text-sm text-slate-700 italic">"{order.notes}"</p></div>)}
 
                     {/* Proof Images Gallery */}
@@ -501,7 +525,10 @@ export default function ClientOrderDetails() {
                                             src={img.image_url}
                                             alt="Proof"
                                             className="object-cover w-full h-full cursor-pointer hover:scale-105 transition-transform"
-                                            onClick={() => window.open(img.image_url, '_blank')}
+                                            onClick={() => {
+                                                setViewerImageUrl(img.image_url)
+                                                setViewerImageTitle(`Proof of Delivery #${proofImages.indexOf(img) + 1}`)
+                                            }}
                                         />
 
                                         {/* Delete Button - Only show if order is not delivered */}
@@ -526,7 +553,10 @@ export default function ClientOrderDetails() {
                                             src={order.proof_url}
                                             alt="Proof"
                                             className="object-cover w-full h-full cursor-pointer hover:scale-105 transition-transform"
-                                            onClick={() => window.open(order.proof_url!, '_blank')}
+                                            onClick={() => {
+                                                setViewerImageUrl(order.proof_url!)
+                                                setViewerImageTitle('Legacy Proof of Delivery')
+                                            }}
                                         />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
                                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
@@ -545,7 +575,10 @@ export default function ClientOrderDetails() {
                                             src={order.signature_url}
                                             alt="Signature"
                                             className="object-contain w-full h-full p-4 cursor-pointer hover:scale-105 transition-transform"
-                                            onClick={() => window.open(order.signature_url!, '_blank')}
+                                            onClick={() => {
+                                                setViewerImageUrl(order.signature_url!)
+                                                setViewerImageTitle('Customer Signature')
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -564,9 +597,15 @@ export default function ClientOrderDetails() {
 
                                 {order.proof_url && (
                                     <div className="flex justify-center">
-                                        <a href={order.proof_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-bold text-green-700 bg-white border border-green-200 px-4 py-2 rounded-lg hover:bg-green-50 transition-colors shadow-sm">
+                                        <button
+                                            onClick={() => {
+                                                setViewerImageUrl(order.proof_url!)
+                                                setViewerImageTitle('Proof of Delivery')
+                                            }}
+                                            className="inline-flex items-center gap-2 text-xs font-bold text-green-700 bg-white border border-green-200 px-4 py-2 rounded-lg hover:bg-green-50 transition-colors shadow-sm"
+                                        >
                                             <CameraIcon size={14} /> View Proof Photo
-                                        </a>
+                                        </button>
                                     </div>
                                 )}
 
@@ -909,6 +948,13 @@ export default function ClientOrderDetails() {
                     userId={currentUserId || undefined}
                 />
             )}
+
+            {/* Image Viewer Modal */}
+            <ImageViewerModal
+                imageUrl={viewerImageUrl}
+                onClose={() => setViewerImageUrl(null)}
+                title={viewerImageTitle}
+            />
 
             <DebugLocationStatus />
         </div >
