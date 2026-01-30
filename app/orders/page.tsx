@@ -310,7 +310,7 @@ export default function OrdersPage() {
                     toast({
                         title: 'Offline Mode',
                         description: `Showing data from ${ts ? new Date(ts).toLocaleTimeString() : 'cache'}`,
-                        // type: 'default' // Removed to fallback to standard toast
+                        type: 'info'
                     })
                 } catch (e) { }
             } else {
