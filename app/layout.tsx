@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast-provider";
 import { NetworkStatusBanner } from "@/components/network-status-banner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { AuthListener } from "@/components/auth-listener";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -49,6 +50,7 @@ export default function RootLayout({
           <PwaElementsLoader />
           <NetworkStatusBanner />
           <ToastProvider>
+            <AuthListener />
             <AuthCheck>
               <main className="h-full overflow-y-auto pb-20 safe-area-pb">
                 {children}

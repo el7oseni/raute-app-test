@@ -29,7 +29,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        const checkAuth = async () => {
+        const checkAuth = async (retries = 3) => {
             try {
                 const { data, error } = await supabase.auth.getSession()
 
@@ -39,10 +39,20 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     return
                 }
 
+                // Retry if no session found (might be restoring from storage)
+                if (!data.session && retries > 0) {
+                    console.log(`Checking session... (${retries} retries left)`)
+                    setTimeout(() => checkAuth(retries - 1), 500)
+                    return
+                }
+
                 const session = data.session
                 const isAuthenticated = !!session
 
+                console.log('AuthCheck:', { path: pathname, authed: isAuthenticated })
+
                 if (!isAuthenticated && !isPublicRoute) {
+                    console.warn('⛔ Protected route access denied. Redirecting to login.')
                     router.push('/login')
                 } else if (isAuthenticated) {
                     // Check Email Verification
@@ -54,6 +64,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
                     // Redirect authenticated users away from login/signup
                     if (['/login', '/signup'].includes(pathname)) {
+                        console.log('✅ User already logged in. Redirecting to dashboard.')
                         router.push('/dashboard')
                     }
                 }
@@ -64,7 +75,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     router.push('/login')
                 }
             } finally {
-                setIsLoading(false)
+                // If we are out of retries or succeeded, stop loading
+                if (retries === 0 || data?.session) {
+                    setIsLoading(false)
+                }
             }
         }
 
