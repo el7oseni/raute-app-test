@@ -108,7 +108,9 @@ export async function middleware(request: NextRequest) {
         // We do NOT redirect to avoid loops.
     }
 
-    const { role, company_id } = userData
+    const role = userData?.role || 'driver' // Default to driver if DB fetch fails
+    const company_id = userData?.company_id || null
+
 
     // Allow access to pending-activation page
     if (request.nextUrl.pathname === '/pending-activation') {
