@@ -88,6 +88,7 @@ export default function OrdersPage() {
 
     // Bulk Delete State
     const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+    const [isSelectionMode, setIsSelectionMode] = useState(false)
 
     // Location Tracking State  
     const [userId, setUserId] = useState<string | null>(null)
@@ -1314,14 +1315,42 @@ export default function OrdersPage() {
 
             <div className="space-y-3">
                 {filteredOrders.length > 0 && (
-                    <div className="flex items-center gap-2 px-2">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground">{filteredOrders.length} orders</span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setIsSelectionMode(!isSelectionMode)
+                                if (isSelectionMode) setSelectedOrders([]) // Clear on exit
+                            }}
+                            className="text-primary hover:bg-primary/10 -mr-2"
+                        >
+                            {isSelectionMode ? "Cancel" : "Select"}
+                        </Button>
+                    </div>
+                )}
+
+                {isSelectionMode && filteredOrders.length > 0 && (
+                    <div className="flex items-center gap-2 px-2 py-2 bg-muted/30 rounded-lg animate-in fade-in slide-in-from-top-1">
                         <input
                             type="checkbox"
                             checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
-                            onChange={toggleSelectAll}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    setSelectedOrders(filteredOrders.map(o => o.id))
+                                } else {
+                                    setSelectedOrders([])
+                                }
+                            }}
                             className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer accent-primary"
                         />
                         <span className="text-sm text-muted-foreground font-medium">Select All</span>
+                        {selectedOrders.length > 0 && (
+                            <span className="text-xs text-primary font-bold ml-auto">{selectedOrders.length} selected</span>
+                        )}
                     </div>
                 )}
 
@@ -1332,93 +1361,79 @@ export default function OrdersPage() {
                     </div>
                 ) : (
                     filteredOrders.map((order) => (
-                        <div key={order.id} className="flex items-start gap-3 group">
-                            <input
-                                type="checkbox"
-                                checked={selectedOrders.includes(order.id)}
-                                onChange={(e) => {
-                                    e.stopPropagation()
-                                    toggleOrderSelection(order.id)
-                                }}
-                                className="mt-6 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer flex-shrink-0 accent-primary"
-                            />
-                            <Link href={`/my-editor?id=${order.id}`} className="flex-1">
-                                <div className="bg-card p-5 rounded-xl shadow-sm border border-border space-y-3 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden">
+                        <div key={order.id} className="flex items-center gap-3 group px-1">
+                            {/* Mobile Selection Checkbox */}
+                            <div className={cn(
+                                "transition-all duration-300 overflow-hidden",
+                                isSelectionMode ? "w-6 opacity-100 mr-2" : "w-0 opacity-0"
+                            )}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedOrders.includes(order.id)}
+                                    onChange={(e) => {
+                                        e.stopPropagation()
+                                        toggleOrderSelection(order.id)
+                                    }}
+                                    className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 text-primary focus:ring-0 cursor-pointer accent-primary"
+                                />
+                            </div>
+
+                            <Link href={`/my-editor?id=${order.id}`} className="flex-1 min-w-0">
+                                <div className="bg-card p-4 rounded-2xl shadow-sm border border-border/60 space-y-3 active:scale-[0.98] active:bg-muted/50 transition-all cursor-pointer relative overflow-hidden touch-manipulation">
                                     {/* Status Stripe */}
-                                    <div className={cn("absolute left-0 top-0 bottom-0 w-1",
+                                    <div className={cn("absolute left-0 top-0 bottom-0 w-1.5",
                                         order.status === 'delivered' ? 'bg-green-500' :
                                             order.status === 'in_progress' ? 'bg-purple-500' :
                                                 order.status === 'cancelled' ? 'bg-red-500' :
                                                     order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
                                     )} />
 
-                                    <div className="flex justify-between items-start pl-2">
-                                        <div>
-                                            <p className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">#{order.order_number}</p>
-                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium">
-                                                <UserIcon size={14} className="text-primary/70" />
-                                                {order.customer_name}
-                                                {/* PRIORITY BADGE */}
-                                                {(order.priority_level === 'high' || order.priority_level === 'critical') && (
-                                                    <span className={cn(
-                                                        "ml-2 flex items-center gap-1 text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded border shadow-sm",
-                                                        order.priority_level === 'critical'
-                                                            ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900"
-                                                            : "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-900"
-                                                    )}>
-                                                        {order.priority_level === 'critical' ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
-                                                        {order.priority_level}
-                                                    </span>
-                                                )}
+                                    <div className="flex justify-between items-start pl-3">
+                                        <div className="min-w-0 pr-2">
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-base text-foreground truncate">#{order.order_number}</p>
+                                                {/* Status Badge (Mobile Optimized) */}
+                                                <span className={cn("px-2 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider shrink-0",
+                                                    statusColors[order.status].replace('bg-', 'bg-opacity-10 bg-').replace('border-', 'border-opacity-20 border-')
+                                                )}>
+                                                    {order.status === 'in_progress' ? 'In Progress' : order.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium truncate">
+                                                <UserIcon size={13} className="text-primary/70 shrink-0" />
+                                                <span className="truncate">{order.customer_name}</span>
                                             </div>
                                         </div>
-                                        <span className={cn("px-2.5 py-0.5 text-[10px] font-bold rounded-full border uppercase tracking-wider",
-                                            statusColors[order.status].replace('bg-', 'bg-opacity-10 bg-').replace('border-', 'border-opacity-20 border-')
-                                        )}>
-                                            {order.status.replace("_", " ")}
-                                        </span>
+
+                                        {/* PRIORITY ICON (More subtle) */}
+                                        {(order.priority_level === 'high' || order.priority_level === 'critical') && (
+                                            <div className={cn(
+                                                "shrink-0 w-2 h-2 rounded-full",
+                                                order.priority_level === 'critical' ? "bg-red-500 animate-pulse" : "bg-orange-500"
+                                            )} title="High Priority" />
+                                        )}
                                     </div>
-                                    <div className="space-y-1.5 text-sm text-muted-foreground pl-2 border-t border-border/50 pt-3">
+
+                                    <div className="space-y-1.5 text-xs text-muted-foreground pl-3 border-t border-border/40 pt-2.5">
                                         <div className="flex items-start gap-2">
-                                            <MapPin size={14} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
-                                            <span className="leading-snug">{order.address}{order.city ? `, ${order.city}` : ""}</span>
+                                            <MapPin size={13} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
+                                            <span className="leading-snug line-clamp-2">{order.address}{order.city ? `, ${order.city}` : ""}</span>
                                         </div>
 
-                                        {/* GPS Warnings */}
-                                        {(!order.latitude || !order.longitude) && (
-                                            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded w-fit border border-red-100 ml-6">
-                                                <AlertCircle size={10} />
-                                                <span>No GPS</span>
-                                            </div>
-                                        )}
-                                        {(order.geocoding_confidence && order.geocoding_confidence !== 'exact') && (
-                                            <div className={`mt-1 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded w-fit border ml-6 ${order.geocoding_confidence === 'failed' ? 'text-red-600 bg-red-50 border-red-100' : 'text-orange-600 bg-orange-50 border-orange-100'}`}>
-                                                <AlertTriangle size={10} />
-                                                <span>{order.geocoding_confidence === 'failed' ? 'GPS Failed' : 'Unverified GPS'}</span>
-                                            </div>
-                                        )}
-
-                                        {order.delivery_date && (
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Calendar size={14} className="flex-shrink-0 text-muted-foreground/70" />
-                                                <span>{new Date(order.delivery_date).toLocaleDateString()}</span>
-                                            </div>
-                                        )}
-                                        {/* Timestamp for Manager Tracking */}
                                         {(order.delivered_at || order.time_window_start) && (
-                                            <div className="flex items-center gap-2 font-medium">
+                                            <div className="flex items-center gap-2 font-medium pt-1">
                                                 {order.status === 'delivered' && order.delivered_at ? (
                                                     <>
-                                                        <CheckCircle2 size={14} className="flex-shrink-0 text-green-600 dark:text-green-500" />
-                                                        <span className="text-green-700 dark:text-green-400 text-xs font-bold">
-                                                            Delivered at {format(new Date(order.delivered_at), 'h:mm a')}
+                                                        <CheckCircle2 size={13} className="flex-shrink-0 text-green-600 dark:text-green-500" />
+                                                        <span className="text-green-700 dark:text-green-400">
+                                                            {format(new Date(order.delivered_at), 'h:mm a')}
                                                         </span>
                                                     </>
                                                 ) : (order.time_window_start) ? (
                                                     <>
-                                                        <Clock size={14} className="flex-shrink-0 text-orange-600 dark:text-orange-400" />
-                                                        <span className="text-orange-700 dark:text-orange-300 text-xs font-bold">
-                                                            Window: {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
+                                                        <Clock size={13} className="flex-shrink-0 text-orange-600 dark:text-orange-400" />
+                                                        <span className="text-orange-700 dark:text-orange-300">
+                                                            {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
                                                         </span>
                                                     </>
                                                 ) : null}

@@ -167,7 +167,7 @@ export function MobileNav() {
     // to prevent leaking manager tabs
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-white dark:bg-slate-950 border-t border-border dark:border-slate-800 pb-safe safe-area-bottom shadow-lg transition-colors">
+        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-white/85 dark:bg-slate-950/85 backdrop-blur-md border-t border-border/50 dark:border-slate-800/50 safe-area-pb shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] transition-all duration-300">
             <div className={`flex items-center justify-around h-16 max-w-lg mx-auto ${isDriver ? 'px-8' : ''}`}>
 
                 {/* 1. Home / Dashboard (Everyone) */}
@@ -247,8 +247,8 @@ function NavItem({ href, icon: Icon, label, active }: { href: string, icon: any,
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 active:scale-95" // Explicit Inactive Color
             )}
         >
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} className={active ? "fill-blue-100 dark:fill-blue-900/30" : "fill-none"} />
-            <span className="text-[10px] font-medium tracking-tight">{label}</span>
+            <Icon size={26} strokeWidth={active ? 2.5 : 1.5} className={active ? "fill-primary/10 text-primary" : "text-slate-500 dark:text-slate-400"} />
+            <span className={cn("text-[10px] font-medium tracking-tight mt-0.5", active ? "text-primary font-semibold" : "text-slate-500 dark:text-slate-400")}>{label}</span>
         </Link>
     )
 }

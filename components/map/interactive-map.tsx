@@ -118,9 +118,10 @@ interface InteractiveMapProps {
     selectedDriverId: string | null
     userLocation: [number, number] | null
     forceTheme?: 'light' | 'dark'
+    onOrderDeleted?: (orderId: string) => void
 }
 
-export default function InteractiveMap({ orders, drivers, selectedDriverId, userLocation, forceTheme }: InteractiveMapProps) {
+export default function InteractiveMap({ orders, drivers, selectedDriverId, userLocation, forceTheme, onOrderDeleted }: InteractiveMapProps) {
     // Debug logging
     useEffect(() => {
         console.log('🗺️ InteractiveMap render:', {
@@ -283,6 +284,9 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                                                 if (error) {
                                                     alert('Failed to delete order')
                                                     console.error(error)
+                                                } else {
+                                                    // Optimistic UI Update
+                                                    if (onOrderDeleted) onOrderDeleted(order.id)
                                                 }
                                             }
                                         }}

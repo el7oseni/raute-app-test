@@ -90,6 +90,9 @@
     overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Native iOS Feel */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   /* Hide scrollbar but keep scroll functionality */

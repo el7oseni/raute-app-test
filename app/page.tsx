@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/landing/navbar'
 import { HeroSection } from '@/components/landing/hero-section'
@@ -12,22 +12,37 @@ import { HowItWorks } from '@/components/landing/how-it-works'
 
 export default function LandingPage() {
   const router = useRouter()
+  // Default to loading to prevent flash of content on mobile
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Redirect mobile users (Capacitor) to login page
     const checkMobile = async () => {
+      let isNative = false
       if (typeof window !== 'undefined' && (window as any).Capacitor) {
         // Check if it's actually native platform (iOS/Android) not just web with Capacitor injected
-        const isNative = (window as any).Capacitor.isNativePlatform?.() ||
+        isNative = (window as any).Capacitor.isNativePlatform?.() ||
           (window as any).Capacitor.getPlatform?.() !== 'web';
 
         if (isNative) {
           router.push('/login')
+          return // Keep loading true while redirecting
         }
       }
+
+      // Only show content if NOT native
+      setIsLoading(false)
     }
     checkMobile()
   }, [router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+        {/* Optional: Add a branded spinner or logo here */}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-blue-100 dark:selection:bg-blue-900">

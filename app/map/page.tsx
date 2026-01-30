@@ -240,6 +240,10 @@ export default function MapPage() {
         setMapTheme(prev => prev === 'light' ? 'dark' : 'light')
     }
 
+    const handleOrderDeleted = (orderId: string) => {
+        setOrders(prev => prev.filter(o => o.id !== orderId))
+    }
+
     return (
         <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-background relative">
             {/* Desktop Sidebar - Only for Managers */}
@@ -297,6 +301,7 @@ export default function MapPage() {
                     selectedDriverId={selectedDriverId}
                     userLocation={userLocation}
                     forceTheme={mapTheme}
+                    onOrderDeleted={handleOrderDeleted}
                 />
 
                 {/* Info Overlay (Visible when Driver Selected) */}
