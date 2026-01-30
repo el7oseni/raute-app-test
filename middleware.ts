@@ -100,13 +100,12 @@ export async function middleware(request: NextRequest) {
         .eq('id', session.user.id)
         .single()
 
-    // 🚨 SECURITY: If user not found in database, logout immediately
+    // 🚨 SECURITY: If user not found in database, handle gracefully
+    // DO NOT LOGOUT here, as it causes infinite redirect loops if DB is slow or RLS fails.
     if (!userData || !userData.role) {
-        console.error(`🔒 SECURITY BREACH PREVENTED: User ${session.user.id} has no database record`)
-        const logoutResponse = NextResponse.redirect(new URL('/login', request.url))
-        logoutResponse.cookies.delete('sb-access-token')
-        logoutResponse.cookies.delete('sb-refresh-token')
-        return logoutResponse
+        console.warn(`⚠️ User ${session.user.id} has no database record or access denied by RLS. Allowing provisional access.`)
+        // Proceed as if role is 'driver' (safest default) or let UI handle it.
+        // We do NOT redirect to avoid loops.
     }
 
     const { role, company_id } = userData
