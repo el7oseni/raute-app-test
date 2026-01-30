@@ -244,10 +244,14 @@ export default function LoginPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+                                                        const redirectUrl = isNative
+                                                            ? 'io.raute.app://auth/callback'
+                                                            : `${window.location.origin}/auth/callback`
+
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'apple',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`,
+                                                                redirectTo: redirectUrl,
                                                                 skipBrowserRedirect: isNative
                                                             }
                                                         })
@@ -284,10 +288,14 @@ export default function LoginPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+                                                        const redirectUrl = isNative
+                                                            ? 'io.raute.app://auth/callback'
+                                                            : `${window.location.origin}/auth/callback`
+
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'google',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`,
+                                                                redirectTo: redirectUrl,
                                                                 skipBrowserRedirect: isNative
                                                             }
                                                         })
@@ -478,10 +486,14 @@ export default function LoginPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+                                                    const redirectUrl = isNative
+                                                        ? 'io.raute.app://auth/callback'
+                                                        : `${window.location.origin}/auth/callback`
+
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'apple',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`,
+                                                            redirectTo: redirectUrl,
                                                             skipBrowserRedirect: isNative
                                                         }
                                                     })
@@ -518,10 +530,14 @@ export default function LoginPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+                                                    const redirectUrl = isNative
+                                                        ? 'io.raute.app://auth/callback'
+                                                        : `${window.location.origin}/auth/callback`
+
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'google',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`,
+                                                            redirectTo: redirectUrl,
                                                             skipBrowserRedirect: isNative
                                                         }
                                                     })
