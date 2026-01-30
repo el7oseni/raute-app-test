@@ -960,474 +960,475 @@ export default function OrdersPage() {
                         </div>
                     )}
                 </div>
-                )
+            </PullToRefresh>
+        )
     }
 
-                // MANAGER UI
-                return (
-                <div className="p-4 space-y-4 pb-20 max-w-7xl mx-auto">
-                    <header className="flex items-center justify-between mb-6">
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground">All Orders</h1>
-                            <p className="text-muted-foreground text-sm">Manage company deliveries</p>
-                            {selectedOrders.length > 0 && (
-                                <p className="text-xs text-blue-600 mt-1 font-medium">{selectedOrders.length} selected</p>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {selectedOrders.length > 0 && (
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="gap-2"
-                                    onClick={handleBulkDelete}
-                                >
-                                    🗑️ Delete ({selectedOrders.length})
-                                </Button>
-                            )}
-                            <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-                                <SheetTrigger asChild>
-                                    <Button size="sm" variant="outline" className="gap-2">
-                                        <Settings size={14} /> Settings
-                                    </Button>
-                                </SheetTrigger>
-                                <SheetContent className="w-full sm:max-w-lg">
-                                    <SheetHeader>
-                                        <SheetTitle>Settings</SheetTitle>
-                                        <SheetDescription>Manage your orders settings and preferences</SheetDescription>
-                                    </SheetHeader>
-                                    <div className="mt-6 space-y-6">
-                                        {/* Custom Fields Section */}
-                                        <div className="pb-6">
-                                            <CustomFieldsManager entityType="order" />
-                                        </div>
+    // MANAGER UI
+    return (
+        <div className="p-4 space-y-4 pb-20 max-w-7xl mx-auto">
+            <header className="flex items-center justify-between mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">All Orders</h1>
+                    <p className="text-muted-foreground text-sm">Manage company deliveries</p>
+                    {selectedOrders.length > 0 && (
+                        <p className="text-xs text-blue-600 mt-1 font-medium">{selectedOrders.length} selected</p>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedOrders.length > 0 && (
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            className="gap-2"
+                            onClick={handleBulkDelete}
+                        >
+                            🗑️ Delete ({selectedOrders.length})
+                        </Button>
+                    )}
+                    <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                        <SheetTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-2">
+                                <Settings size={14} /> Settings
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent className="w-full sm:max-w-lg">
+                            <SheetHeader>
+                                <SheetTitle>Settings</SheetTitle>
+                                <SheetDescription>Manage your orders settings and preferences</SheetDescription>
+                            </SheetHeader>
+                            <div className="mt-6 space-y-6">
+                                {/* Custom Fields Section */}
+                                <div className="pb-6">
+                                    <CustomFieldsManager entityType="order" />
+                                </div>
 
-                                        {/* Future sections can be added here */}
-                                        {/* Example:
+                                {/* Future sections can be added here */}
+                                {/* Example:
                                 <div className="border-b pb-6">
                                     <h3 className="text-lg font-bold">Company Info</h3>
                                     ...
                                 </div>
                                 */}
-                                    </div>
-                                </SheetContent>
-                            </Sheet>
-                            <Sheet open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
-                                <SheetTrigger asChild><Button size="sm" className="gap-2 shadow-lg shadow-blue-200"><Plus size={16} /> Add Order</Button></SheetTrigger>
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                    <Sheet open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
+                        <SheetTrigger asChild><Button size="sm" className="gap-2 shadow-lg shadow-blue-200"><Plus size={16} /> Add Order</Button></SheetTrigger>
 
-                                <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
-                                    <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
+                        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
+                            <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
 
-                                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                        <TabsList className="grid w-full grid-cols-2 mb-6">
-                                            <TabsTrigger value="ai" className="gap-2"><Sparkles size={14} /> AI Smart Import</TabsTrigger>
-                                            <TabsTrigger value="manual" className="gap-2"><Edit size={14} /> Manual Entry</TabsTrigger>
-                                        </TabsList>
+                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 mb-6">
+                                    <TabsTrigger value="ai" className="gap-2"><Sparkles size={14} /> AI Smart Import</TabsTrigger>
+                                    <TabsTrigger value="manual" className="gap-2"><Edit size={14} /> Manual Entry</TabsTrigger>
+                                </TabsList>
 
-                                        <TabsContent value="ai" className="mt-0 pb-32">
-                                            <div className="p-1 rounded-2xl bg-gradient-to-b from-indigo-50 to-white dark:from-slate-900 dark:to-slate-950 border border-indigo-100 dark:border-slate-800 shadow-sm relative overflow-visible group min-h-[300px] flex flex-col justify-center">
-                                                <div className="absolute -top-3 left-4 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-slate-700 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider shadow-sm z-10 flex items-center gap-1">
-                                                    <Sparkles size={10} className="text-indigo-500 fill-indigo-500" /> AI AUTO-FILL
-                                                </div>
+                                <TabsContent value="ai" className="mt-0 pb-32">
+                                    <div className="p-1 rounded-2xl bg-gradient-to-b from-indigo-50 to-white dark:from-slate-900 dark:to-slate-950 border border-indigo-100 dark:border-slate-800 shadow-sm relative overflow-visible group min-h-[300px] flex flex-col justify-center">
+                                        <div className="absolute -top-3 left-4 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-slate-700 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider shadow-sm z-10 flex items-center gap-1">
+                                            <Sparkles size={10} className="text-indigo-500 fill-indigo-500" /> AI AUTO-FILL
+                                        </div>
 
-                                                <div className="p-3 space-y-4">
-                                                    <div className="text-center space-y-2 mb-2">
-                                                        <h3 className="font-bold text-indigo-900 dark:text-indigo-100">Magically Extract Orders</h3>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 px-4">Paste unstructured text (chats, emails) or upload screenshots. We'll extract details automatically.</p>
-                                                    </div>
-
-                                                    <div className="mx-4 mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-lg text-[11px] text-yellow-800 dark:text-yellow-200 flex items-start gap-2 text-left">
-                                                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                                                        <span><strong>Tip:</strong> If pasting a spreadsheet/table, please include the <u>Header Row</u> so we can identify columns correctly!</span>
-                                                    </div>
-
-                                                    <div className="relative">
-                                                        <textarea
-                                                            placeholder="Paste order text here..."
-                                                            value={aiInputText}
-                                                            onChange={(e) => setAiInputText(e.target.value)}
-                                                            className="w-full min-h-[120px] text-sm p-3 rounded-xl border border-indigo-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900 focus:border-indigo-400 transition-all resize-y text-slate-700 dark:text-slate-200 shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-500 pr-10"
-                                                        />
-                                                        {aiInputText && (
-                                                            <button
-                                                                onClick={() => setAiInputText("")}
-                                                                className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                                                title="Clear text"
-                                                            >
-                                                                <XCircle size={16} />
-                                                            </button>
-                                                        )}
-                                                        {isParsing ? (
-                                                            <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 rounded-full shadow-sm text-xs font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-slate-700 animate-in fade-in">
-                                                                <Loader2 size={12} className="animate-spin" /> Analyzing...
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                type="button"
-                                                                disabled={!aiInputText}
-                                                                onClick={() => handleAIParse(aiInputText)}
-                                                                className="absolute bottom-2 right-2 p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 shadow-md transition-transform active:scale-95 flex items-center gap-2 text-xs font-bold px-3 disabled:opacity-50 disabled:pointer-events-none"
-                                                            >
-                                                                Analyze Text <ArrowRight size={12} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-px bg-indigo-50 dark:bg-slate-800 flex-1" />
-                                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">OR</span>
-                                                        <div className="h-px bg-indigo-50 dark:bg-slate-800 flex-1" />
-                                                    </div>
-
-                                                    <label className="flex items-center justify-center gap-2 w-full py-4 bg-white dark:bg-slate-900/50 border border-dashed border-indigo-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-700 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer group/upload shadow-sm">
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*,.csv,.xlsx,.xls"
-                                                            multiple
-                                                            className="hidden"
-                                                            value="" // Always reset so onChange fires even for same file
-                                                            onChange={(e) => {
-                                                                if (e.target.files && e.target.files.length > 0) {
-                                                                    const newFiles = Array.from(e.target.files)
-                                                                    setSelectedFiles(prev => [...prev, ...newFiles])
-                                                                }
-                                                            }}
-                                                        />
-                                                        <div className="p-2 bg-indigo-100 dark:bg-slate-800 rounded-full text-indigo-600 dark:text-indigo-400 group-hover/upload:scale-110 transition-transform">
-                                                            <Camera size={18} />
-                                                        </div>
-                                                        <span>{selectedFiles.length > 0 ? "Add More Files" : "Select Images or Excel"}</span>
-                                                    </label>
-
-                                                    {/* File List & Analyze Button */}
-                                                    {selectedFiles.length > 0 && (
-                                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                                            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-2 border border-slate-100 dark:border-slate-800">
-                                                                <div className="flex justify-between items-center">
-                                                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Files ({selectedFiles.length})</p>
-                                                                    <button onClick={() => setSelectedFiles([])} className="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
-                                                                </div>
-                                                                <ul className="space-y-2">
-                                                                    {selectedFiles.map((file, idx) => (
-                                                                        <li key={`${file.name}-${idx}`} className="text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-950 rounded border border-slate-100 dark:border-slate-800">
-                                                                            <div className="flex items-center gap-2 truncate">
-                                                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                                                                                <span className="truncate">{file.name}</span>
-                                                                                <span className="text-[10px] text-slate-400">({(file.size / 1024).toFixed(1)} KB)</span>
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
-                                                                                className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                                                                                title="Remove file"
-                                                                            >
-                                                                                <X size={14} />
-                                                                            </button>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-
-                                                            <Button
-                                                                onClick={() => handleAIParse(selectedFiles)}
-                                                                disabled={isParsing}
-                                                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                                                            >
-                                                                {isParsing ? (
-                                                                    <>
-                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                        Analyzing {selectedFiles.length} Images...
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Sparkles className="mr-2 h-4 w-4" />
-                                                                        Analyze {selectedFiles.length} Images
-                                                                    </>
-                                                                )}
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                        <div className="p-3 space-y-4">
+                                            <div className="text-center space-y-2 mb-2">
+                                                <h3 className="font-bold text-indigo-900 dark:text-indigo-100">Magically Extract Orders</h3>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 px-4">Paste unstructured text (chats, emails) or upload screenshots. We'll extract details automatically.</p>
                                             </div>
-                                        </TabsContent>
 
-                                        <TabsContent value="manual" className="pb-32">
-                                            <form
-                                                id="add-order-form"
-                                                onSubmit={(e) => {
-                                                    e.preventDefault()
-                                                    console.log("Form submitted!")
-                                                    const formData = new FormData(e.currentTarget)
-                                                    handleAddOrder(formData)
-                                                }}
-                                                className="space-y-4"
-                                            >
-                                                <div className="space-y-2">
-                                                    <label className="text-sm font-medium flex justify-between">
-                                                        Order Number
-                                                        <span className="text-[10px] text-slate-400 font-normal self-end">(Auto-generated if empty)</span>
-                                                    </label>
-                                                    <Input name="order_number" placeholder="ORD-001" />
-                                                </div>
-                                                <div className="space-y-2"><label className="text-sm font-medium">Customer Name</label><Input name="customer_name" placeholder="John Doe" required /></div>
-                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                    <LocationPicker onLocationSelect={async (lat, lng) => {
-                                                        setPickedLocation({ lat, lng })
-                                                        const res = await reverseGeocode(lat, lng)
-                                                        if (res) {
-                                                            setAddress(res.address)
-                                                            setCity(res.city)
-                                                            setState(res.state)
-                                                            setZipCode(res.zip)
+                                            <div className="mx-4 mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900 rounded-lg text-[11px] text-yellow-800 dark:text-yellow-200 flex items-start gap-2 text-left">
+                                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                                <span><strong>Tip:</strong> If pasting a spreadsheet/table, please include the <u>Header Row</u> so we can identify columns correctly!</span>
+                                            </div>
+
+                                            <div className="relative">
+                                                <textarea
+                                                    placeholder="Paste order text here..."
+                                                    value={aiInputText}
+                                                    onChange={(e) => setAiInputText(e.target.value)}
+                                                    className="w-full min-h-[120px] text-sm p-3 rounded-xl border border-indigo-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900 focus:border-indigo-400 transition-all resize-y text-slate-700 dark:text-slate-200 shadow-inner placeholder:text-slate-400 dark:placeholder:text-slate-500 pr-10"
+                                                />
+                                                {aiInputText && (
+                                                    <button
+                                                        onClick={() => setAiInputText("")}
+                                                        className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                        title="Clear text"
+                                                    >
+                                                        <XCircle size={16} />
+                                                    </button>
+                                                )}
+                                                {isParsing ? (
+                                                    <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 rounded-full shadow-sm text-xs font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-slate-700 animate-in fade-in">
+                                                        <Loader2 size={12} className="animate-spin" /> Analyzing...
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        disabled={!aiInputText}
+                                                        onClick={() => handleAIParse(aiInputText)}
+                                                        className="absolute bottom-2 right-2 p-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 shadow-md transition-transform active:scale-95 flex items-center gap-2 text-xs font-bold px-3 disabled:opacity-50 disabled:pointer-events-none"
+                                                    >
+                                                        Analyze Text <ArrowRight size={12} />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-px bg-indigo-50 dark:bg-slate-800 flex-1" />
+                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">OR</span>
+                                                <div className="h-px bg-indigo-50 dark:bg-slate-800 flex-1" />
+                                            </div>
+
+                                            <label className="flex items-center justify-center gap-2 w-full py-4 bg-white dark:bg-slate-900/50 border border-dashed border-indigo-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-400 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-700 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all cursor-pointer group/upload shadow-sm">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.csv,.xlsx,.xls"
+                                                    multiple
+                                                    className="hidden"
+                                                    value="" // Always reset so onChange fires even for same file
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files.length > 0) {
+                                                            const newFiles = Array.from(e.target.files)
+                                                            setSelectedFiles(prev => [...prev, ...newFiles])
                                                         }
-                                                    }} />
-                                                    {pickedLocation && (<p className="text-xs text-blue-600 mt-2 flex items-center gap-1"><MapPin size={12} /> Selected: {pickedLocation.lat.toFixed(4)}, {pickedLocation.lng.toFixed(4)}</p>)}
-                                                </div>
-                                                <div className="space-y-2"><label className="text-sm font-medium">Address</label><Input name="address" placeholder="123 Main St" required value={address} onChange={(e) => setAddress(e.target.value)} /></div>
-                                                <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-sm font-medium">City</label><Input name="city" placeholder="New York" value={city} onChange={(e) => setCity(e.target.value)} /></div><div className="space-y-2"><label className="text-sm font-medium">State</label><Input name="state" placeholder="NY" value={state} onChange={(e) => setState(e.target.value)} /></div></div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2"><label className="text-sm font-medium">ZIP Code</label><Input name="zip_code" placeholder="10001" value={zipCode} onChange={(e) => setZipCode(e.target.value)} /></div>
-                                                    <div className="space-y-2">
-                                                        <label className="text-sm font-medium">Phone</label>
-                                                        <StyledPhoneInput
-                                                            name="phone"
-                                                            value={phoneValue}
-                                                            onChange={setPhoneValue}
-                                                            placeholder="Enter phone number"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <label className="text-sm font-medium">Priority Level</label>
-                                                    <div className="flex gap-2">
-                                                        {['normal', 'high', 'critical'].map((level) => (
-                                                            <button
-                                                                key={level}
-                                                                type="button"
-                                                                onClick={() => setPriorityLevel(level as any)}
-                                                                className={cn(
-                                                                    "flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all flex items-center justify-center gap-2",
-                                                                    priorityLevel === level
-                                                                        ? (level === 'critical' ? "bg-red-500 text-white border-red-600 shadow-md" :
-                                                                            level === 'high' ? "bg-orange-500 text-white border-orange-600 shadow-md" :
-                                                                                "bg-blue-600 text-white border-blue-700 shadow-md")
-                                                                        : "bg-card text-muted-foreground hover:bg-muted"
-                                                                )}
-                                                            >
-                                                                {level === 'critical' && <AlertCircle size={14} />}
-                                                                {level === 'high' && <AlertTriangle size={14} />}
-                                                                {level}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                    <input type="hidden" name="priority_level" value={priorityLevel} />
-                                                </div>
-
-                                                {/* ADDRESS VERIFICATION WARNING */}
-                                                {verificationResult && verificationResult.confidence !== 'exact' && (
-                                                    <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                                                        <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
-                                                                Address Verification Warning
-                                                            </p>
-                                                            <p className="text-xs text-orange-700 dark:text-orange-400">
-                                                                Could not find exact location for this address.
-                                                            </p>
-                                                            <div className="text-xs bg-orange-100 dark:bg-orange-900/40 p-1.5 rounded text-orange-800 dark:text-orange-200 font-mono mt-1">
-                                                                Using {verificationResult.confidence} location: "{verificationResult.foundAddress}"
-                                                            </div>
-                                                            <p className="text-[10px] text-orange-600 dark:text-orange-500 mt-1">
-                                                                Please verify the pin on the map above.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="space-y-2"><label className="text-sm font-medium">Delivery Date</label><Input name="delivery_date" type="date" /></div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2"><label className="text-sm font-medium">Start Time Window</label><Input name="time_window_start" type="time" /></div>
-                                                    <div className="space-y-2"><label className="text-sm font-medium">End Time Window</label><Input name="time_window_end" type="time" /></div>
-                                                </div>
-                                                <div className="space-y-2"><label className="text-sm font-medium">Notes</label><textarea name="notes" className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Notes..." /></div>
-                                                <Button
-                                                    type="button"
-                                                    className="w-full"
-                                                    disabled={isSubmitting}
-                                                    onClick={(e) => {
-                                                        e.preventDefault()
-                                                        if (isSubmitting) return
-                                                        console.log("Button clicked, forcing submit...")
-                                                        const form = document.getElementById('add-order-form') as HTMLFormElement
-                                                        if (form) form.requestSubmit()
                                                     }}
-                                                >
-                                                    {isSubmitting ? (
-                                                        <>
-                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                            Creating...
-                                                        </>
-                                                    ) : (
-                                                        "Create Order"
-                                                    )}
-                                                </Button>
-                                            </form>
-                                        </TabsContent>
-                                    </Tabs>
-                                </SheetContent>
-                            </Sheet>
-                        </div>
-                    </header>
+                                                />
+                                                <div className="p-2 bg-indigo-100 dark:bg-slate-800 rounded-full text-indigo-600 dark:text-indigo-400 group-hover/upload:scale-110 transition-transform">
+                                                    <Camera size={18} />
+                                                </div>
+                                                <span>{selectedFiles.length > 0 ? "Add More Files" : "Select Images or Excel"}</span>
+                                            </label>
 
-                    <div className="space-y-3 pb-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search orders..."
-                                className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                            {["all", "pending", "assigned", "in_progress", "delivered", "cancelled"].map((status) => (
-                                <button
-                                    key={status}
-                                    onClick={() => setStatusFilter(status)}
-                                    className={cn(
-                                        "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border",
-                                        statusFilter === status
-                                            ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
-                                            : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
-                                    )}
-                                >
-                                    {status === "all" ? "All" : status.replace("_", " ")}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                                            {/* File List & Analyze Button */}
+                                            {selectedFiles.length > 0 && (
+                                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-2 border border-slate-100 dark:border-slate-800">
+                                                        <div className="flex justify-between items-center">
+                                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selected Files ({selectedFiles.length})</p>
+                                                            <button onClick={() => setSelectedFiles([])} className="text-[10px] text-red-500 hover:text-red-600 font-medium">Clear All</button>
+                                                        </div>
+                                                        <ul className="space-y-2">
+                                                            {selectedFiles.map((file, idx) => (
+                                                                <li key={`${file.name}-${idx}`} className="text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-950 rounded border border-slate-100 dark:border-slate-800">
+                                                                    <div className="flex items-center gap-2 truncate">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                                                        <span className="truncate">{file.name}</span>
+                                                                        <span className="text-[10px] text-slate-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                                                                        title="Remove file"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
 
-                    <div className="space-y-3">
-                        {filteredOrders.length > 0 && (
-                            <div className="flex items-center gap-2 px-2">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
-                                    onChange={toggleSelectAll}
-                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer accent-primary"
-                                />
-                                <span className="text-sm text-muted-foreground font-medium">Select All</span>
-                            </div>
-                        )}
-
-                        {filteredOrders.length === 0 ? (
-                            <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
-                                <Package className="mx-auto h-12 w-12 text-muted-foreground mb-3 opacity-50" />
-                                <p className="text-muted-foreground font-medium">No orders found</p>
-                            </div>
-                        ) : (
-                            filteredOrders.map((order) => (
-                                <div key={order.id} className="flex items-start gap-3 group">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedOrders.includes(order.id)}
-                                        onChange={(e) => {
-                                            e.stopPropagation()
-                                            toggleOrderSelection(order.id)
-                                        }}
-                                        className="mt-6 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer flex-shrink-0 accent-primary"
-                                    />
-                                    <Link href={`/my-editor?id=${order.id}`} className="flex-1">
-                                        <div className="bg-card p-5 rounded-xl shadow-sm border border-border space-y-3 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden">
-                                            {/* Status Stripe */}
-                                            <div className={cn("absolute left-0 top-0 bottom-0 w-1",
-                                                order.status === 'delivered' ? 'bg-green-500' :
-                                                    order.status === 'in_progress' ? 'bg-purple-500' :
-                                                        order.status === 'cancelled' ? 'bg-red-500' :
-                                                            order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
-                                            )} />
-
-                                            <div className="flex justify-between items-start pl-2">
-                                                <div>
-                                                    <p className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">#{order.order_number}</p>
-                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium">
-                                                        <UserIcon size={14} className="text-primary/70" />
-                                                        {order.customer_name}
-                                                        {/* PRIORITY BADGE */}
-                                                        {(order.priority_level === 'high' || order.priority_level === 'critical') && (
-                                                            <span className={cn(
-                                                                "ml-2 flex items-center gap-1 text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded border shadow-sm",
-                                                                order.priority_level === 'critical'
-                                                                    ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900"
-                                                                    : "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-900"
-                                                            )}>
-                                                                {order.priority_level === 'critical' ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
-                                                                {order.priority_level}
-                                                            </span>
+                                                    <Button
+                                                        onClick={() => handleAIParse(selectedFiles)}
+                                                        disabled={isParsing}
+                                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                    >
+                                                        {isParsing ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Analyzing {selectedFiles.length} Images...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Sparkles className="mr-2 h-4 w-4" />
+                                                                Analyze {selectedFiles.length} Images
+                                                            </>
                                                         )}
-                                                    </div>
+                                                    </Button>
                                                 </div>
-                                                <span className={cn("px-2.5 py-0.5 text-[10px] font-bold rounded-full border uppercase tracking-wider",
-                                                    statusColors[order.status].replace('bg-', 'bg-opacity-10 bg-').replace('border-', 'border-opacity-20 border-')
-                                                )}>
-                                                    {order.status.replace("_", " ")}
-                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="manual" className="pb-32">
+                                    <form
+                                        id="add-order-form"
+                                        onSubmit={(e) => {
+                                            e.preventDefault()
+                                            console.log("Form submitted!")
+                                            const formData = new FormData(e.currentTarget)
+                                            handleAddOrder(formData)
+                                        }}
+                                        className="space-y-4"
+                                    >
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex justify-between">
+                                                Order Number
+                                                <span className="text-[10px] text-slate-400 font-normal self-end">(Auto-generated if empty)</span>
+                                            </label>
+                                            <Input name="order_number" placeholder="ORD-001" />
+                                        </div>
+                                        <div className="space-y-2"><label className="text-sm font-medium">Customer Name</label><Input name="customer_name" placeholder="John Doe" required /></div>
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <LocationPicker onLocationSelect={async (lat, lng) => {
+                                                setPickedLocation({ lat, lng })
+                                                const res = await reverseGeocode(lat, lng)
+                                                if (res) {
+                                                    setAddress(res.address)
+                                                    setCity(res.city)
+                                                    setState(res.state)
+                                                    setZipCode(res.zip)
+                                                }
+                                            }} />
+                                            {pickedLocation && (<p className="text-xs text-blue-600 mt-2 flex items-center gap-1"><MapPin size={12} /> Selected: {pickedLocation.lat.toFixed(4)}, {pickedLocation.lng.toFixed(4)}</p>)}
+                                        </div>
+                                        <div className="space-y-2"><label className="text-sm font-medium">Address</label><Input name="address" placeholder="123 Main St" required value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+                                        <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-sm font-medium">City</label><Input name="city" placeholder="New York" value={city} onChange={(e) => setCity(e.target.value)} /></div><div className="space-y-2"><label className="text-sm font-medium">State</label><Input name="state" placeholder="NY" value={state} onChange={(e) => setState(e.target.value)} /></div></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2"><label className="text-sm font-medium">ZIP Code</label><Input name="zip_code" placeholder="10001" value={zipCode} onChange={(e) => setZipCode(e.target.value)} /></div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Phone</label>
+                                                <StyledPhoneInput
+                                                    name="phone"
+                                                    value={phoneValue}
+                                                    onChange={setPhoneValue}
+                                                    placeholder="Enter phone number"
+                                                />
                                             </div>
-                                            <div className="space-y-1.5 text-sm text-muted-foreground pl-2 border-t border-border/50 pt-3">
-                                                <div className="flex items-start gap-2">
-                                                    <MapPin size={14} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
-                                                    <span className="leading-snug">{order.address}{order.city ? `, ${order.city}` : ""}</span>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Priority Level</label>
+                                            <div className="flex gap-2">
+                                                {['normal', 'high', 'critical'].map((level) => (
+                                                    <button
+                                                        key={level}
+                                                        type="button"
+                                                        onClick={() => setPriorityLevel(level as any)}
+                                                        className={cn(
+                                                            "flex-1 py-2 px-3 rounded-lg border text-xs font-bold uppercase transition-all flex items-center justify-center gap-2",
+                                                            priorityLevel === level
+                                                                ? (level === 'critical' ? "bg-red-500 text-white border-red-600 shadow-md" :
+                                                                    level === 'high' ? "bg-orange-500 text-white border-orange-600 shadow-md" :
+                                                                        "bg-blue-600 text-white border-blue-700 shadow-md")
+                                                                : "bg-card text-muted-foreground hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        {level === 'critical' && <AlertCircle size={14} />}
+                                                        {level === 'high' && <AlertTriangle size={14} />}
+                                                        {level}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <input type="hidden" name="priority_level" value={priorityLevel} />
+                                        </div>
+
+                                        {/* ADDRESS VERIFICATION WARNING */}
+                                        {verificationResult && verificationResult.confidence !== 'exact' && (
+                                            <div className="p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                                                <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-bold text-orange-800 dark:text-orange-300">
+                                                        Address Verification Warning
+                                                    </p>
+                                                    <p className="text-xs text-orange-700 dark:text-orange-400">
+                                                        Could not find exact location for this address.
+                                                    </p>
+                                                    <div className="text-xs bg-orange-100 dark:bg-orange-900/40 p-1.5 rounded text-orange-800 dark:text-orange-200 font-mono mt-1">
+                                                        Using {verificationResult.confidence} location: "{verificationResult.foundAddress}"
+                                                    </div>
+                                                    <p className="text-[10px] text-orange-600 dark:text-orange-500 mt-1">
+                                                        Please verify the pin on the map above.
+                                                    </p>
                                                 </div>
+                                            </div>
+                                        )}
+                                        <div className="space-y-2"><label className="text-sm font-medium">Delivery Date</label><Input name="delivery_date" type="date" /></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2"><label className="text-sm font-medium">Start Time Window</label><Input name="time_window_start" type="time" /></div>
+                                            <div className="space-y-2"><label className="text-sm font-medium">End Time Window</label><Input name="time_window_end" type="time" /></div>
+                                        </div>
+                                        <div className="space-y-2"><label className="text-sm font-medium">Notes</label><textarea name="notes" className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Notes..." /></div>
+                                        <Button
+                                            type="button"
+                                            className="w-full"
+                                            disabled={isSubmitting}
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                if (isSubmitting) return
+                                                console.log("Button clicked, forcing submit...")
+                                                const form = document.getElementById('add-order-form') as HTMLFormElement
+                                                if (form) form.requestSubmit()
+                                            }}
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Creating...
+                                                </>
+                                            ) : (
+                                                "Create Order"
+                                            )}
+                                        </Button>
+                                    </form>
+                                </TabsContent>
+                            </Tabs>
+                        </SheetContent>
+                    </Sheet>
+                </div>
+            </header>
 
-                                                {/* GPS Warnings */}
-                                                {(!order.latitude || !order.longitude) && (
-                                                    <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded w-fit border border-red-100 ml-6">
-                                                        <AlertCircle size={10} />
-                                                        <span>No GPS</span>
-                                                    </div>
-                                                )}
-                                                {(order.geocoding_confidence && order.geocoding_confidence !== 'exact') && (
-                                                    <div className={`mt-1 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded w-fit border ml-6 ${order.geocoding_confidence === 'failed' ? 'text-red-600 bg-red-50 border-red-100' : 'text-orange-600 bg-orange-50 border-orange-100'}`}>
-                                                        <AlertTriangle size={10} />
-                                                        <span>{order.geocoding_confidence === 'failed' ? 'GPS Failed' : 'Unverified GPS'}</span>
-                                                    </div>
-                                                )}
+            <div className="space-y-3 pb-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search orders..."
+                        className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {["all", "pending", "assigned", "in_progress", "delivered", "cancelled"].map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => setStatusFilter(status)}
+                            className={cn(
+                                "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border",
+                                statusFilter === status
+                                    ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
+                                    : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                            )}
+                        >
+                            {status === "all" ? "All" : status.replace("_", " ")}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
-                                                {order.delivery_date && (
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <Calendar size={14} className="flex-shrink-0 text-muted-foreground/70" />
-                                                        <span>{new Date(order.delivery_date).toLocaleDateString()}</span>
-                                                    </div>
-                                                )}
-                                                {/* Timestamp for Manager Tracking */}
-                                                {(order.delivered_at || order.time_window_start) && (
-                                                    <div className="flex items-center gap-2 font-medium">
-                                                        {order.status === 'delivered' && order.delivered_at ? (
-                                                            <>
-                                                                <CheckCircle2 size={14} className="flex-shrink-0 text-green-600 dark:text-green-500" />
-                                                                <span className="text-green-700 dark:text-green-400 text-xs font-bold">
-                                                                    Delivered at {format(new Date(order.delivered_at), 'h:mm a')}
-                                                                </span>
-                                                            </>
-                                                        ) : (order.time_window_start) ? (
-                                                            <>
-                                                                <Clock size={14} className="flex-shrink-0 text-orange-600 dark:text-orange-400" />
-                                                                <span className="text-orange-700 dark:text-orange-300 text-xs font-bold">
-                                                                    Window: {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
-                                                                </span>
-                                                            </>
-                                                        ) : null}
-                                                    </div>
+            <div className="space-y-3">
+                {filteredOrders.length > 0 && (
+                    <div className="flex items-center gap-2 px-2">
+                        <input
+                            type="checkbox"
+                            checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                            onChange={toggleSelectAll}
+                            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer accent-primary"
+                        />
+                        <span className="text-sm text-muted-foreground font-medium">Select All</span>
+                    </div>
+                )}
+
+                {filteredOrders.length === 0 ? (
+                    <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
+                        <Package className="mx-auto h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                        <p className="text-muted-foreground font-medium">No orders found</p>
+                    </div>
+                ) : (
+                    filteredOrders.map((order) => (
+                        <div key={order.id} className="flex items-start gap-3 group">
+                            <input
+                                type="checkbox"
+                                checked={selectedOrders.includes(order.id)}
+                                onChange={(e) => {
+                                    e.stopPropagation()
+                                    toggleOrderSelection(order.id)
+                                }}
+                                className="mt-6 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary cursor-pointer flex-shrink-0 accent-primary"
+                            />
+                            <Link href={`/my-editor?id=${order.id}`} className="flex-1">
+                                <div className="bg-card p-5 rounded-xl shadow-sm border border-border space-y-3 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden">
+                                    {/* Status Stripe */}
+                                    <div className={cn("absolute left-0 top-0 bottom-0 w-1",
+                                        order.status === 'delivered' ? 'bg-green-500' :
+                                            order.status === 'in_progress' ? 'bg-purple-500' :
+                                                order.status === 'cancelled' ? 'bg-red-500' :
+                                                    order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
+                                    )} />
+
+                                    <div className="flex justify-between items-start pl-2">
+                                        <div>
+                                            <p className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">#{order.order_number}</p>
+                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium">
+                                                <UserIcon size={14} className="text-primary/70" />
+                                                {order.customer_name}
+                                                {/* PRIORITY BADGE */}
+                                                {(order.priority_level === 'high' || order.priority_level === 'critical') && (
+                                                    <span className={cn(
+                                                        "ml-2 flex items-center gap-1 text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded border shadow-sm",
+                                                        order.priority_level === 'critical'
+                                                            ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900"
+                                                            : "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-900"
+                                                    )}>
+                                                        {order.priority_level === 'critical' ? <AlertCircle size={10} /> : <AlertTriangle size={10} />}
+                                                        {order.priority_level}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
-                                    </Link>
-                                </div>
-                            ))
-                        )}
-                    </div>
+                                        <span className={cn("px-2.5 py-0.5 text-[10px] font-bold rounded-full border uppercase tracking-wider",
+                                            statusColors[order.status].replace('bg-', 'bg-opacity-10 bg-').replace('border-', 'border-opacity-20 border-')
+                                        )}>
+                                            {order.status.replace("_", " ")}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1.5 text-sm text-muted-foreground pl-2 border-t border-border/50 pt-3">
+                                        <div className="flex items-start gap-2">
+                                            <MapPin size={14} className="mt-0.5 flex-shrink-0 text-muted-foreground/70" />
+                                            <span className="leading-snug">{order.address}{order.city ? `, ${order.city}` : ""}</span>
+                                        </div>
 
-                </div>
-            </PullToRefresh>
+                                        {/* GPS Warnings */}
+                                        {(!order.latitude || !order.longitude) && (
+                                            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded w-fit border border-red-100 ml-6">
+                                                <AlertCircle size={10} />
+                                                <span>No GPS</span>
+                                            </div>
+                                        )}
+                                        {(order.geocoding_confidence && order.geocoding_confidence !== 'exact') && (
+                                            <div className={`mt-1 flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded w-fit border ml-6 ${order.geocoding_confidence === 'failed' ? 'text-red-600 bg-red-50 border-red-100' : 'text-orange-600 bg-orange-50 border-orange-100'}`}>
+                                                <AlertTriangle size={10} />
+                                                <span>{order.geocoding_confidence === 'failed' ? 'GPS Failed' : 'Unverified GPS'}</span>
+                                            </div>
+                                        )}
+
+                                        {order.delivery_date && (
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Calendar size={14} className="flex-shrink-0 text-muted-foreground/70" />
+                                                <span>{new Date(order.delivery_date).toLocaleDateString()}</span>
+                                            </div>
+                                        )}
+                                        {/* Timestamp for Manager Tracking */}
+                                        {(order.delivered_at || order.time_window_start) && (
+                                            <div className="flex items-center gap-2 font-medium">
+                                                {order.status === 'delivered' && order.delivered_at ? (
+                                                    <>
+                                                        <CheckCircle2 size={14} className="flex-shrink-0 text-green-600 dark:text-green-500" />
+                                                        <span className="text-green-700 dark:text-green-400 text-xs font-bold">
+                                                            Delivered at {format(new Date(order.delivered_at), 'h:mm a')}
+                                                        </span>
+                                                    </>
+                                                ) : (order.time_window_start) ? (
+                                                    <>
+                                                        <Clock size={14} className="flex-shrink-0 text-orange-600 dark:text-orange-400" />
+                                                        <span className="text-orange-700 dark:text-orange-300 text-xs font-bold">
+                                                            Window: {order.time_window_start?.slice(0, 5)} - {order.time_window_end?.slice(0, 5)}
+                                                        </span>
+                                                    </>
+                                                ) : null}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
+                    ))
+                )}
+            </div>
+
+        </div>
+            </PullToRefresh >
         )
-    }
+}
 }
