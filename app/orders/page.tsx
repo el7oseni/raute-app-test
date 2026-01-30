@@ -972,7 +972,7 @@ export default function OrdersPage() {
 
     // MANAGER UI
     return (
-        <div className="p-4 space-y-4 pb-20 max-w-7xl mx-auto">
+        <div className="p-4 space-y-4 pb-20 max-w-7xl mx-auto safe-area-pt">
             <header className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">All Orders</h1>
