@@ -11,6 +11,7 @@ import { Plus, MapPin, Building2, Trash2, ArrowLeft, Save, Search } from "lucide
 import LocationPicker from "@/components/location-picker"
 import { useToast } from "@/components/toast-provider"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PullToRefresh } from "@/components/pull-to-refresh"
 
 interface Hub {
     id: string
@@ -149,180 +150,181 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-24">
-            <header className="bg-white border-b sticky top-0 z-10 px-4 py-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                        <ArrowLeft size={20} />
-                    </Button>
-                    <div>
-                        <h1 className="text-xl font-bold">Company Settings</h1>
-                        <p className="text-xs text-muted-foreground">Manage warehouses & details</p>
-                    </div>
-                </div>
-            </header>
-
-            <main className="p-4 max-w-3xl mx-auto space-y-6">
-
-                {/* Warehouses Section */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
-                                <Building2 size={18} />
-                            </div>
-                            <h2 className="text-lg font-bold text-slate-800">Warehouses / Hubs</h2>
+        <PullToRefresh onRefresh={fetchHubs}>
+            <div className="min-h-screen bg-slate-50 pb-24">
+                <header className="bg-white border-b sticky top-0 z-10 px-4 py-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                            <ArrowLeft size={20} />
+                        </Button>
+                        <div>
+                            <h1 className="text-xl font-bold">Company Settings</h1>
+                            <p className="text-xs text-muted-foreground">Manage warehouses & details</p>
                         </div>
+                    </div>
+                </header>
 
-                        <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-                            <SheetTrigger asChild>
-                                <Button size="sm" className="gap-2">
-                                    <Plus size={16} /> Add New
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl p-6 overflow-y-auto">
-                                <SheetHeader className="mb-6">
-                                    <SheetTitle>Add New Warehouse</SheetTitle>
-                                    <SheetDescription> Define a new start location for your fleet.</SheetDescription>
-                                </SheetHeader>
+                <main className="p-4 max-w-3xl mx-auto space-y-6">
 
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Warehouse Name</label>
-                                        <Input
-                                            placeholder="e.g. Main HQ, North Depot"
-                                            value={newHubName}
-                                            onChange={e => setNewHubName(e.target.value)}
-                                        />
-                                    </div>
+                    {/* Warehouses Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                                    <Building2 size={18} />
+                                </div>
+                                <h2 className="text-lg font-bold text-slate-800">Warehouses / Hubs</h2>
+                            </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Location</label>
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                            <LocationPicker
-                                                onLocationSelect={async (lat, lng) => {
-                                                    setNewHubLoc({ lat, lng })
-                                                    try {
-                                                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-                                                        const data = await res.json()
-                                                        if (data && data.display_name) {
-                                                            setNewHubAddress(data.display_name)
-                                                        }
-                                                    } catch (e) {
-                                                        // Silent fail
-                                                    }
-                                                }}
-                                                initialPosition={newHubLoc}
-                                            />
-                                            {newHubLoc && (
-                                                <p className="text-xs text-blue-600 mt-2 flex items-center gap-1 font-medium">
-                                                    <MapPin size={12} />
-                                                    Pinned: {newHubLoc.lat.toFixed(5)}, {newHubLoc.lng.toFixed(5)}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
+                            <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
+                                <SheetTrigger asChild>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus size={16} /> Add New
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl p-6 overflow-y-auto">
+                                    <SheetHeader className="mb-6">
+                                        <SheetTitle>Add New Warehouse</SheetTitle>
+                                        <SheetDescription> Define a new start location for your fleet.</SheetDescription>
+                                    </SheetHeader>
 
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Full Address</label>
-                                        <div className="flex gap-2">
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Warehouse Name</label>
                                             <Input
-                                                placeholder="123 Industrial Blvd, City, State"
-                                                value={newHubAddress}
-                                                onChange={async (e) => {
-                                                    setNewHubAddress(e.target.value)
-                                                    // Auto-geocode after user stops typing (debounce)
-                                                    const address = e.target.value
-                                                    if (!address) return
+                                                placeholder="e.g. Main HQ, North Depot"
+                                                value={newHubName}
+                                                onChange={e => setNewHubName(e.target.value)}
+                                            />
+                                        </div>
 
-                                                    // Use timeout to debounce
-                                                    setTimeout(async () => {
-                                                        if (address !== newHubAddress) return // User kept typing
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Location</label>
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                                <LocationPicker
+                                                    onLocationSelect={async (lat, lng) => {
+                                                        setNewHubLoc({ lat, lng })
                                                         try {
-                                                            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                                                            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
                                                             const data = await res.json()
-                                                            if (data && data[0]) {
-                                                                setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+                                                            if (data && data.display_name) {
+                                                                setNewHubAddress(data.display_name)
                                                             }
                                                         } catch (e) {
                                                             // Silent fail
                                                         }
-                                                    }, 1000) // Wait 1 second after user stops typing
-                                                }}
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                className="shrink-0"
-                                                onClick={async () => {
-                                                    if (!newHubAddress) return
-                                                    try {
-                                                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newHubAddress)}`)
-                                                        const data = await res.json()
-                                                        if (data && data[0]) {
-                                                            setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
-                                                            toast({ title: "Location found!", description: "Map pin updated.", type: "success" })
-                                                        } else {
-                                                            toast({ title: "Address not found", description: "Please pick manually.", type: "error" })
+                                                    }}
+                                                    initialPosition={newHubLoc}
+                                                />
+                                                {newHubLoc && (
+                                                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-1 font-medium">
+                                                        <MapPin size={12} />
+                                                        Pinned: {newHubLoc.lat.toFixed(5)}, {newHubLoc.lng.toFixed(5)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Full Address</label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    placeholder="123 Industrial Blvd, City, State"
+                                                    value={newHubAddress}
+                                                    onChange={async (e) => {
+                                                        setNewHubAddress(e.target.value)
+                                                        // Auto-geocode after user stops typing (debounce)
+                                                        const address = e.target.value
+                                                        if (!address) return
+
+                                                        // Use timeout to debounce
+                                                        setTimeout(async () => {
+                                                            if (address !== newHubAddress) return // User kept typing
+                                                            try {
+                                                                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
+                                                                const data = await res.json()
+                                                                if (data && data[0]) {
+                                                                    setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+                                                                }
+                                                            } catch (e) {
+                                                                // Silent fail
+                                                            }
+                                                        }, 1000) // Wait 1 second after user stops typing
+                                                    }}
+                                                />
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="shrink-0"
+                                                    onClick={async () => {
+                                                        if (!newHubAddress) return
+                                                        try {
+                                                            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newHubAddress)}`)
+                                                            const data = await res.json()
+                                                            if (data && data[0]) {
+                                                                setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+                                                                toast({ title: "Location found!", description: "Map pin updated.", type: "success" })
+                                                            } else {
+                                                                toast({ title: "Address not found", description: "Please pick manually.", type: "error" })
+                                                            }
+                                                        } catch (e) {
+                                                            toast({ title: "Search failed", type: "error" })
                                                         }
-                                                    } catch (e) {
-                                                        toast({ title: "Search failed", type: "error" })
-                                                    }
-                                                }}
-                                                title="Find on Map"
+                                                    }}
+                                                    title="Find on Map"
+                                                >
+                                                    <Search size={18} />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <Button onClick={handleAddHub} className="w-full h-12 text-lg font-bold" disabled={saving}>
+                                            {saving ? "Saving..." : "Add Warehouse"}
+                                        </Button>
+
+                                        <div className="h-8" />
+                                    </div>
+                                </SheetContent>
+                            </Sheet>
+                        </div>
+
+                        {hubs.length === 0 ? (
+                            <Card className="border-dashed border-2 bg-slate-50/50">
+                                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                                    <Building2 className="h-12 w-12 text-slate-300 mb-3" />
+                                    <h3 className="text-sm font-bold text-slate-500">No warehouses defined</h3>
+                                    <p className="text-xs text-slate-400 max-w-[200px] mt-1">Add your depots or parking lots to easily assign drivers.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid gap-3">
+                                {hubs.map(hub => (
+                                    <Card key={hub.id} className="group overflow-hidden">
+                                        <div className="flex items-center p-4 gap-4">
+                                            <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
+                                                <Building2 size={20} className="text-slate-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-slate-900 truncate">{hub.name}</h3>
+                                                <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                                                    <MapPin size={10} /> {hub.address}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-slate-300 hover:text-red-500 hover:bg-red-50"
+                                                onClick={() => handleDeleteHub(hub.id)}
                                             >
-                                                <Search size={18} />
+                                                <Trash2 size={18} />
                                             </Button>
                                         </div>
-                                    </div>
-
-                                    <Button onClick={handleAddHub} className="w-full h-12 text-lg font-bold" disabled={saving}>
-                                        {saving ? "Saving..." : "Add Warehouse"}
-                                    </Button>
-
-                                    <div className="h-8" />
-                                </div>
-                            </SheetContent>
-                        </Sheet>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
                     </div>
-
-                    {hubs.length === 0 ? (
-                        <Card className="border-dashed border-2 bg-slate-50/50">
-                            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                                <Building2 className="h-12 w-12 text-slate-300 mb-3" />
-                                <h3 className="text-sm font-bold text-slate-500">No warehouses defined</h3>
-                                <p className="text-xs text-slate-400 max-w-[200px] mt-1">Add your depots or parking lots to easily assign drivers.</p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-3">
-                            {hubs.map(hub => (
-                                <Card key={hub.id} className="group overflow-hidden">
-                                    <div className="flex items-center p-4 gap-4">
-                                        <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
-                                            <Building2 size={20} className="text-slate-600" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-900 truncate">{hub.name}</h3>
-                                            <p className="text-xs text-slate-500 truncate flex items-center gap-1">
-                                                <MapPin size={10} /> {hub.address}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-slate-300 hover:text-red-500 hover:bg-red-50"
-                                            onClick={() => handleDeleteHub(hub.id)}
-                                        >
-                                            <Trash2 size={18} />
-                                        </Button>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </main>
-        </div>
-    )
+                </main>
+            </div>
+            )
 }
