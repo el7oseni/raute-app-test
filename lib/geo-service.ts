@@ -23,13 +23,21 @@ class GeoService {
     }
 
 
-    async init(userId: string, authenticatedClient?: any) {
+    async init(userId: string, authenticatedClient?: any, driverId?: string, companyId?: string) {
         this.userId = userId;
         // Store authenticated client for RLS-compliant operations
         if (authenticatedClient) {
             this.supabaseClient = authenticatedClient;
         }
-        // Fetch driver & company ID
+
+        // If provided securely (e.g. from Server Component or verified Session), use them.
+        if (driverId && companyId) {
+            this.driverId = driverId;
+            this.companyId = companyId;
+            return; // Skip fetch
+        }
+
+        // Fallback: Fetch driver & company ID
         const { data } = await this.supabaseClient.from('drivers').select('id, company_id').eq('user_id', userId).single();
         if (data) {
             this.driverId = data.id;

@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Search, MapPin } from 'lucide-react'
-import { useMapEvents } from 'react-leaflet'
+
+import { useMapEvents, useMap } from 'react-leaflet'
 
 // Dynamic imports for Leaflet components
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false })
@@ -30,6 +31,16 @@ function LocationMarker({ position, setPosition }: { position: [number, number] 
     })
 
     return position ? <Marker position={position} /> : null
+}
+
+function MapController({ center }: { center: [number, number] | null }) {
+    const map = useMap()
+    useEffect(() => {
+        if (center) {
+            map.flyTo(center, 16, { animate: true, duration: 1.5 })
+        }
+    }, [center, map])
+    return null
 }
 
 export function LocationPickerModal({ open, onOpenChange, onSelectLocation, initialLat, initialLng }: LocationPickerProps) {
@@ -113,6 +124,7 @@ export function LocationPickerModal({ open, onOpenChange, onSelectLocation, init
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
                         <LocationMarker position={position} setPosition={setPosition} />
+                        <MapController center={position} />
                     </MapContainer>
                     {!position && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">

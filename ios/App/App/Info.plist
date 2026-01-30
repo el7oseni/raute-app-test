@@ -54,5 +54,15 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to capture proof of delivery.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need to save proof of delivery photos to your gallery.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to pick photos for proof of delivery.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We track your location to update delivery status and optimize routes.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We track driver location for real-time fleet management.</string>
 </dict>
 </plist>

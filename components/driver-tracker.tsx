@@ -10,8 +10,9 @@ interface DriverTrackerProps {
 
 export function DriverTracker({ driverId, isOnline, userId }: DriverTrackerProps) {
     useEffect(() => {
-        if (userId) geoService.init(userId, supabase) // Pass authenticated client
-    }, [userId])
+        // We now pass driverId to helper to avoid "None" issue in Diagnostics
+        if (userId && driverId) geoService.init(userId, supabase, driverId, undefined) // We don't have companyId prop here yet, but driverId is most critical for diagnostics
+    }, [userId, driverId])
 
     useEffect(() => {
         if (isOnline) {

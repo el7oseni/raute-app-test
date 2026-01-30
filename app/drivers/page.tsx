@@ -350,7 +350,24 @@ export default function DriversPage() {
             const defaultStartLat = formData.get('default_start_lat') ? parseFloat(formData.get('default_start_lat') as string) : null
             const defaultStartLng = formData.get('default_start_lng') ? parseFloat(formData.get('default_start_lng') as string) : null
 
-            console.log('📍 Location data:', { defaultStartAddress, defaultStartLat, defaultStartLng })
+            let finalDefaultStartLat = defaultStartLat
+            let finalDefaultStartLng = defaultStartLng
+
+            // Auto-Geocode if missing
+            if ((!finalDefaultStartLat || !finalDefaultStartLng) && defaultStartAddress) {
+                try {
+                    console.log('🌍 Auto-geocoding address:', defaultStartAddress)
+                    const coords = await geocodeAddress(defaultStartAddress)
+                    if (coords) {
+                        finalDefaultStartLat = coords.lat
+                        finalDefaultStartLng = coords.lng
+                    }
+                } catch (err) {
+                    console.error('Auto-geocode failed:', err)
+                }
+            }
+
+            console.log('📍 Location data:', { defaultStartAddress, finalDefaultStartLat, finalDefaultStartLng })
             console.log('🔄 Calling RPC create_driver_account...')
 
             // RPC Call (Now enhanced to create Auth User directly)
@@ -363,8 +380,8 @@ export default function DriversPage() {
                 vehicle_type: vehicleType,
                 custom_values: customValues,
                 default_start_address: defaultStartAddress,
-                default_start_lat: defaultStartLat,
-                default_start_lng: defaultStartLng
+                default_start_lat: finalDefaultStartLat,
+                default_start_lng: finalDefaultStartLng
             })
 
             console.log('📦 RPC Response:', { result, error })
@@ -463,6 +480,20 @@ export default function DriversPage() {
             finalLat = parseFloat(mapLat.toString())
             finalLng = parseFloat(mapLng.toString())
             finalStartAddress = mapAddress || defaultStartAddress || `Location (${finalLat.toFixed(4)}, ${finalLng.toFixed(4)})`
+        }
+
+        // Auto-Geocode Fallback for Edit
+        if ((!finalLat || !finalLng) && finalStartAddress) {
+            try {
+                console.log('🌍 (Edit) Auto-geocoding address:', finalStartAddress)
+                const coords = await geocodeAddress(finalStartAddress)
+                if (coords) {
+                    finalLat = coords.lat
+                    finalLng = coords.lng
+                }
+            } catch (err) {
+                console.error('Auto-geocode failed:', err)
+            }
         }
 
         // Custom Fields

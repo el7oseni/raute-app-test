@@ -79,6 +79,7 @@ export default function OrdersPage() {
 
     // AI State
     const [isParsing, setIsParsing] = useState(false)
+    const [processingStage, setProcessingStage] = useState<string>("")
     const [aiOrders, setAiOrders] = useState<ParsedOrder[]>([])
     const [activeTab, setActiveTab] = useState("ai")
     const formRef = React.useRef<HTMLFormElement>(null)
@@ -423,6 +424,7 @@ export default function OrdersPage() {
 
     async function handleAIParse(input: string | File | File[]) {
         setIsParsing(true)
+        setProcessingStage("Analyzing input...")
         try {
             const results = await parseOrderAI(input)
             if (results && results.length > 0) {
@@ -448,6 +450,7 @@ export default function OrdersPage() {
                 // We process sequentially to be nice to the free Geocoding API (Rate Limits)
                 const newOrders: any[] = []
                 for (let i = 0; i < results.length; i++) {
+                    setProcessingStage(`Geocoding address ${i + 1} of ${results.length}...`)
                     const result = results[i]
                     // Generate unique ID if missing: ORD-Timestamp-Index
                     const generatedId = `ORD-${Date.now().toString().slice(-6)}-${i + 1}`
@@ -486,6 +489,7 @@ export default function OrdersPage() {
                 }
 
                 // Batch Insert
+                setProcessingStage("Saving orders...")
                 const { error } = await supabase.from('orders').insert(newOrders)
                 if (error) throw error
 
@@ -516,6 +520,7 @@ export default function OrdersPage() {
             throw error
         } finally {
             setIsParsing(false)
+            setProcessingStage("")
         }
     }
 
@@ -1060,7 +1065,7 @@ export default function OrdersPage() {
                                                 )}
                                                 {isParsing ? (
                                                     <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 rounded-full shadow-sm text-xs font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-slate-700 animate-in fade-in">
-                                                        <Loader2 size={12} className="animate-spin" /> Analyzing...
+                                                        <Loader2 size={12} className="animate-spin" /> {processingStage || "Analyzing..."}
                                                     </div>
                                                 ) : (
                                                     <button
@@ -1136,7 +1141,7 @@ export default function OrdersPage() {
                                                         {isParsing ? (
                                                             <>
                                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                Analyzing {selectedFiles.length} Images...
+                                                                {processingStage || `Analyzing ${selectedFiles.length} Images...`}
                                                             </>
                                                         ) : (
                                                             <>
