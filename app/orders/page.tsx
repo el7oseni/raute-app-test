@@ -1428,6 +1428,6 @@ export default function OrdersPage() {
             </div>
 
         </div>
-        </PullToRefresh >
+        </PullToRefresh>
     )
 }
