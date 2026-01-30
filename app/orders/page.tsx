@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle } from "lucide-react"
+import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
@@ -213,6 +213,19 @@ export default function OrdersPage() {
 
             if (!currentUserId) return
 
+            // ⚡ QUICK LOAD: Try to load from cache immediately for instant UI
+            if (typeof window !== 'undefined') {
+                const cachedOrders = localStorage.getItem('cached_orders')
+                if (cachedOrders && orders.length === 0) {
+                    try {
+                        const parsed = JSON.parse(cachedOrders)
+                        setOrders(parsed)
+                        // Don't verify integrity too strictly here, just show something
+                        console.log("Loaded cached orders:", parsed.length)
+                    } catch (e) { console.error("Cache parse error", e) }
+                }
+            }
+
             const { data: userProfile } = await supabase
                 .from('users')
                 .select('company_id, role, full_name')
@@ -261,7 +274,14 @@ export default function OrdersPage() {
                     .order('created_at', { ascending: false }) // Fallback
 
                 if (error) throw error
+
+                // ✅ SUCCESS: Update State & Cache
                 setOrders(data || [])
+                if (data) {
+                    localStorage.setItem('cached_orders', JSON.stringify(data))
+                    localStorage.setItem('cached_orders_ts', new Date().toISOString())
+                }
+
             } else {
                 const { data, error } = await supabase
                     .from('orders')
@@ -270,11 +290,32 @@ export default function OrdersPage() {
                     .order('created_at', { ascending: false })
 
                 if (error) throw error
+
+                // ✅ SUCCESS: Update State & Cache (Managers too)
                 setOrders(data || [])
+                if (data) {
+                    localStorage.setItem('cached_orders', JSON.stringify(data))
+                    localStorage.setItem('cached_orders_ts', new Date().toISOString())
+                }
             }
         } catch (error: any) {
-            toast({ title: 'Failed to update order', description: error.message, type: 'error' })
-            fetchData() // Revert
+            console.error("Fetch error:", error)
+            // 🛑 ERROR: Fallback to Cache if empty
+            const cachedOrders = localStorage.getItem('cached_orders')
+            if (orders.length === 0 && cachedOrders) {
+                try {
+                    const parsed = JSON.parse(cachedOrders)
+                    setOrders(parsed)
+                    const ts = localStorage.getItem('cached_orders_ts')
+                    toast({
+                        title: 'Offline Mode',
+                        description: `Showing data from ${ts ? new Date(ts).toLocaleTimeString() : 'cache'}`,
+                        // type: 'default' // Removed to fallback to standard toast
+                    })
+                } catch (e) { }
+            } else {
+                toast({ title: 'Failed to update order', description: error.message, type: 'error' })
+            }
         } finally {
             setIsLoading(false)
         }
@@ -737,6 +778,18 @@ export default function OrdersPage() {
             <PullToRefresh onRefresh={fetchData}>
                 <div className="p-4 space-y-6 pb-24 max-w-lg mx-auto bg-background min-h-screen safe-area-pt">
                     {driverId && userId && <DriverTracker driverId={driverId} isOnline={isOnline} userId={userId} />}
+
+                    {/* OFFLINE / CACHE INDICATOR */}
+                    {(!isOnline || isLoading) && (
+                        <div className="flex items-center justify-center p-1">
+                            {/* Only show if we have data (cached) but might be offline */}
+                            {orders.length > 0 && typeof navigator !== 'undefined' && !navigator.onLine && (
+                                <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <WifiOff size={10} /> Offline Mode
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     {/* Driver Header with Toggle */}
                     <div className="flex items-center justify-between mb-2">
