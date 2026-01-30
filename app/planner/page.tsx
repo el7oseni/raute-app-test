@@ -1413,4 +1413,6 @@ export default function PlannerPage() {
 
             </DndContext >
             )
+        </PullToRefresh>
+    )
 }

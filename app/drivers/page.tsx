@@ -1304,4 +1304,6 @@ export default function DriversPage() {
                 </Dialog>
             </div >
             )
+        </PullToRefresh>
+    )
 }
