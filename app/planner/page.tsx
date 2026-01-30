@@ -727,7 +727,7 @@ export default function PlannerPage() {
                 <div className="flex h-screen w-full bg-background overflow-hidden">
                     {/* SIDEBAR */}
                     <div className="w-96 border-r border-border flex flex-col bg-card dark:bg-card z-20 shadow-xl transition-colors">
-                        <div className="p-4 border-b border-border bg-muted/20 dark:bg-muted/10 flex-shrink-0">
+                        <div className="p-4 border-b border-border bg-muted/20 dark:bg-muted/10 flex-shrink-0 safe-area-pt">
                             <h1 className="text-xl font-bold tracking-tight mb-1 text-foreground">Route Planner</h1>
                             <p className="text-xs text-muted-foreground">Drag orders to assign manually.</p>
                         </div>

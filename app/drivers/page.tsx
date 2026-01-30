@@ -613,7 +613,7 @@ export default function DriversPage() {
 
     return (
         <PullToRefresh onRefresh={fetchDrivers}>
-            <div className="container mx-auto py-8 px-4 max-w-6xl">
+            <div className="container mx-auto py-8 px-4 max-w-6xl safe-area-pt">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-foreground">Driver Management</h1>

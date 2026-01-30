@@ -324,7 +324,7 @@ export default function DashboardPage() {
 
     // 👔 MANAGER VIEW
     return (
-        <div className="p-4 space-y-6 pb-24 max-w-7xl mx-auto min-h-screen bg-slate-50/50 dark:bg-slate-950 transition-colors">
+        <div className="p-4 space-y-6 pb-24 max-w-7xl mx-auto min-h-screen bg-slate-50/50 dark:bg-slate-950 transition-colors safe-area-pt">
             {/* 0. SETUP GUIDE (Conditional - Managers Only) */}
             {showSetup && userRole === 'manager' && (
                 <div className="relative">
