@@ -28,6 +28,7 @@ import { DebugLocationStatus } from "@/components/debug-location-status"
 import { DriverTracker } from "@/components/driver-tracker"
 import { ImageViewerModal } from "@/components/image-viewer-modal"
 import { Capacitor } from '@capacitor/core'
+import { PullToRefresh } from '@/components/pull-to-refresh'
 
 // Dynamically import map to avoid SSR issues
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
