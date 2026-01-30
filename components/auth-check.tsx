@@ -43,7 +43,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 if (!data.session && retries > 0) {
                     console.log(`Checking session... (${retries} retries left)`)
                     setTimeout(() => checkAuth(retries - 1), 500)
-                    return
+                    return // Don't stop loading yet
                 }
 
                 const session = data.session
@@ -59,6 +59,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     if (session?.user && !session.user.email_confirmed_at && pathname !== '/verify-email') {
                         console.warn("⛔ Email not verified. Redirecting...")
                         router.push('/verify-email')
+                        setIsLoading(false)
                         return
                     }
 
@@ -68,17 +69,17 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         router.push('/dashboard')
                     }
                 }
+
+                // Success path - stop loading
+                setIsLoading(false)
+
             } catch (error) {
                 console.error("Auth check critical failure:", error)
                 // Only redirect to login if NOT on a public route AND NOT on landing page
                 if (!isPublicRoute && pathname !== '/login' && pathname !== '/') {
                     router.push('/login')
                 }
-            } finally {
-                // If we are out of retries or succeeded, stop loading
-                if (retries === 0 || data?.session) {
-                    setIsLoading(false)
-                }
+                setIsLoading(false)
             }
         }
 
