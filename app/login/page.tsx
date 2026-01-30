@@ -44,12 +44,13 @@ export default function LoginPage() {
             console.log('🔐 Login Response:', { error: authError, hasSession: !!authData.session })
 
             if (authError) {
-                setApiError(authError.message)
+                console.error('Login Error:', authError)
+                setApiError("Incorrect email or password") // Generic user message, log real one
                 throw authError
             }
 
             if (!authData.session) {
-                throw new Error('No session returned')
+                throw new Error('Login succeeded but no session was created.')
             }
 
             // 2. CRITICAL: Force session refresh to set cookies
