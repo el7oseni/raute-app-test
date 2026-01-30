@@ -25,7 +25,8 @@ export default function LandingPage() {
           (window as any).Capacitor.getPlatform?.() !== 'web';
 
         if (isNative) {
-          router.push('/login')
+          console.log('📱 Native platform detected. Redirecting to login...')
+          window.location.href = '/login'
           return // Keep loading true while redirecting
         }
       }
@@ -38,8 +39,11 @@ export default function LandingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        {/* Optional: Add a branded spinner or logo here */}
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto" />
+          <p className="text-slate-500 dark:text-slate-400 text-sm animate-pulse">Initializing Raute...</p>
+        </div>
       </div>
     )
   }
