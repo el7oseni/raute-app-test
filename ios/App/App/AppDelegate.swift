@@ -36,6 +36,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
+        
+        // Handle OAuth callback - close in-app browser if auth/callback
+        if url.path.contains("/auth/callback") {
+            // Give Supabase a moment to process the session
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Close any open in-app browser
+                NotificationCenter.default.post(name: NSNotification.Name("closeBrowser"), object: nil)
+            }
+        }
+        
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

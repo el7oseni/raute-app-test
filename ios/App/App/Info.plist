@@ -55,14 +55,22 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to capture proof of delivery.</string>
+	<string>Raute needs camera access to allow drivers to capture clear photos of delivered packages as proof of delivery. This helps ensure accountability and customer satisfaction.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We need to save proof of delivery photos to your gallery.</string>
+	<string>Raute needs to save delivery photos to your photo library so you can keep records of completed deliveries.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to pick photos for proof of delivery.</string>
+	<string>Raute needs access to your photo library to let you select existing photos as proof of delivery if needed.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We track your location to update delivery status and optimize routes.</string>
+	<string>Raute needs your location while using the app to show delivery routes, track delivery progress, and update order status automatically when you arrive at delivery locations.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Raute needs your location even when the app is in the background to provide real-time delivery tracking, enable efficient route optimization, and automatically update delivery status. This helps fleet managers monitor deliveries and ensures accurate ETAs for customers.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>We track driver location for real-time fleet management.</string>
+	<string>Raute needs your location at all times to provide real-time fleet management, optimize delivery routes, and automatically update delivery status even when the app is running in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
