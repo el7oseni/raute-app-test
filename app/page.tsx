@@ -26,7 +26,7 @@ export default function LandingPage() {
 
         if (isNative) {
           console.log('📱 Native platform detected. Redirecting to login...')
-          window.location.href = '/login'
+          router.push('/login')
           return // Keep loading true while redirecting
         }
       }

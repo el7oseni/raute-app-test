@@ -11,6 +11,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const pathname = usePathname()
     const [isLoading, setIsLoading] = useState(true)
+    const [lastRedirect, setLastRedirect] = useState<number>(0)
 
     // Check if current path is a public route
     const isPublicRoute = useMemo(() => {
@@ -29,7 +30,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        const checkAuth = async (retries = 3) => {
+        const checkAuth = async (retries = 1) => {
             try {
                 const { data, error } = await supabase.auth.getSession()
 
@@ -51,22 +52,36 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
                 console.log('AuthCheck:', { path: pathname, authed: isAuthenticated })
 
+                // Helper function to safely redirect with cooldown protection
+                const safeRedirect = (path: string, reason: string) => {
+                    const now = Date.now()
+                    const timeSinceLastRedirect = now - lastRedirect
+                    
+                    if (timeSinceLastRedirect < 2000) {
+                        console.warn(`⏸️ Redirect blocked (cooldown: ${2000 - timeSinceLastRedirect}ms remaining)`)
+                        return false
+                    }
+                    
+                    console.log(`🔄 ${reason}`)
+                    setLastRedirect(now)
+                    router.push(path)
+                    return true
+                }
+
                 if (!isAuthenticated && !isPublicRoute) {
-                    console.warn('⛔ Protected route access denied. Redirecting to login.')
-                    router.push('/login')
+                    safeRedirect('/login', '⛔ Protected route access denied. Redirecting to login.')
                 } else if (isAuthenticated) {
                     // Check Email Verification
                     if (session?.user && !session.user.email_confirmed_at && pathname !== '/verify-email') {
-                        console.warn("⛔ Email not verified. Redirecting...")
-                        router.push('/verify-email')
-                        setIsLoading(false)
-                        return
+                        if (safeRedirect('/verify-email', '⛔ Email not verified. Redirecting...')) {
+                            setIsLoading(false)
+                            return
+                        }
                     }
 
                     // Redirect authenticated users away from login/signup
                     if (['/login', '/signup'].includes(pathname)) {
-                        console.log('✅ User already logged in. Redirecting to dashboard.')
-                        router.push('/dashboard')
+                        safeRedirect('/dashboard', '✅ User already logged in. Redirecting to dashboard.')
                     }
                 }
 
@@ -100,7 +115,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         return () => {
             subscription.unsubscribe()
         }
-    }, [router, pathname, isPublicRoute, isMarketingPage])
+    }, [router, pathname, isPublicRoute, isMarketingPage, lastRedirect])
 
     // Marketing pages render immediately without loading
     if (isMarketingPage) {
