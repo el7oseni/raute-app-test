@@ -79,23 +79,13 @@ export default function LoginPage() {
             // 4. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                // Platform-aware redirect: mobile needs full reload for session
-                if (Capacitor.isNativePlatform()) {
-                    window.location.href = '/verify-email'
-                } else {
-                    router.push('/verify-email')
-                }
+                router.push('/verify-email')
                 return
             }
 
-            // Success - Platform-aware redirect to dashboard
+            // Success - redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-            // Mobile needs full reload to establish session properly
-            if (Capacitor.isNativePlatform()) {
-                window.location.href = '/dashboard'
-            } else {
-                router.push('/dashboard')
-            }
+            router.push('/dashboard')
             return
 
         } catch (err: any) {

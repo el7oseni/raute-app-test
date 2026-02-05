@@ -63,8 +63,8 @@ export function AuthListener() {
                             type: 'success'
                         })
 
-                        // Hard redirect required for mobile to load session properly
-                        window.location.href = '/dashboard'
+                        // Use router for smooth navigation
+                        router.push('/dashboard')
                     }
                 }
             }
