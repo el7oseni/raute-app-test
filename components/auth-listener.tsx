@@ -60,8 +60,8 @@ export function AuthListener() {
                             type: 'success'
                         })
 
-                        // Smooth redirect using Next.js router (no page reload)
-                        router.push('/dashboard')
+                        // Hard redirect required for mobile to load session properly
+                        window.location.href = '/dashboard'
                     }
                 }
             }
