@@ -60,8 +60,8 @@ export function AuthListener() {
                             type: 'success'
                         })
 
-                        // Hard redirect to clear browser history state
-                        window.location.href = '/dashboard'
+                        // Smooth redirect using Next.js router (no page reload)
+                        router.push('/dashboard')
                     }
                 }
             }

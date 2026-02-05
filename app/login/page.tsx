@@ -24,6 +24,20 @@ export default function LoginPage() {
     const [message, setMessage] = useState<string | null>(null)
     const { toast } = useToast()
 
+    // Listen for browser close to reset loading state
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return
+
+        const listener = Browser.addListener('browserFinished', () => {
+            // Reset loading when OAuth browser is dismissed
+            setIsLoading(false)
+        })
+
+        return () => {
+            listener.then(handle => handle?.remove())
+        }
+    }, [])
+
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setIsLoading(true)
