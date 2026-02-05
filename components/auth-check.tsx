@@ -30,7 +30,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        const checkAuth = async (retries = 1) => {
+        const checkAuth = async (retries = 3) => {
             try {
                 const { data, error } = await supabase.auth.getSession()
 
@@ -43,7 +43,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 // Retry if no session found (might be restoring from storage)
                 if (!data.session && retries > 0) {
                     console.log(`Checking session... (${retries} retries left)`)
-                    setTimeout(() => checkAuth(retries - 1), 500)
+                    setTimeout(() => checkAuth(retries - 1), 700)
                     return // Don't stop loading yet
                 }
 
