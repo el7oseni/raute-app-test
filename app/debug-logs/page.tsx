@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { supabase } from '@/lib/supabase'
 
 export default function DebugLogsPage() {
     const [logs, setLogs] = useState<string[]>([])
-    const [session, setSession] = useState<any>(null)
-    const [storage, setStorage] = useState<any>(null)
+    const [session, setSession] = useState<unknown>(null)
+    const [storage, setStorage] = useState<unknown>(null)
 
     useEffect(() => {
         checkEverything()
@@ -17,7 +17,6 @@ export default function DebugLogsPage() {
         
         try {
             // 1. Check Supabase Session
-            const supabase = createClient()
             const { data: { session: currentSession }, error } = await supabase.auth.getSession()
             
             newLogs.push(`📱 Platform: ${typeof window !== 'undefined' ? 'Mobile/Web' : 'Server'}`)
@@ -96,8 +95,8 @@ export default function DebugLogsPage() {
                 newLogs.push(`\n❌ Database query failed: ${e}`)
             }
 
-        } catch (error: any) {
-            newLogs.push(`❌ Fatal Error: ${error.message}`)
+        } catch (error: unknown) {
+            newLogs.push(`❌ Fatal Error: ${error instanceof Error ? error.message : String(error)}`)
         }
 
         setLogs(newLogs)
@@ -128,8 +127,7 @@ export default function DebugLogsPage() {
         if (!email || !password) return
 
         try {
-            const supabase = createClient()
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             })
@@ -140,8 +138,8 @@ export default function DebugLogsPage() {
                 alert('Login successful! Checking session...')
                 await checkEverything()
             }
-        } catch (e: any) {
-            alert(`Login error: ${e.message}`)
+        } catch (e: unknown) {
+            alert(`Login error: ${e instanceof Error ? e.message : String(e)}`)
         }
     }
 
