@@ -5,8 +5,8 @@ import { supabase } from '@/lib/supabase'
 
 export default function DebugLogsPage() {
     const [logs, setLogs] = useState<string[]>([])
-    const [session, setSession] = useState<unknown>(null)
-    const [storage, setStorage] = useState<unknown>(null)
+    const [session, setSession] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
+    const [storage, setStorage] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
 
     useEffect(() => {
         checkEverything()
