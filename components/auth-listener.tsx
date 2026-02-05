@@ -53,6 +53,9 @@ export function AuthListener() {
                         console.log('✅ Session established via Deep Link')
                         // Force refresh to sync checks
                         await supabase.auth.refreshSession()
+                        
+                        // Wait for session to be persisted to storage
+                        await new Promise(resolve => setTimeout(resolve, 500))
 
                         toast({
                             title: 'Welcome Back!',
