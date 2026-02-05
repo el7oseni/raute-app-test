@@ -12,6 +12,7 @@ import { useToast } from "@/components/toast-provider"
 import { Navbar } from "@/components/landing/navbar"
 import { Footer } from "@/components/landing/footer"
 import { MobileAuthWrapper } from "@/components/mobile-auth-wrapper"
+import { AuthSkeleton } from "@/components/auth-skeleton"
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 
@@ -78,22 +79,13 @@ export default function LoginPage() {
             // 4. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                router.refresh() // Sync server state
-                window.location.href = "/verify-email"
+                router.push('/verify-email')
                 return
             }
 
-            // Success - Hard Redirect to Dashboard
+            // Success - Smooth redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-
-            // Force a router refresh first to update server components
-            router.refresh()
-
-            // Allow a small delay for cookies to propagate
-            await new Promise(resolve => setTimeout(resolve, 500))
-
-            // Use hard navigation to force middleware re-check with new cookies
-            window.location.href = "/dashboard"
+            router.push('/dashboard')
             return
 
         } catch (err: any) {
@@ -105,6 +97,11 @@ export default function LoginPage() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    // Show skeleton during loading state
+    if (isLoading) {
+        return <AuthSkeleton />
     }
 
     return (
