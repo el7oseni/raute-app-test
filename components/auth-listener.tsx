@@ -54,8 +54,8 @@ export function AuthListener() {
                         // Force refresh to sync checks
                         await supabase.auth.refreshSession()
                         
-                        // Wait for session to be persisted to storage
-                        await new Promise(resolve => setTimeout(resolve, 500))
+                        // Wait for session to be persisted to Capacitor storage
+                        await new Promise(resolve => setTimeout(resolve, 1000))
 
                         toast({
                             title: 'Welcome Back!',
@@ -63,8 +63,8 @@ export function AuthListener() {
                             type: 'success'
                         })
 
-                        // Use router for smooth navigation
-                        router.push('/dashboard')
+                        // Force full reload to load session from storage
+                        window.location.href = '/dashboard'
                     }
                 }
             }

@@ -79,13 +79,17 @@ export default function LoginPage() {
             // 4. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                router.push('/verify-email')
+                // Wait for session to be saved to Capacitor storage
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                window.location.href = '/verify-email'
                 return
             }
 
             // Success - redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-            router.push('/dashboard')
+            // Wait for session to be saved to Capacitor storage
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            window.location.href = '/dashboard'
             return
 
         } catch (err: any) {
