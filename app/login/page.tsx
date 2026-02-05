@@ -340,6 +340,17 @@ export default function LoginPage() {
                                             Sign up
                                         </Link>
                                     </div>
+                                    
+                                    {/* Debug Access Button */}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-slate-400 hover:text-slate-600"
+                                        onClick={() => router.push('/debug-logs')}
+                                    >
+                                        🔍 Debug Logs
+                                    </Button>
                                 </CardFooter>
                             </Card>
 
