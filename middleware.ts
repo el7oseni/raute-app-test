@@ -94,7 +94,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // 4. FETCH USER ROLE FROM DATABASE (CRITICAL SECURITY CHECK)
-    const { data: userData } = await supabase
+    const { data: userData, error: userFetchError } = await supabase
         .from('users')
         .select('role, company_id')
         .eq('id', session.user.id)
@@ -102,8 +102,12 @@ export async function middleware(request: NextRequest) {
 
     // 🚨 SECURITY: If user not found in database, handle gracefully
     // DO NOT LOGOUT here, as it causes infinite redirect loops if DB is slow or RLS fails.
+    if (userFetchError) {
+        console.error(`❌ Database fetch error for user ${session.user.id}:`, userFetchError)
+    }
+    
     if (!userData || !userData.role) {
-        console.warn(`⚠️ User ${session.user.id} has no database record or access denied by RLS. Allowing provisional access.`)
+        console.warn(`⚠️ User ${session.user.id} has no database record or access denied by RLS. Allowing provisional access with 'driver' role.`)
         // Proceed as if role is 'driver' (safest default) or let UI handle it.
         // We do NOT redirect to avoid loops.
     }

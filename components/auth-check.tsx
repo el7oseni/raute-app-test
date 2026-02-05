@@ -79,10 +79,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         }
                     }
 
-                    // Redirect authenticated users away from login/signup
-                    if (['/login', '/signup'].includes(pathname)) {
-                        safeRedirect('/dashboard', '✅ User already logged in. Redirecting to dashboard.')
-                    }
+                    // Let login/signup pages handle their own navigation after auth
+                    // Removing automatic redirect to prevent timing issues with session persistence
                 }
 
                 // Success path - stop loading

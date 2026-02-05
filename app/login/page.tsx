@@ -68,29 +68,19 @@ export default function LoginPage() {
                 throw new Error('Login succeeded but no session was created.')
             }
 
-            // 2. CRITICAL: Force session refresh to set cookies
-            // This ensures the middleware can see the session
-            const { error: refreshError } = await supabase.auth.refreshSession()
-            if (refreshError) console.warn('Session refresh warning:', refreshError)
-
-            // 3. Check Email Verification
+            // 2. Check Email Verification
             const isEmailVerified = authData.session.user.email_confirmed_at
 
-            // 4. Handle Redirection
+            // 3. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                // Wait for session to be saved to Capacitor storage
-                await new Promise(resolve => setTimeout(resolve, 1000))
-                window.location.href = '/verify-email'
+                router.push('/verify-email')
                 return
             }
 
             // Success - redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-            // Wait for session to be saved to Capacitor storage
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            window.location.href = '/dashboard'
-            return
+            router.push('/dashboard')
 
         } catch (err: any) {
             toast({
