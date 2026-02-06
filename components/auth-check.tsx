@@ -10,7 +10,10 @@ const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callbac
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const pathname = usePathname()
-    const [isLoading, setIsLoading] = useState(true)
+    // Skip auth entirely for landing page and marketing pages
+    const isMarketingPage = pathname === '/' || pathname === '/privacy' || pathname === '/terms'
+    // Determine initial loading state based on page type
+    const [isLoading, setIsLoading] = useState(() => !isMarketingPage)
     const [lastRedirect, setLastRedirect] = useState<number>(0)
 
     // Check if current path is a public route
@@ -20,13 +23,9 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         )
     }, [pathname])
 
-    // Skip auth entirely for landing page and marketing pages
-    const isMarketingPage = pathname === '/' || pathname === '/privacy' || pathname === '/terms'
-
     useEffect(() => {
         // For marketing pages, skip all auth checks
         if (isMarketingPage) {
-            setIsLoading(false)
             return
         }
 
@@ -42,8 +41,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
                 // Retry if no session found (might be restoring from storage)
                 if (!data.session && retries > 0) {
-                    console.log(`Checking session... (${retries} retries left)`)
-                    setTimeout(() => checkAuth(retries - 1), 700)
+                    console.log(`⏳ Checking session... (${retries} retries left)`)
+                    setTimeout(() => checkAuth(retries - 1), 1000) // Increased from 700ms to 1000ms
                     return // Don't stop loading yet
                 }
 

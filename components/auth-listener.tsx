@@ -63,8 +63,8 @@ export function AuthListener() {
                             type: 'success'
                         })
 
-                        // Force full reload to load session from storage
-                        window.location.href = '/dashboard'
+                        // Use router.push instead of window.location.href to avoid re-triggering auth checks
+                        router.push('/dashboard')
                     }
                 }
             }

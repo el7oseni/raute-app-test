@@ -72,8 +72,17 @@ export async function middleware(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession()
     const isEmailVerified = session?.user?.email_confirmed_at
 
+    // Enhanced debug logging for session state
+    console.log('🔐 Middleware Auth Check:', {
+        path: request.nextUrl.pathname,
+        hasSession: !!session,
+        userId: session?.user?.id,
+        emailVerified: !!isEmailVerified,
+        timestamp: new Date().toISOString()
+    })
+
     // 1. PUBLIC ROUTES (Allow access)
-    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/']
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/', '/debug-logs']
     const isPublicRoute = publicRoutes.some(route => {
         // Exact match or match with trailing slash
         return request.nextUrl.pathname === route || request.nextUrl.pathname === `${route}/`
@@ -85,6 +94,7 @@ export async function middleware(request: NextRequest) {
 
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
+        console.warn('⛔ No session found. Redirecting to login from:', request.nextUrl.pathname)
         return NextResponse.redirect(new URL('/login', request.url))
     }
 

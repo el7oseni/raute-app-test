@@ -90,9 +90,8 @@ export default function OnboardingPage() {
                 type: "success"
             })
 
-            // Refresh to update middleware/session state
-            router.refresh()
-            window.location.href = "/dashboard"
+            // Use router.push instead of window.location to maintain session state
+            router.push("/dashboard")
 
         } catch (error: any) {
             toast({

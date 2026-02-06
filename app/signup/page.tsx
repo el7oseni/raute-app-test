@@ -99,9 +99,9 @@ export default function SignupPage() {
                 // Continue anyway - user is created, trigger should handle profile
             }
 
-            // Success! Redirect to email verification page
-            // This provides better UX - users know they need to verify email
-            window.location.href = "/verify-email"
+            // Success! Redirect to email verification page using router.push
+            // This maintains the session state and prevents race conditions
+            router.push("/verify-email")
 
         } catch (err: any) {
             toast({
