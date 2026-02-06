@@ -1,20 +1,41 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { capacitorStorageAdapter } from './capacitor-storage-adapter'
 
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// Create Supabase client with Capacitor storage support for mobile apps
-// Uses Capacitor.Preferences on native platforms, localStorage on web
+// Create Supabase client that uses cookies for session storage
+// This allows middleware (server-side) to access the session
 export const supabase = typeof window !== 'undefined'
     ? createBrowserClient(supabaseUrl, supabaseAnonKey, {
         cookies: {
-          get: async (key) => capacitorStorageAdapter.getItem(key),
-          set: async (key, value) => capacitorStorageAdapter.setItem(key, value),
-          remove: async (key) => capacitorStorageAdapter.removeItem(key),
+          get: (name) => {
+            // Read from cookies (not localStorage)
+            const value = document.cookie
+              .split('; ')
+              .find(row => row.startsWith(`${name}=`))
+              ?.split('=')[1]
+            return value ? decodeURIComponent(value) : null
+          },
+          set: (name, value, options) => {
+            // Write to cookies (not localStorage)
+            let cookie = `${name}=${encodeURIComponent(value)}`
+            if (options?.maxAge) cookie += `; max-age=${options.maxAge}`
+            if (options?.path) cookie += `; path=${options.path}`
+            if (options?.domain) cookie += `; domain=${options.domain}`
+            if (options?.sameSite) cookie += `; samesite=${options.sameSite}`
+            if (options?.secure) cookie += '; secure'
+            document.cookie = cookie
+          },
+          remove: (name, options) => {
+            // Remove from cookies
+            let cookie = `${name}=; max-age=0`
+            if (options?.path) cookie += `; path=${options.path}`
+            if (options?.domain) cookie += `; domain=${options.domain}`
+            document.cookie = cookie
+          },
         },
       })
     : createClient(supabaseUrl, supabaseAnonKey, {
