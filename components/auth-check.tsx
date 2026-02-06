@@ -97,13 +97,14 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         }
 
         // Subscribe to auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT') {
                 router.push('/login')
             } else if (event === 'SIGNED_IN') {
-                const redirectUrl = pathname === '/login' || pathname === '/signup' ? '/dashboard' : pathname
-                if (pathname !== redirectUrl) {
-                    router.push(redirectUrl)
+                // Only redirect if we're NOT already on login/signup
+                // (those pages handle their own navigation)
+                if (pathname !== '/login' && pathname !== '/signup') {
+                    router.push('/dashboard')
                 }
             }
         })

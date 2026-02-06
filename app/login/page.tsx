@@ -88,8 +88,7 @@ export default function LoginPage() {
                 description: err.message || "Invalid credentials",
                 type: "error"
             })
-        } finally {
-            setIsLoading(false)
+            setIsLoading(false) // Only reset on error
         }
     }
 
