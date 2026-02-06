@@ -1,15 +1,22 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { capacitorStorageAdapter } from './capacitor-storage-adapter'
 
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// Create Supabase client with proper SSR support (for client-side operations)
-// This will automatically sync with cookies for server-side middleware
+// Create Supabase client with Capacitor storage support for mobile apps
+// Uses Capacitor.Preferences on native platforms, localStorage on web
 export const supabase = typeof window !== 'undefined'
-    ? createBrowserClient(supabaseUrl, supabaseAnonKey)
+    ? createBrowserClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get: async (key) => capacitorStorageAdapter.getItem(key),
+          set: async (key, value) => capacitorStorageAdapter.setItem(key, value),
+          remove: async (key) => capacitorStorageAdapter.removeItem(key),
+        },
+      })
     : createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
             persistSession: false,
