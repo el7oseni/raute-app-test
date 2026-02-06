@@ -33,6 +33,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# sensitive environment variable reference
+ENV_VARIABLES_REFERENCE.md
+
+# archive and cleanup
+/archive
+temp_remote.txt
+*.zip
+
 # vercel
 .vercel
 

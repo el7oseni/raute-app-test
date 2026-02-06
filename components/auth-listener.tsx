@@ -70,8 +70,25 @@ export function AuthListener() {
             }
         })
 
+        // Listen for app state changes (resume/pause)
+        const appStateListener = App.addListener('appStateChange', async ({ isActive }) => {
+            if (isActive) {
+                console.log('📱 App resumed - checking for session conflicts')
+                
+                // Check current session
+                const { data } = await supabase.auth.getSession()
+                
+                // If no valid session, cleanup orphaned data
+                if (!data.session) {
+                    const { cleanupOrphanedSessions } = await import('@/lib/session-cleanup')
+                    await cleanupOrphanedSessions()
+                }
+            }
+        })
+
         return () => {
             listener.then(handle => handle.remove())
+            appStateListener.then(handle => handle.remove())
         }
     }, [router, toast])
 

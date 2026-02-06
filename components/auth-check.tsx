@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { isSessionCorrupted } from "@/lib/session-cleanup"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
@@ -29,13 +30,37 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
+        // Maximum timeout to prevent frozen screens (5 seconds)
+        const maxTimeout = setTimeout(() => {
+            console.warn('⏱️ Auth check timeout (5s) - forcing stop')
+            setIsLoading(false)
+            
+            // Clear potentially corrupted session
+            supabase.auth.signOut({ scope: 'local' }).catch(err => {
+                console.error('Failed to clear session on timeout:', err)
+            })
+        }, 5000)
+
         const checkAuth = async (retries = 3) => {
             try {
                 const { data, error } = await supabase.auth.getSession()
 
                 if (error) {
                     console.error("Auth Exception:", error)
+                    clearTimeout(maxTimeout)
                     setIsLoading(false)
+                    return
+                }
+
+                // Validate session integrity before retrying
+                if (data.session && isSessionCorrupted(data.session)) {
+                    console.error('❌ Corrupted session detected - clearing')
+                    await supabase.auth.signOut({ scope: 'local' })
+                    clearTimeout(maxTimeout)
+                    setIsLoading(false)
+                    if (!isPublicRoute) {
+                        router.push('/login')
+                    }
                     return
                 }
 
@@ -73,6 +98,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     // Check Email Verification
                     if (session?.user && !session.user.email_confirmed_at && pathname !== '/verify-email') {
                         if (safeRedirect('/verify-email', '⛔ Email not verified. Redirecting...')) {
+                            clearTimeout(maxTimeout)
                             setIsLoading(false)
                             return
                         }
@@ -82,11 +108,13 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     // Removing automatic redirect to prevent timing issues with session persistence
                 }
 
-                // Success path - stop loading
+                // Success path - stop loading and clear timeout
+                clearTimeout(maxTimeout)
                 setIsLoading(false)
 
             } catch (error) {
                 console.error("Auth check critical failure:", error)
+                clearTimeout(maxTimeout)
                 // Only redirect to login if NOT on a public route AND NOT on landing page
                 if (!isPublicRoute && pathname !== '/login' && pathname !== '/') {
                     router.push('/login')
@@ -111,6 +139,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         checkAuth()
 
         return () => {
+            clearTimeout(maxTimeout)
             subscription.unsubscribe()
         }
     }, [router, pathname, isPublicRoute, isMarketingPage, lastRedirect])
