@@ -40,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased h-screen overflow-hidden bg-background safe-area-pt`}>
+      <body className={`${inter.className} antialiased bg-background`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -52,10 +52,12 @@ export default function RootLayout({
           <ToastProvider>
             <AuthListener />
             <AuthCheck>
-              <main className="h-full overflow-y-auto pb-20 safe-area-pb">
-                {children}
-              </main>
-              <MobileNav />
+              <div className="flex flex-col h-screen">
+                <main className="flex-1 overflow-y-auto pb-20">
+                  {children}
+                </main>
+                <MobileNav />
+              </div>
             </AuthCheck>
           </ToastProvider>
         </ThemeProvider>
