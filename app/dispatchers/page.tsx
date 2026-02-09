@@ -312,7 +312,7 @@ export default function DispatchersPage() {
                     <SheetTrigger asChild>
                         <Button className="gap-2"><Plus size={16} /> Add Dispatcher</Button>
                     </SheetTrigger>
-                    <SheetContent className="overflow-y-auto w-full sm:max-w-md">
+                    <SheetContent className="overflow-y-auto w-full sm:max-w-md safe-area-pt">
                         <SheetHeader>
                             <SheetTitle>{editingDispatcher ? 'Edit Dispatcher' : 'Add New Dispatcher'}</SheetTitle>
                         </SheetHeader>

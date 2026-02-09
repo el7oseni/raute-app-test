@@ -721,8 +721,12 @@ export default function OrdersPage() {
 
             const { error } = await supabase.from('orders').insert(newOrder)
             if (error) throw error
-            setIsAddOrderOpen(false); setPickedLocation(null); setPhoneValue(undefined); setVerificationResult(null); fetchData()
+            setIsAddOrderOpen(false); setPickedLocation(null); setPhoneValue(undefined); setVerificationResult(null); 
+            // Reset all form fields
+            setAddress(''); setCity(''); setState(''); setZipCode(''); setPriorityLevel('normal');
+            fetchData()
             toast({ title: "Order created successfully", type: "success" })
+
         } catch (error) {
             toast({ title: "Failed to create order", type: "error" })
         } finally {
@@ -806,7 +810,7 @@ export default function OrdersPage() {
                                         <Calendar size={16} className="text-slate-400" />
                                     </Button>
                                 </SheetTrigger>
-                                <SheetContent>
+                                <SheetContent className="safe-area-pt">
                                     <SheetHeader>
                                         <SheetTitle>Activity History</SheetTitle>
                                         <SheetDescription>Your recent online/offline activity logs.</SheetDescription>
@@ -1051,7 +1055,7 @@ export default function OrdersPage() {
                                 <Settings size={14} /> Settings
                             </Button>
                         </SheetTrigger>
-                        <SheetContent className="w-full sm:max-w-lg">
+                        <SheetContent className="w-full sm:max-w-lg safe-area-pt">
                             <SheetHeader>
                                 <SheetTitle>Settings</SheetTitle>
                                 <SheetDescription>Manage your orders settings and preferences</SheetDescription>
@@ -1075,7 +1079,7 @@ export default function OrdersPage() {
                     <Sheet open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
                         <SheetTrigger asChild><Button size="sm" className="gap-2 shadow-lg shadow-blue-200"><Plus size={16} /> Add Order</Button></SheetTrigger>
 
-                        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
+                        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto safe-area-pt sm:max-w-lg mx-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
                             <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
 
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

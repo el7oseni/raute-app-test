@@ -45,7 +45,7 @@ BEGIN
         'authenticated',
         'authenticated',
         email,
-        crypt(password, gen_salt('bf')), -- Secure Hash
+        crypt(password, gen_salt('bf'::text)), -- Secure Hash
         now(),
         NULL,
         NULL,

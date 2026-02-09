@@ -32,6 +32,7 @@ export default function MapPage() {
     const [drivers, setDrivers] = useState<Driver[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [userRole, setUserRole] = useState<string | null>(null)
+    const [companyId, setCompanyId] = useState<string | null>(null)
 
     // UI State
     const [selectedDriverId, setSelectedDriverId] = useState<string | null>(searchParams.get('driverId'))
@@ -58,16 +59,33 @@ export default function MapPage() {
         fetchData().finally(() => {
             clearTimeout(timeoutId)
         })
+    }, [])
 
-        // Real-time Subscriptions
+    // Separate effect for Realtime subscriptions (company-scoped for scalability)
+    useEffect(() => {
+        if (!companyId) return // Wait for company_id
+
+        const companyFilter = `company_id=eq.${companyId}`
+
+        // Real-time Subscriptions (Company-scoped to prevent global broadcasts)
         const orderSub = supabase
-            .channel('orders-map-v2')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
+            .channel(`orders-map-${companyId}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'orders',
+                filter: companyFilter // ✅ Scalability: Only this company
+            }, () => fetchData())
             .subscribe()
 
         const driverSub = supabase
-            .channel('drivers-map-v2')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, (payload) => {
+            .channel(`drivers-map-${companyId}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'drivers',
+                filter: companyFilter // ✅ Scalability: Only this company
+            }, (payload) => {
                 if (payload.new && (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT')) {
                     const newDriver = payload.new as Driver
                     setDrivers(prev => {
@@ -84,7 +102,7 @@ export default function MapPage() {
             orderSub.unsubscribe()
             driverSub.unsubscribe()
         }
-    }, [])
+    }, [companyId]) // Re-subscribe when company changes
 
     async function fetchData() {
         try {
@@ -130,6 +148,7 @@ export default function MapPage() {
             });
 
             setUserRole(userProfile.role) // Store user role
+            setCompanyId(userProfile.company_id) // Store for Realtime filters
 
             // Driver: Only see own stuff
             if (userProfile.role === 'driver') {
@@ -267,7 +286,7 @@ export default function MapPage() {
                                 <Menu className="h-6 w-6" />
                             </Button>
                         </SheetTrigger>
-                        <SheetContent side="bottom" className="h-[60vh] p-0 rounded-t-xl z-[1000]">
+                        <SheetContent side="bottom" className="h-[60vh] p-0 rounded-t-xl z-[1000] sm:max-w-2xl mx-auto">
                             <SheetTitle className="sr-only">Fleet Overview</SheetTitle>
                             <FleetPanel
                                 drivers={drivers}

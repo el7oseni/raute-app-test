@@ -298,18 +298,22 @@ export default function SignupPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+                                                        const redirectUrl = isNative
+                                                            ? 'https://raute.io/auth/callback'
+                                                            : `${window.location.origin}/auth/callback`
+
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'apple',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`,
+                                                                redirectTo: redirectUrl,
                                                                 skipBrowserRedirect: isNative
                                                             }
                                                         })
                                                         if (error) throw error
 
-                                                        // Open in-app browser on mobile
+                                                        // Open in SYSTEM browser (not WebView) on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                            await Browser.open({ url: data.url, windowName: '_system' })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -338,18 +342,26 @@ export default function SignupPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+                                                        const redirectUrl = isNative
+                                                            ? 'https://raute.io/auth/callback'
+                                                            : `${window.location.origin}/auth/callback`
+
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
                                                             provider: 'google',
                                                             options: {
-                                                                redirectTo: `${window.location.origin}/auth/callback`,
-                                                                skipBrowserRedirect: isNative
+                                                                redirectTo: redirectUrl,
+                                                                skipBrowserRedirect: isNative,
+                                                                queryParams: {
+                                                                    access_type: 'offline',
+                                                                    prompt: 'consent',
+                                                                }
                                                             }
                                                         })
                                                         if (error) throw error
 
-                                                        // Open in-app browser on mobile
+                                                        // Open in SYSTEM browser (not WebView) on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                            await Browser.open({ url: data.url, windowName: '_system' })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -561,18 +573,22 @@ export default function SignupPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+                                                    const redirectUrl = isNative
+                                                        ? 'https://raute.io/auth/callback'
+                                                        : `${window.location.origin}/auth/callback`
+
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'apple',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`,
+                                                            redirectTo: redirectUrl,
                                                             skipBrowserRedirect: isNative
                                                         }
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in-app browser on mobile
+                                                    // Open in SYSTEM browser (not WebView) on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                        await Browser.open({ url: data.url, windowName: '_system' })
                                                     }
                                                 } catch (err: any) {
                                                     toast({
@@ -601,18 +617,26 @@ export default function SignupPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+                                                    const redirectUrl = isNative
+                                                        ? 'https://raute.io/auth/callback'
+                                                        : `${window.location.origin}/auth/callback`
+
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'google',
                                                         options: {
-                                                            redirectTo: `${window.location.origin}/auth/callback`,
-                                                            skipBrowserRedirect: isNative
+                                                            redirectTo: redirectUrl,
+                                                            skipBrowserRedirect: isNative,
+                                                            queryParams: {
+                                                                access_type: 'offline',
+                                                                prompt: 'consent',
+                                                            }
                                                         }
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in-app browser on mobile
+                                                    // Open in SYSTEM browser (not WebView) on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url, presentationStyle: 'popover' })
+                                                        await Browser.open({ url: data.url, windowName: '_system' })
                                                     }
                                                 } catch (err: any) {
                                                     toast({

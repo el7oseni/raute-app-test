@@ -880,7 +880,7 @@ export default function ClientOrderDetails() {
             <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Order?</AlertDialogTitle><AlertDialogDescription>Permanently remove #{order.order_number}?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
             <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
-                <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+                <SheetContent side="bottom" className="h-[90vh] overflow-y-auto safe-area-pt">
                     <SheetHeader>
                         <SheetTitle>Edit Order</SheetTitle>
                         <SheetDescription>Update order details and location.</SheetDescription>

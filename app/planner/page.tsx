@@ -22,6 +22,7 @@ import {
     closestCorners,
     KeyboardSensor,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragStartEvent,
@@ -68,7 +69,9 @@ function DraggableOrderCard({ order, isOverlay = false, onViewDetails }: { order
         data: { order }
     })
 
-    const style = isDragging ? { opacity: 0.5 } : undefined
+    const style = isDragging 
+        ? { opacity: 0.5, willChange: 'transform' } 
+        : { willChange: 'auto' }
 
     return (
         <Card
@@ -281,12 +284,41 @@ export default function PlannerPage() {
     const [isSplitModalOpen, setIsSplitModalOpen] = useState(false)
     const [pendingOptimization, setPendingOptimization] = useState(false)
 
+    // Driver Selection Logic
+    const toggleDriverSelection = (driverId: string) => {
+        setSelectedDrivers(prev => 
+            prev.includes(driverId) 
+                ? prev.filter(id => id !== driverId)
+                : [...prev, driverId]
+        )
+    }
+
+    const toggleAllDrivers = () => {
+        if (selectedDrivers.length === drivers.length) {
+            setSelectedDrivers([])
+        } else {
+            setSelectedDrivers(drivers.map(d => d.id))
+        }
+    }
+
     // Drag State
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
-    // Sensors
+    // Sensors - Optimized for Mobile
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // Increased to reduce accidental drags
+                delay: 100, // Small delay prevents jumpiness on desktop
+                tolerance: 5
+            }
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 150, // Longer delay for touch to distinguish from scroll
+                tolerance: 8 // Higher tolerance for touch interactions
+            }
+        }),
         useSensor(KeyboardSensor)
     )
 
@@ -641,6 +673,11 @@ export default function PlannerPage() {
     // Handlers
     function handleDragStart(event: DragStartEvent) {
         setActiveDragId(event.active.id as string)
+        
+        // Add haptic feedback on mobile
+        if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+            navigator.vibrate(50)
+        }
     }
 
     async function handleDragEnd(event: DragEndEvent) {
@@ -725,8 +762,8 @@ export default function PlannerPage() {
                 onDragEnd={handleDragEnd}
             >
                 <div className="flex h-screen w-full bg-background overflow-hidden">
-                    {/* SIDEBAR */}
-                    <div className="w-96 border-r border-border flex flex-col bg-card dark:bg-card z-20 shadow-xl transition-colors">
+                    {/* SIDEBAR - Desktop Only */}
+                    <div className="hidden md:flex md:w-96 border-r border-border flex-col bg-card dark:bg-card z-20 shadow-xl transition-colors">
                         <div className="p-4 border-b border-border bg-muted/20 dark:bg-muted/10 flex-shrink-0 safe-area-pt">
                             <h1 className="text-xl font-bold tracking-tight mb-1 text-foreground">Route Planner</h1>
                             <p className="text-xs text-muted-foreground">Drag orders to assign manually.</p>
@@ -949,7 +986,6 @@ export default function PlannerPage() {
                             </div>
                         </div>
                     </div>
-
                     {/* MAP AREA */}
                     <div className="flex-1 relative z-10">
                         {/* Map Theme Toggle */}
@@ -1067,10 +1103,27 @@ export default function PlannerPage() {
                             </MapContainer>
                         </div>
                     </div>
-                </div>
+
+
+
+                {/* MOBILE INTERACTIVE DRAWER */}
+                <PlannerDrawer
+                    orders={orders}
+                    drivers={drivers}
+                    unassignedOrders={unassignedOrders}
+                    onOptimize={handleOptimize}
+                    strategy={strategy}
+                    setStrategy={setStrategy}
+                    selectedDriverIds={selectedDrivers}
+                    toggleDriver={toggleDriverSelection}
+                    toggleAllDrivers={toggleAllDrivers}
+                />
 
                 {/* DRAG OVERLAY (Visual Feedback) */}
-                <DragOverlay>
+                <DragOverlay dropAnimation={{
+                    duration: 200,
+                    easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)'
+                }}>
                     {activeDragOrder ? <DraggableOrderCard order={activeDragOrder} isOverlay /> : null}
                 </DragOverlay>
 
@@ -1120,7 +1173,7 @@ export default function PlannerPage() {
 
                 {/* OPTIMIZATION REPORT DIALOG */}
                 <Sheet open={!!optimizationReport} onOpenChange={(open) => !open && setOptimizationReport(null)}>
-                    <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+                    <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto safe-area-pt">
                         <SheetHeader>
                             <SheetTitle className="flex items-center gap-2">
                                 <Sparkles className="text-blue-600" size={20} />

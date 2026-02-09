@@ -689,7 +689,7 @@ export default function DriversPage() {
                                 </div>
                             </DialogContent>
                         </Dialog>
-                        <SheetContent className="h-[90vh] overflow-y-auto sm:max-w-md w-full rounded-l-2xl border-l border-border/50 shadow-2xl">
+                        <SheetContent className="h-[90vh] overflow-y-auto w-full max-w-md mx-auto rounded-l-2xl border-l border-border/50 shadow-2xl safe-area-pt">
                             <SheetHeader className="mb-6">
                                 <SheetTitle className="text-2xl font-bold text-primary">Add New Driver</SheetTitle>
                             </SheetHeader>
@@ -1058,7 +1058,7 @@ export default function DriversPage() {
 
                 {/* Edit Driver Sheet */}
                 <Sheet open={!!editingDriver} onOpenChange={(open) => !open && setEditingDriver(null)}>
-                    <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl border-t border-border shadow-2xl">
+                    <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl border-t border-border shadow-2xl safe-area-pt">
                         <SheetHeader>
                             <SheetTitle>Edit Driver Details</SheetTitle>
                         </SheetHeader>

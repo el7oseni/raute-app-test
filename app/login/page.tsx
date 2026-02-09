@@ -503,7 +503,7 @@ export default function LoginPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'io.raute.app://auth/callback'
+                                                        ? 'https://raute.io/auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -515,9 +515,12 @@ export default function LoginPage() {
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in-app browser on mobile
+                                                    // Open in SYSTEM browser (not WebView) on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url, presentationStyle: 'fullscreen' })
+                                                        await Browser.open({ 
+                                                            url: data.url, 
+                                                            windowName: '_system'  // This forces system browser
+                                                        })
                                                     }
                                                 } catch (err: any) {
                                                     toast({
@@ -547,21 +550,28 @@ export default function LoginPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'io.raute.app://auth/callback'
+                                                        ? 'https://raute.io/auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'google',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: isNative
+                                                            skipBrowserRedirect: isNative,
+                                                            queryParams: {
+                                                                access_type: 'offline',
+                                                                prompt: 'consent',
+                                                            }
                                                         }
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in-app browser on mobile
+                                                    // Open in SYSTEM browser (not WebView) on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url, presentationStyle: 'fullscreen' })
+                                                        await Browser.open({ 
+                                                            url: data.url, 
+                                                            windowName: '_system'  // This forces system browser
+                                                        })
                                                     }
                                                 } catch (err: any) {
                                                     toast({

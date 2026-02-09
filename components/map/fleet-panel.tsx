@@ -97,6 +97,11 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                 <div className="flex-1 text-left overflow-hidden min-w-0">
                                     <div className="font-semibold truncate flex items-center gap-2">
                                         {driver.name}
+                                        {driver.current_lat && driver.current_lng && (
+                                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-normal">
+                                                📍 Live
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
                                         {stats.active > 0 ? (
@@ -122,6 +127,19 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                             {stats.completed} Done
                                         </span>
                                     </div>
+                                    {driver.last_location_update && (
+                                        <div className="text-[10px] text-slate-500 mt-1">
+                                            {(() => {
+                                                const diff = Date.now() - new Date(driver.last_location_update).getTime()
+                                                const seconds = Math.floor(diff / 1000)
+                                                if (seconds < 60) return `Last seen: ${seconds}s ago`
+                                                const minutes = Math.floor(seconds / 60)
+                                                if (minutes < 60) return `Last seen: ${minutes}m ago`
+                                                const hours = Math.floor(minutes / 60)
+                                                return `Last seen: ${hours}h ago`
+                                            })()}
+                                        </div>
+                                    )}
                                 </div>
                             </Button>
                         )

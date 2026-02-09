@@ -4,10 +4,16 @@ const config: CapacitorConfig = {
   appId: 'io.raute.app',
   appName: 'Raute',
   webDir: 'out',
-  // server: {
-  //   url: 'https://raute.io',
-  //   cleartext: true
-  // }
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
+  // Deep linking for OAuth redirects
+  server: {
+    androidScheme: 'https',
+    iosScheme: 'https',
+  }
 };
 
 export default config;

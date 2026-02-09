@@ -182,7 +182,7 @@ export default function SettingsPage() {
                                         <Plus size={16} /> Add New
                                     </Button>
                                 </SheetTrigger>
-                                <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl p-6 overflow-y-auto">
+                                <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl p-6 overflow-y-auto safe-area-pt">
                                     <SheetHeader className="mb-6">
                                         <SheetTitle>Add New Warehouse</SheetTitle>
                                         <SheetDescription> Define a new start location for your fleet.</SheetDescription>

@@ -125,8 +125,10 @@ export function DriverDashboardView({ userId }: { userId: string }) {
 
             // Apply Date Range Filter
             if (isSingleDay && isToday) {
-                // TODAY: Fetch unlimited (or filtered by status) to allow finding overdue tasks
-                // We don't apply a strict date filter here, we filter in memory below
+                // TODAY: Show today's orders + overdue orders (strict filter for performance)
+                // Get orders from 7 days ago to catch overdue items, but not entire history
+                const lookbackDate = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+                query = query.gte('delivery_date', lookbackDate)
             } else {
                 // HISTORY or RANGE: Strict Date Filter
                 // Use gte/lte even for single day to ensure consistent behavior with charts
@@ -138,10 +140,12 @@ export function DriverDashboardView({ userId }: { userId: string }) {
             if (orders) {
                 let relevantOrders = orders
                 if (isToday && isSingleDay) {
-                    // TODAY VIEW logic
+                    // TODAY VIEW logic: Show today + overdue
                     relevantOrders = orders.filter(o => {
                         const orderDate = o.delivery_date
+                        // Today's orders
                         if (orderDate === startStr) return true
+                        // Overdue: past orders that are not completed
                         if (orderDate < startStr && o.status !== 'delivered' && o.status !== 'cancelled') return true
                         return false
                     })

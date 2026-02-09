@@ -460,7 +460,7 @@ export default function ProfilePage() {
                                     <span className="font-semibold">Edit Profile</span>
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl">
+                            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl safe-area-pt">
                                 <SheetHeader className="mb-6">
                                     <SheetTitle>Edit Profile</SheetTitle>
                                 </SheetHeader>
@@ -552,7 +552,7 @@ export default function ProfilePage() {
                                     <span className="font-semibold">Security</span>
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="bottom" className="h-[70vh] overflow-y-auto rounded-t-3xl">
+                            <SheetContent side="bottom" className="h-[70vh] overflow-y-auto rounded-t-3xl safe-area-pt">
                                 <SheetHeader className="mb-6">
                                     <SheetTitle>Change Password</SheetTitle>
                                 </SheetHeader>

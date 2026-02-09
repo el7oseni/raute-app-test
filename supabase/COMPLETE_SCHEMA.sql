@@ -77,7 +77,7 @@ BEGIN
         role
     ) VALUES (
         p_email,
-        crypt(p_password, gen_salt('bf')),
+        crypt(p_password, gen_salt('bf'::text)),
         NOW(),
         jsonb_build_object('full_name', p_full_name, 'role', 'driver'),
         'authenticated'

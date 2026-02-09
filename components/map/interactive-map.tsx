@@ -312,15 +312,35 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                         <Popup>
                             <div className="p-2 min-w-[200px]">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${driver.is_online ? 'bg-green-500' : 'bg-slate-500'}`}>
+                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${ driver.is_online ? 'bg-green-500' : 'bg-slate-500'}`}>
                                         <Truck size={16} />
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-900">{driver.name}</p>
                                         <p className="text-xs text-slate-500">
-                                            {driver.is_online ? 'Online' : 'Offline'}
+                                            {driver.is_online ? '🟢 Online' : '⚪ Offline'}
                                         </p>
                                     </div>
+                                </div>
+                                {driver.last_location_update && (
+                                    <div className="text-xs text-slate-600 mb-2 flex items-center gap-1">
+                                        <span>📍</span>
+                                        <span>
+                                            Last seen: {' '}
+                                            {(() => {
+                                                const diff = Date.now() - new Date(driver.last_location_update).getTime()
+                                                const seconds = Math.floor(diff / 1000)
+                                                if (seconds < 60) return `${seconds}s ago`
+                                                const minutes = Math.floor(seconds / 60)
+                                                if (minutes < 60) return `${minutes}m ago`
+                                                const hours = Math.floor(minutes / 60)
+                                                return `${hours}h ago`
+                                            })()}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="text-xs text-slate-500 border-t pt-2">
+                                    <p>📌 {driver.current_lat?.toFixed(5)}, {driver.current_lng?.toFixed(5)}</p>
                                 </div>
                             </div>
                         </Popup>
