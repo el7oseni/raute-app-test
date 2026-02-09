@@ -1106,18 +1106,7 @@ export default function PlannerPage() {
 
 
 
-                {/* MOBILE INTERACTIVE DRAWER */}
-                <PlannerDrawer
-                    orders={orders}
-                    drivers={drivers}
-                    unassignedOrders={unassignedOrders}
-                    onOptimize={handleOptimize}
-                    strategy={strategy}
-                    setStrategy={setStrategy}
-                    selectedDriverIds={selectedDrivers}
-                    toggleDriver={toggleDriverSelection}
-                    toggleAllDrivers={toggleAllDrivers}
-                />
+                {/* MOBILE INTERACTIVE DRAWER - TODO: PlannerDrawer component removed (not defined) */}
 
                 {/* DRAG OVERLAY (Visual Feedback) */}
                 <DragOverlay dropAnimation={{
@@ -1464,8 +1453,8 @@ export default function PlannerPage() {
                     </SheetContent>
                 </Sheet>
 
-            </DndContext >
-            )
+                </div>
+            </DndContext>
         </PullToRefresh>
     )
 }
