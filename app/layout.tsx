@@ -52,8 +52,8 @@ export default function RootLayout({
           <ToastProvider>
             <AuthListener />
             <AuthCheck>
-              <div className="flex flex-col h-screen">
-                <main className="flex-1 overflow-y-auto pb-20">
+              <div className="flex flex-col min-h-screen">
+                <main className="flex-1">
                   {children}
                 </main>
                 <MobileNav />
