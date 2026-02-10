@@ -92,6 +92,19 @@ export async function middleware(request: NextRequest) {
         return response
     }
 
+    // 🔥 CRITICAL FIX: Skip server-side session check for Capacitor/mobile builds
+    // On Capacitor, sessions are stored in Preferences storage, not in HTTP cookies
+    // The middleware can't access Capacitor storage, so we rely on client-side auth
+    const userAgent = request.headers.get('user-agent') || ''
+    const isCapacitorBuild = userAgent.includes('Capacitor') || 
+                             request.headers.get('x-capacitor-platform') !== null
+    
+    if (isCapacitorBuild) {
+        console.log('📱 Capacitor/Mobile detected - skipping server-side auth check')
+        // Client-side components will handle authentication
+        return response
+    }
+
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
         console.warn('⛔ No session found. Redirecting to login from:', request.nextUrl.pathname)
