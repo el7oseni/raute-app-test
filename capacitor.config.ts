@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
   // Deep linking for OAuth redirects
   server: {
     androidScheme: 'https',
-    iosScheme: 'https',
+    iosScheme: 'capacitor',
   }
 };
 
