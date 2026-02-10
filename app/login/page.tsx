@@ -74,13 +74,13 @@ export default function LoginPage() {
             // 3. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                router.push('/verify-email')
+                window.location.href = '/verify-email'
                 return
             }
 
             // Success - redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-            router.push('/dashboard')
+            window.location.href = '/dashboard'
 
         } catch (err: any) {
             toast({
@@ -257,14 +257,14 @@ export default function LoginPage() {
                                                             provider: 'apple',
                                                             options: {
                                                                 redirectTo: redirectUrl,
-                                                                skipBrowserRedirect: isNative
+                                                                skipBrowserRedirect: false
                                                             }
                                                         })
                                                         if (error) throw error
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url, presentationStyle: 'fullscreen' })
+                                                            await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -301,14 +301,14 @@ export default function LoginPage() {
                                                             provider: 'google',
                                                             options: {
                                                                 redirectTo: redirectUrl,
-                                                                skipBrowserRedirect: isNative
+                                                                skipBrowserRedirect: false
                                                             }
                                                         })
                                                         if (error) throw error
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url, presentationStyle: 'fullscreen' })
+                                                            await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -503,24 +503,21 @@ export default function LoginPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'https://raute.io/auth/callback'
+                                                        ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'apple',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: isNative
+                                                            skipBrowserRedirect: false
                                                         }
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in SYSTEM browser (not WebView) on mobile
+                                                    // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ 
-                                                            url: data.url, 
-                                                            windowName: '_system'  // This forces system browser
-                                                        })
+                                                        await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {
                                                     toast({
@@ -550,28 +547,21 @@ export default function LoginPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'https://raute.io/auth/callback'
+                                                        ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
                                                         provider: 'google',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: isNative,
-                                                            queryParams: {
-                                                                access_type: 'offline',
-                                                                prompt: 'consent',
-                                                            }
+                                                            skipBrowserRedirect: false
                                                         }
                                                     })
                                                     if (error) throw error
 
-                                                    // Open in SYSTEM browser (not WebView) on mobile
+                                                    // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ 
-                                                            url: data.url, 
-                                                            windowName: '_system'  // This forces system browser
-                                                        })
+                                                        await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {
                                                     toast({

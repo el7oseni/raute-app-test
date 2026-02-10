@@ -3,6 +3,8 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -11,10 +13,21 @@ export default function AuthCallback() {
     // Handle the OAuth callback
     const handleCallback = async () => {
       try {
-        // Get the hash fragment from the URL
+        const isNative = Capacitor.isNativePlatform()
+        
+        // Get params from either hash fragment or query params
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
+        const searchParams = new URLSearchParams(window.location.search)
+        
+        const accessToken = hashParams.get('access_token') || searchParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token')
+
+        console.log('🔐 Auth Callback:', { 
+          isNative, 
+          hasAccessToken: !!accessToken,
+          hash: window.location.hash,
+          search: window.location.search
+        })
 
         if (accessToken) {
           // Set the session in Supabase
@@ -25,7 +38,7 @@ export default function AuthCallback() {
 
           if (error) {
             console.error('Auth callback error:', error)
-            router.push('/login?error=auth_failed')
+            window.location.href = '/login?error=auth_failed'
             return
           }
 
@@ -33,23 +46,50 @@ export default function AuthCallback() {
           const isEmailVerified = data.session?.user.email_confirmed_at
 
           if (!isEmailVerified) {
-            router.push('/verify-email')
+            window.location.href = '/verify-email'
             return
           }
 
           // Success - redirect to dashboard
-          router.push('/dashboard')
+          console.log('✅ OAuth success, redirecting to dashboard')
+          window.location.href = '/dashboard'
         } else {
           // No token found - redirect to login with error
-          router.push('/login?error=no_token')
+          console.error('❌ No access token found in callback')
+          window.location.href = '/login?error=no_token'
         }
       } catch (err) {
         console.error('Callback processing error:', err)
-        router.push('/login?error=callback_failed')
+        window.location.href = '/login?error=callback_failed'
       }
     }
 
+    // Handle deep link on native platforms
+    if (Capacitor.isNativePlatform()) {
+      // Listen for app URL open events (deep links)
+      CapacitorApp.addListener('appUrlOpen', (data) => {
+        console.log('📱 Deep link received:', data.url)
+        
+        // Extract the hash/query from the deep link
+        const url = new URL(data.url)
+        
+        // If this is our auth callback, extract the tokens
+        if (url.pathname.includes('/auth/callback')) {
+          // Update window location to trigger our callback handler
+          window.location.hash = url.hash
+          window.location.search = url.search
+          handleCallback()
+        }
+      })
+    }
+
     handleCallback()
+
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        CapacitorApp.removeAllListeners()
+      }
+    }
   }, [router])
 
   return (
