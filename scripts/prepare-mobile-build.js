@@ -7,8 +7,8 @@ const os = require('os');
 const tempDir = path.join(os.tmpdir(), 'raute-api-backup');
 const routesToBackup = [
     { src: path.join(process.cwd(), 'app', 'api'), name: 'api' },
-    { src: path.join(process.cwd(), 'app', 'auth'), name: 'auth' },
-    { src: path.join(process.cwd(), 'middleware.ts'), name: 'middleware.ts' }
+    { src: path.join(process.cwd(), 'app', 'auth'), name: 'auth' }
+    // middleware.ts is NOT backed up - we need the Capacitor detection for mobile auth
 ];
 
 // Create temp directory
