@@ -84,15 +84,26 @@
     @apply border-border;
   }
 
+  html, body {
+    overflow-y: auto;
+    height: auto;
+  }
+
   body {
     @apply bg-background text-foreground;
     /* Prevent pull-to-refresh and bounce on mobile */
     overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Native iOS Feel */
+    /* Native iOS Feel - only on mobile */
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+  }
+
+  /* touch-action only on mobile to prevent iOS zoom/delay issues */
+  @media screen and (max-width: 768px) {
+    body {
+      touch-action: manipulation;
+    }
   }
 
   /* Hide scrollbar on MOBILE only - show on desktop for usability */
