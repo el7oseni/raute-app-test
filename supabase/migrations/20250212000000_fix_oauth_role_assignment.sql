@@ -1,11 +1,10 @@
 -- ==========================================
--- OAUTH-COMPATIBLE USER SIGNUP TRIGGER
--- Handles both OAuth and email/password signups
+-- MIGRATION: Fix OAuth Role Assignment
+-- Date: 2025-02-12
+-- Purpose: Update trigger to properly handle OAuth user signups
 -- ==========================================
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
--- Create comprehensive signup handler
+-- Update the signup trigger function with OAuth-compatible logic
 CREATE OR REPLACE FUNCTION public.handle_new_user_signup() 
 RETURNS TRIGGER AS $$
 DECLARE
@@ -64,7 +63,8 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-create trigger ONLY on INSERT (not UPDATE)
+-- Ensure trigger is properly bound
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW 

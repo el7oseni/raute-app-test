@@ -73,13 +73,18 @@ export default function ProfilePage() {
             setUserId(currentUserId)
             setEmail(currentUserEmail)
 
-            const { data: userProfile } = await supabase
+            const { data: userProfile, error: profileError } = await supabase
                 .from('users')
                 .select('full_name, role, company_id, profile_image, email')
                 .eq('id', currentUserId)
                 .single()
 
+            if (profileError) {
+                console.error('❌ Profile query failed:', profileError.message, '| User ID:', currentUserId)
+            }
+
             if (userProfile) {
+                console.log('✅ Profile loaded:', { role: userProfile.role, company_id: userProfile.company_id })
                 setUserRole(userProfile.role)
                 setFullName(userProfile.full_name || '')
                 setProfileImage(userProfile.profile_image)

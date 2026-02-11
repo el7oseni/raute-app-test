@@ -76,22 +76,22 @@ export default function DashboardPage() {
                 let role = session.user.user_metadata?.role
                 let fullName = session.user.user_metadata?.full_name
 
-                // If not in metadata, fetch from DB
-                if (!role || !fullName) {
-                    const { data } = await supabase
-                        .from('users')
-                        .select('role, full_name')
-                        .eq('id', session.user.id)
-                        .single()
+                // Always fetch from DB to ensure we have the latest role
+                const { data: dbUser, error: dbError } = await supabase
+                    .from('users')
+                    .select('role, full_name')
+                    .eq('id', session.user.id)
+                    .single()
 
-                    if (data) {
-                        role = role || data.role
-                        fullName = fullName || data.full_name
-                    }
+                if (dbUser) {
+                    role = dbUser.role || role
+                    fullName = dbUser.full_name || fullName
+                } else {
+                    console.warn('⚠️ Could not fetch user from DB:', dbError?.message)
                 }
 
-                // Final Fallback
-                if (!role) role = 'driver'
+                // Final Fallback - default to manager (NOT driver)
+                if (!role) role = 'manager'
                 if (!fullName) fullName = session.user.email?.split('@')[0] || 'User'
 
                 if (isMountedRef.current) {
