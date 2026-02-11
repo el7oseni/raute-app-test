@@ -1,104 +1,129 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Capacitor } from '@capacitor/core'
-import { App as CapacitorApp } from '@capacitor/app'
 
 export default function AuthCallback() {
   const router = useRouter()
+  const hasHandled = useRef(false)
 
   useEffect(() => {
-    // Handle the OAuth callback
+    if (hasHandled.current) return
+    hasHandled.current = true
+
     const handleCallback = async () => {
       try {
-        const isNative = Capacitor.isNativePlatform()
-        
-        // Get params from either hash fragment or query params
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const searchParams = new URLSearchParams(window.location.search)
-        
-        const accessToken = hashParams.get('access_token') || searchParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token')
-
-        console.log('🔐 Auth Callback:', { 
-          isNative, 
-          hasAccessToken: !!accessToken,
-          hash: window.location.hash,
-          search: window.location.search
+        console.log('🔐 Auth Callback started:', {
+          hash: window.location.hash ? '(has hash)' : '(no hash)',
+          search: window.location.search ? '(has search)' : '(no search)',
         })
 
+        // Step 1: Check if there are tokens in the URL hash (implicit flow)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+
         if (accessToken) {
-          // Set the session in Supabase
+          // Manually set session from hash tokens
+          console.log('🔑 Found access_token in hash, setting session...')
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken || '',
           })
 
           if (error) {
-            console.error('Auth callback error:', error)
+            console.error('❌ setSession failed:', error)
             window.location.href = '/login?error=auth_failed'
             return
           }
 
-          // Check email verification
-          const isEmailVerified = data.session?.user.email_confirmed_at
+          if (data.session) {
+            await syncRoleAndRedirect(data.session.user.id, data.session.user.email_confirmed_at)
+            return
+          }
+        }
 
-          if (!isEmailVerified) {
-            window.location.href = '/verify-email'
+        // Step 2: Check for authorization code (PKCE flow)
+        const searchParams = new URLSearchParams(window.location.search)
+        const code = searchParams.get('code')
+
+        if (code) {
+          console.log('🔑 Found authorization code, exchanging...')
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (error) {
+            console.error('❌ Code exchange failed:', error)
+            window.location.href = '/login?error=auth_failed'
             return
           }
 
-          // Sync role from DB to session metadata (fire and forget)
-          // This ensures user_metadata.role is always up-to-date
-          try {
-            await fetch(`/api/sync-user-role?userId=${data.session?.user.id}`)
-            console.log('✅ Role synced to session metadata')
-          } catch (syncErr) {
-            console.warn('⚠️ Role sync failed (non-critical):', syncErr)
+          if (data.session) {
+            await syncRoleAndRedirect(data.session.user.id, data.session.user.email_confirmed_at)
+            return
           }
-
-          // Success - redirect to dashboard
-          console.log('✅ OAuth success, redirecting to dashboard')
-          window.location.href = '/dashboard'
-        } else {
-          // No token found - redirect to login with error
-          console.error('❌ No access token found in callback')
-          window.location.href = '/login?error=no_token'
         }
+
+        // Step 3: Supabase detectSessionInUrl may have already handled the tokens
+        // Wait a moment for session to be established, then check
+        console.log('⏳ No tokens/code found directly, waiting for auto-detection...')
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData.session) {
+          console.log('✅ Session found after auto-detection')
+          await syncRoleAndRedirect(
+            sessionData.session.user.id,
+            sessionData.session.user.email_confirmed_at
+          )
+          return
+        }
+
+        // Step 4: One more retry after a longer delay
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const { data: retryData } = await supabase.auth.getSession()
+        if (retryData.session) {
+          console.log('✅ Session found on retry')
+          await syncRoleAndRedirect(
+            retryData.session.user.id,
+            retryData.session.user.email_confirmed_at
+          )
+          return
+        }
+
+        // Final: No session found at all
+        console.error('❌ No session found after all attempts')
+        window.location.href = '/login?error=no_session'
+
       } catch (err) {
-        console.error('Callback processing error:', err)
+        console.error('💥 Callback processing error:', err)
         window.location.href = '/login?error=callback_failed'
       }
     }
 
-    // Handle deep link on native platforms
-    if (Capacitor.isNativePlatform()) {
-      // Listen for app URL open events (deep links)
-      CapacitorApp.addListener('appUrlOpen', (data) => {
-        console.log('📱 Deep link received:', data.url)
-        
-        // Extract the hash/query from the deep link
-        const url = new URL(data.url)
-        
-        // If this is our auth callback, extract the tokens
-        if (url.pathname.includes('/auth/callback')) {
-          // Update window location to trigger our callback handler
-          window.location.hash = url.hash
-          window.location.search = url.search
-          handleCallback()
-        }
-      })
+    // Helper: sync role and redirect to dashboard
+    async function syncRoleAndRedirect(userId: string, emailConfirmedAt: string | null | undefined) {
+      // Check email verification
+      if (!emailConfirmedAt) {
+        console.log('📧 Email not verified, redirecting...')
+        window.location.href = '/verify-email'
+        return
+      }
+
+      // Sync role from DB to session metadata (fire and forget)
+      try {
+        await fetch(`/api/sync-user-role?userId=${userId}`)
+        console.log('✅ Role synced to session metadata')
+      } catch (syncErr) {
+        console.warn('⚠️ Role sync failed (non-critical):', syncErr)
+      }
+
+      // Success - redirect to dashboard
+      console.log('✅ OAuth success, redirecting to dashboard')
+      window.location.href = '/dashboard'
     }
 
     handleCallback()
-
-    return () => {
-      if (Capacitor.isNativePlatform()) {
-        CapacitorApp.removeAllListeners()
-      }
-    }
   }, [router])
 
   return (
