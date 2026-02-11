@@ -93,6 +93,11 @@ export function PullToRefresh({ onRefresh, children, threshold = 80 }: PullToRef
     const progress = Math.min(pullDistance / threshold, 1)
     const rotation = progress * 360
 
+    // On web, don't wrap in a scroll container — it blocks mouse wheel scrolling
+    if (!isNative) {
+        return <>{children}</>
+    }
+
     return (
         <div
             ref={containerRef}
@@ -100,29 +105,27 @@ export function PullToRefresh({ onRefresh, children, threshold = 80 }: PullToRef
             style={{ overscrollBehavior: 'contain' }}
         >
             {/* Pull Indicator - Only show on native */}
-            {isNative && (
-                <div
-                    className="absolute top-0 left-0 right-0 flex items-center justify-center transition-all duration-200 ease-out pointer-events-none z-50"
-                    style={{
-                        height: `${Math.min(pullDistance, threshold)}px`,
-                        opacity: progress,
-                    }}
-                >
-                    <div className="bg-background/95 backdrop-blur-sm rounded-full p-2 shadow-lg border border-border">
-                        <Loader2
-                            className="text-primary"
-                            size={24}
-                            style={{
-                                transform: refreshing ? undefined : `rotate(${rotation}deg)`,
-                                animation: refreshing ? 'spin 1s linear infinite' : 'none',
-                            }}
-                        />
-                    </div>
-                    {!refreshing && progress >= 1 && (
-                        <p className="absolute bottom-0 text-xs text-primary font-bold">Release to refresh</p>
-                    )}
+            <div
+                className="absolute top-0 left-0 right-0 flex items-center justify-center transition-all duration-200 ease-out pointer-events-none z-50"
+                style={{
+                    height: `${Math.min(pullDistance, threshold)}px`,
+                    opacity: progress,
+                }}
+            >
+                <div className="bg-background/95 backdrop-blur-sm rounded-full p-2 shadow-lg border border-border">
+                    <Loader2
+                        className="text-primary"
+                        size={24}
+                        style={{
+                            transform: refreshing ? undefined : `rotate(${rotation}deg)`,
+                            animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                        }}
+                    />
                 </div>
-            )}
+                {!refreshing && progress >= 1 && (
+                    <p className="absolute bottom-0 text-xs text-primary font-bold">Release to refresh</p>
+                )}
+            </div>
 
             {/* Content with padding to prevent overlap */}
             <div style={{ paddingTop: refreshing ? '60px' : undefined }}>
