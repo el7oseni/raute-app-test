@@ -35,10 +35,14 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.warn('⏱️ Auth check timeout (5s) - forcing stop')
             setIsLoading(false)
             
-            // Clear potentially corrupted session
-            supabase.auth.signOut({ scope: 'local' }).catch(err => {
-                console.error('Failed to clear session on timeout:', err)
-            })
+            // Only clear session on PROTECTED routes where no session = corrupted state
+            // NEVER sign out on public routes like /auth/callback — OAuth flows
+            // (especially Apple) can take longer than 5s to establish a session
+            if (!isPublicRoute) {
+                supabase.auth.signOut({ scope: 'local' }).catch(err => {
+                    console.error('Failed to clear session on timeout:', err)
+                })
+            }
         }, 5000)
 
         const checkAuth = async (retries = 3) => {
