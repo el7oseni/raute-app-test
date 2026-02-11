@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { isSessionCorrupted } from "@/lib/session-cleanup"
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
+const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/debug-auth']
 
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
@@ -130,7 +130,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             } else if (event === 'SIGNED_IN') {
                 // Only redirect if we're NOT already on login/signup
                 // (those pages handle their own navigation)
-                if (pathname !== '/login' && pathname !== '/signup') {
+                if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/debug-auth') {
                     router.push('/dashboard')
                 }
             }
