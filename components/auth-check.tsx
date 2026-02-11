@@ -128,9 +128,9 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             if (event === 'SIGNED_OUT') {
                 router.push('/login')
             } else if (event === 'SIGNED_IN') {
-                // Only redirect if we're NOT already on login/signup
-                // (those pages handle their own navigation)
-                if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/debug-auth') {
+                // Only redirect TO dashboard if we're currently on login/signup
+                // Don't redirect if already on a protected page (prevents reload loop)
+                if (pathname === '/login' || pathname === '/signup') {
                     router.push('/dashboard')
                 }
             }

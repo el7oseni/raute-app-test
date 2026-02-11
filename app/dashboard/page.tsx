@@ -116,14 +116,21 @@ export default function DashboardPage() {
 
                 // 🔥 FETCH DASHBOARD DATA (For all management roles)
                 if (['manager', 'dispatcher', 'admin', 'company_admin'].includes(role)) {
-                    // Get company_id
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('company_id')
-                        .eq('id', session.user.id)
-                        .single()
+                    // Get company_id — try direct query first, then fallback API
+                    let companyId = dbUser?.company_id || session.user.user_metadata?.company_id
 
-                    const companyId = userData?.company_id
+                    if (!companyId) {
+                        // Fallback: use server-side API
+                        try {
+                            const res = await fetch(`/api/user-profile?userId=${session.user.id}`)
+                            if (res.ok) {
+                                const apiData = await res.json()
+                                if (apiData.success && apiData.user) {
+                                    companyId = apiData.user.company_id
+                                }
+                            }
+                        } catch {}
+                    }
 
                     if (companyId) {
                         // Fetch ALL orders for this company
@@ -201,14 +208,17 @@ export default function DashboardPage() {
             if (!userId || !['manager', 'dispatcher', 'admin', 'company_admin'].includes(userRole || '')) return
 
             try {
-                // Get company_id
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('company_id')
-                    .eq('id', userId)
-                    .single()
-
-                const companyId = userData?.company_id
+                // Get company_id via fallback API (avoids RLS recursion on users table)
+                let companyId = null
+                try {
+                    const res = await fetch(`/api/user-profile?userId=${userId}`)
+                    if (res.ok) {
+                        const apiData = await res.json()
+                        if (apiData.success && apiData.user) {
+                            companyId = apiData.user.company_id
+                        }
+                    }
+                } catch {}
                 if (!companyId) return
 
                 // Re-fetch ALL dashboard data
