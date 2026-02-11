@@ -9,6 +9,10 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // Create Supabase client with Capacitor-compatible storage
 // This ensures sessions persist on mobile (iOS/Android) using Preferences API
+// FIX: Added flowType:'implicit' and cookieOptions to ensure auth tokens from
+// capacitorStorage (localStorage on web) are properly used for DB queries.
+// Without this, createBrowserClient looks for cookies for the Authorization header
+// while the session is stored in localStorage, causing auth.uid()=null in RLS.
 export const supabase = typeof window !== 'undefined'
     ? createBrowserClient(supabaseUrl, supabaseAnonKey, {
         auth: {
@@ -16,6 +20,7 @@ export const supabase = typeof window !== 'undefined'
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true,
+          flowType: 'implicit',
         },
       })
     : createClient(supabaseUrl, supabaseAnonKey, {

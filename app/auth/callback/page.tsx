@@ -50,6 +50,15 @@ export default function AuthCallback() {
             return
           }
 
+          // Sync role from DB to session metadata (fire and forget)
+          // This ensures user_metadata.role is always up-to-date
+          try {
+            await fetch(`/api/sync-user-role?userId=${data.session?.user.id}`)
+            console.log('✅ Role synced to session metadata')
+          } catch (syncErr) {
+            console.warn('⚠️ Role sync failed (non-critical):', syncErr)
+          }
+
           // Success - redirect to dashboard
           console.log('✅ OAuth success, redirecting to dashboard')
           window.location.href = '/dashboard'

@@ -79,7 +79,7 @@ export default function DashboardPage() {
                 // Always fetch from DB to ensure we have the latest role
                 const { data: dbUser, error: dbError } = await supabase
                     .from('users')
-                    .select('role, full_name')
+                    .select('role, full_name, company_id')
                     .eq('id', session.user.id)
                     .single()
 
@@ -87,7 +87,21 @@ export default function DashboardPage() {
                     role = dbUser.role || role
                     fullName = dbUser.full_name || fullName
                 } else {
-                    console.warn('⚠️ Could not fetch user from DB:', dbError?.message)
+                    console.warn('⚠️ Direct DB query failed:', dbError?.message, '— trying fallback API...')
+                    // FALLBACK: Use server-side API to bypass RLS
+                    try {
+                        const res = await fetch(`/api/user-profile?userId=${session.user.id}`)
+                        if (res.ok) {
+                            const apiData = await res.json()
+                            if (apiData.success && apiData.user) {
+                                role = apiData.user.role || role
+                                fullName = apiData.user.full_name || fullName
+                                console.log('✅ Fallback API succeeded:', apiData.user.role)
+                            }
+                        }
+                    } catch (apiErr) {
+                        console.warn('⚠️ Fallback API also failed:', apiErr)
+                    }
                 }
 
                 // Final Fallback - default to manager (NOT driver)

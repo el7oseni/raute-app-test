@@ -83,20 +83,39 @@ export default function ProfilePage() {
                 console.error('❌ Profile query failed:', profileError.message, '| User ID:', currentUserId)
             }
 
-            if (userProfile) {
-                console.log('✅ Profile loaded:', { role: userProfile.role, company_id: userProfile.company_id })
-                setUserRole(userProfile.role)
-                setFullName(userProfile.full_name || '')
-                setProfileImage(userProfile.profile_image)
-                if (userProfile.email) setEmail(userProfile.email)
+            let profileData = userProfile
+
+            // FALLBACK: If direct query failed, use server-side API
+            if (!profileData) {
+                console.warn('⚠️ Trying fallback API for profile...')
+                try {
+                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    if (res.ok) {
+                        const apiData = await res.json()
+                        if (apiData.success && apiData.user) {
+                            profileData = apiData.user
+                            console.log('✅ Fallback API succeeded:', apiData.user.role)
+                        }
+                    }
+                } catch (apiErr) {
+                    console.warn('⚠️ Fallback API also failed:', apiErr)
+                }
+            }
+
+            if (profileData) {
+                console.log('✅ Profile loaded:', { role: profileData.role, company_id: profileData.company_id })
+                setUserRole(profileData.role)
+                setFullName(profileData.full_name || '')
+                setProfileImage(profileData.profile_image)
+                if (profileData.email) setEmail(profileData.email)
 
                 // Parallel Fetching for details
                 const promises = []
 
                 // 1. Company Info
-                if (userProfile.company_id) {
+                if (profileData.company_id) {
                     promises.push(
-                        supabase.from('companies').select('name').eq('id', userProfile.company_id).single()
+                        supabase.from('companies').select('name').eq('id', profileData.company_id).single()
                             .then(({ data }) => { if (data) setCompanyName(data.name) })
                     )
 
@@ -104,7 +123,7 @@ export default function ProfilePage() {
                     promises.push(
                         supabase.from('custom_fields')
                             .select('*')
-                            .eq('company_id', userProfile.company_id)
+                            .eq('company_id', profileData.company_id)
                             .eq('entity_type', 'driver')
                             .eq('driver_visible', true)
                             .order('display_order', { ascending: true })
@@ -113,7 +132,7 @@ export default function ProfilePage() {
                 }
 
                 // 3. Driver Data
-                if (userProfile.role === 'driver') {
+                if (profileData.role === 'driver') {
                     promises.push(
                         supabase.from('drivers')
                             .select('phone, vehicle_type, is_online, custom_values')

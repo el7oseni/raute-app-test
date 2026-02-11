@@ -70,20 +70,39 @@ export default function DispatchersPage() {
 
             const { data: currentUser, error: userError } = await supabase.from('users').select('company_id, role').eq('id', currentUserId).single()
 
-            if (userError || !currentUser) {
+            let userData = currentUser
+
+            // FALLBACK: If direct query failed, use server-side API
+            if (userError || !userData) {
+                console.warn('⚠️ Dispatchers: Direct DB query failed:', userError?.message, '— trying fallback API...')
+                try {
+                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    if (res.ok) {
+                        const apiData = await res.json()
+                        if (apiData.success && apiData.user) {
+                            userData = apiData.user
+                            console.log('✅ Dispatchers: Fallback API succeeded')
+                        }
+                    }
+                } catch (apiErr) {
+                    console.warn('⚠️ Dispatchers: Fallback API also failed:', apiErr)
+                }
+            }
+
+            if (!userData) {
                 toast({ title: "Profile Error", description: "Could not fetch user profile.", type: "error" })
                 return
             }
 
             // 🚨 SECURITY: Manager/Admin Only 🚨
-            if (currentUser.role === 'driver') {
+            if (userData.role === 'driver') {
                 window.location.href = '/dashboard'
                 return
             }
 
             // Use RPC to fetch dispatchers (Bypass RLS)
             const { data, error } = await supabase.rpc('get_company_dispatchers', {
-                company_id_param: currentUser.company_id
+                company_id_param: userData.company_id
             })
 
             if (error) throw error
@@ -196,15 +215,30 @@ export default function DispatchersPage() {
             if (!currentUserId) throw new Error("No authenticated user found")
 
             // Get Company ID
-            const { data: currentUser } = await supabase.from('users').select('company_id').eq('id', currentUserId).single()
-            if (!currentUser) throw new Error("No company found")
+            let companyUser = null
+            const { data: directUser } = await supabase.from('users').select('company_id').eq('id', currentUserId).single()
+            companyUser = directUser
+
+            // FALLBACK: If direct query failed, use server-side API
+            if (!companyUser) {
+                try {
+                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    if (res.ok) {
+                        const apiData = await res.json()
+                        if (apiData.success && apiData.user) {
+                            companyUser = apiData.user
+                        }
+                    }
+                } catch {}
+            }
+            if (!companyUser) throw new Error("No company found")
 
             // RPC Call
             const { data, error } = await supabase.rpc('create_dispatcher_account', {
                 email: formData.email,
                 password: formData.password,
                 full_name: formData.name,
-                company_id: currentUser.company_id,
+                company_id: companyUser.company_id,
                 permissions: formData.permissions
             })
 
