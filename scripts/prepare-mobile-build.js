@@ -1,5 +1,5 @@
 // scripts/prepare-mobile-build.js
-// Temporarily moves server routes to temp directory before mobile build
+// Temporarily moves server routes and middleware to temp directory before mobile build
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -7,8 +7,8 @@ const os = require('os');
 const tempDir = path.join(os.tmpdir(), 'raute-api-backup');
 const routesToBackup = [
     { src: path.join(process.cwd(), 'app', 'api'), name: 'api' },
-    { src: path.join(process.cwd(), 'app', 'auth'), name: 'auth' }
-    // middleware.ts is NOT backed up - we need the Capacitor detection for mobile auth
+    { src: path.join(process.cwd(), 'app', 'auth'), name: 'auth' },
+    { src: path.join(process.cwd(), 'middleware.ts'), name: 'middleware.ts' }
 ];
 
 // Create temp directory
@@ -39,3 +39,10 @@ routesToBackup.forEach(({ src, name }) => {
         console.log(`⚠️ ${src} not found, skipping`);
     }
 });
+
+// Clean .next directory to prevent stale build artifacts and type references
+const nextDir = path.join(process.cwd(), '.next');
+if (fs.existsSync(nextDir)) {
+    fs.rmSync(nextDir, { recursive: true });
+    console.log('✅ Cleaned .next directory (fresh build)');
+}

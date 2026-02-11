@@ -1,5 +1,5 @@
 // scripts/restore-api.js
-// Restores server routes from temp directory after mobile build
+// Restores server routes and middleware from temp directory after mobile build
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -7,8 +7,8 @@ const os = require('os');
 const tempDir = path.join(os.tmpdir(), 'raute-api-backup');
 const routesToRestore = [
     { dest: path.join(process.cwd(), 'app', 'api'), name: 'api' },
-    { dest: path.join(process.cwd(), 'app', 'auth'), name: 'auth' }
-    // middleware.ts is NOT restored - we keep the Capacitor detection for mobile auth
+    { dest: path.join(process.cwd(), 'app', 'auth'), name: 'auth' },
+    { dest: path.join(process.cwd(), 'middleware.ts'), name: 'middleware.ts' }
 ];
 
 routesToRestore.forEach(({ dest, name }) => {
