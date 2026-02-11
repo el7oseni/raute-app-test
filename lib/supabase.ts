@@ -1,5 +1,5 @@
+import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { Capacitor } from '@capacitor/core'
 import { capacitorStorage } from './capacitor-storage'
 
 // Get environment variables
@@ -7,18 +7,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// Determine if we're on a native platform
-const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
-
-// Create Supabase client
-// On native: uses Capacitor Preferences API for session persistence
-// On web: uses standard localStorage (default behavior of createClient)
-// NOTE: Previously used createBrowserClient from @supabase/ssr which caused
-// auth tokens to not be sent with database queries, breaking RLS policies
+// Create Supabase client with Capacitor-compatible storage
+// This ensures sessions persist on mobile (iOS/Android) using Preferences API
 export const supabase = typeof window !== 'undefined'
-    ? createClient(supabaseUrl, supabaseAnonKey, {
+    ? createBrowserClient(supabaseUrl, supabaseAnonKey, {
         auth: {
-          ...(isNative ? { storage: capacitorStorage } : {}),
+          storage: capacitorStorage,
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true,
