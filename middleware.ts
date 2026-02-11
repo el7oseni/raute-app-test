@@ -72,17 +72,8 @@ export async function middleware(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession()
     const isEmailVerified = session?.user?.email_confirmed_at
 
-    // Enhanced debug logging for session state
-    console.log('🔐 Middleware Auth Check:', {
-        path: request.nextUrl.pathname,
-        hasSession: !!session,
-        userId: session?.user?.id,
-        emailVerified: !!isEmailVerified,
-        timestamp: new Date().toISOString()
-    })
-
     // 1. PUBLIC ROUTES (Allow access)
-    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/', '/debug-logs']
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/']
     const isPublicRoute = publicRoutes.some(route => {
         // Exact match or match with trailing slash
         return request.nextUrl.pathname === route || request.nextUrl.pathname === `${route}/`
@@ -92,22 +83,8 @@ export async function middleware(request: NextRequest) {
         return response
     }
 
-    // 🔥 CRITICAL FIX: Skip server-side session check for Capacitor/mobile builds
-    // On Capacitor, sessions are stored in Preferences storage, not in HTTP cookies
-    // The middleware can't access Capacitor storage, so we rely on client-side auth
-    const userAgent = request.headers.get('user-agent') || ''
-    const isCapacitorBuild = userAgent.includes('Capacitor') || 
-                             request.headers.get('x-capacitor-platform') !== null
-    
-    if (isCapacitorBuild) {
-        console.log('📱 Capacitor/Mobile detected - skipping server-side auth check')
-        // Client-side components will handle authentication
-        return response
-    }
-
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
-        console.warn('⛔ No session found. Redirecting to login from:', request.nextUrl.pathname)
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
