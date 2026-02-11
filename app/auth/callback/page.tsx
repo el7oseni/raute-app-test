@@ -59,6 +59,28 @@ export default function AuthCallback() {
     // === APPROACH 2: Check URL for tokens manually (fallback) ===
     const handleUrlTokens = async () => {
       try {
+        // Check for errors from Supabase OAuth (e.g. Apple code exchange failure)
+        const searchParams = new URLSearchParams(window.location.search)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        
+        const oauthError = searchParams.get('error') || hashParams.get('error')
+        const errorDesc = searchParams.get('error_description') || hashParams.get('error_description')
+        
+        if (oauthError) {
+          addDebug(`⚠️ OAuth Error: ${oauthError}`)
+          addDebug(`Description: ${decodeURIComponent(errorDesc || 'Unknown error')}`)
+          setStatus(`Sign in failed: ${decodeURIComponent(errorDesc || oauthError)}`)
+          
+          // Redirect to login after a moment so user can see the error
+          setTimeout(() => {
+            if (!hasRedirected.current) {
+              hasRedirected.current = true
+              window.location.href = `/login?error=${oauthError}`
+            }
+          }, 5000)
+          return
+        }
+
         // Check hash fragment (implicit flow)
         const hash = window.location.hash
         addDebug(`URL hash: ${hash ? hash.substring(0, 50) + '...' : '(empty)'}`)
@@ -88,7 +110,6 @@ export default function AuthCallback() {
         }
 
         // Check query params for authorization code (PKCE flow)
-        const searchParams = new URLSearchParams(window.location.search)
         const code = searchParams.get('code')
 
         if (code) {
