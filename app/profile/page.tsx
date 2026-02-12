@@ -317,7 +317,7 @@ export default function ProfilePage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-background">
-                <div className="relative bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 pt-6 pb-24 px-4">
+                <div className="relative bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 pb-24 px-4" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 1.5rem)` }}>
                     <div className="flex flex-col items-center text-center space-y-4">
                         <Skeleton className="h-24 w-24 rounded-full border-4 border-background" />
                         <div className="space-y-2 flex flex-col items-center">
@@ -345,7 +345,7 @@ export default function ProfilePage() {
         <PullToRefresh onRefresh={fetchProfile}>
             <div className="min-h-screen bg-background">
                 {/* Gradient Header */}
-                <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 pt-6 pb-24 px-4">
+                <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 pb-24 px-4 safe-area-pt" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 1.5rem)` }}>
                     <div className="absolute inset-0 opacity-10">
                         <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
                     </div>
