@@ -986,8 +986,8 @@ export default function PlannerPage() {
                             </div>
                         </div>
                     </div>
-                    {/* MAP AREA */}
-                    <div className="flex-1 relative z-10">
+                    {/* MAP AREA — DESKTOP ONLY */}
+                    <div className="hidden md:block flex-1 relative z-10">
                         {/* Map Theme Toggle */}
                         <div className="absolute top-4 right-4 z-[500]">
                             <Button
@@ -1104,9 +1104,207 @@ export default function PlannerPage() {
                         </div>
                     </div>
 
+                    {/* ============================================= */}
+                    {/* MOBILE PLANNER UI — Card/List layout           */}
+                    {/* ============================================= */}
+                    <div className="md:hidden flex-1 flex flex-col bg-background overflow-y-auto pb-24" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 0.5rem)` }}>
+                        {/* Header */}
+                        <div className="px-4 pt-2 pb-3 border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-30">
+                            <h1 className="text-lg font-bold tracking-tight text-foreground">Route Planner</h1>
+                            <p className="text-xs text-muted-foreground">Assign orders to drivers &amp; optimize routes</p>
+                        </div>
 
+                        {/* Stats Bar */}
+                        <div className="grid grid-cols-3 gap-2 px-4 py-3">
+                            <div className="bg-blue-50 dark:bg-blue-950/40 rounded-lg p-2 text-center border border-blue-100 dark:border-blue-900">
+                                <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{orders.length}</div>
+                                <div className="text-[10px] text-blue-600 dark:text-blue-500 font-medium">Total</div>
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-950/40 rounded-lg p-2 text-center border border-green-100 dark:border-green-900">
+                                <div className="text-lg font-bold text-green-700 dark:text-green-400">{orders.filter(o => o.driver_id).length}</div>
+                                <div className="text-[10px] text-green-600 dark:text-green-500 font-medium">Assigned</div>
+                            </div>
+                            <div className="bg-yellow-50 dark:bg-yellow-950/40 rounded-lg p-2 text-center border border-yellow-100 dark:border-yellow-900">
+                                <div className="text-lg font-bold text-yellow-700 dark:text-yellow-400">{unassignedOrders.length}</div>
+                                <div className="text-[10px] text-yellow-600 dark:text-yellow-500 font-medium">Unassigned</div>
+                            </div>
+                        </div>
 
-                {/* MOBILE INTERACTIVE DRAWER - TODO: PlannerDrawer component removed (not defined) */}
+                        {/* GPS Warning */}
+                        {orders.filter(o => !o.latitude || !o.longitude).length > 0 && (
+                            <div className="mx-4 mb-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" size={14} />
+                                <div>
+                                    <p className="text-xs font-bold text-red-800 dark:text-red-300">
+                                        {orders.filter(o => !o.latitude || !o.longitude).length} orders missing GPS
+                                    </p>
+                                    <p className="text-[10px] text-red-600 dark:text-red-400">These cannot be optimized until GPS is resolved.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Strategy Selector */}
+                        <div className="px-4 mb-3">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                                Strategy
+                            </label>
+                            <div className="grid grid-cols-3 gap-1 bg-muted p-1 rounded-lg">
+                                {(['fastest', 'balanced', 'efficient'] as const).map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setStrategy(s)}
+                                        className={`text-xs font-medium py-2 rounded-md transition-all capitalize ${strategy === s
+                                            ? 'bg-background shadow text-foreground'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Driver Selection */}
+                        <div className="px-4 mb-3">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                                Drivers ({selectedDrivers.length}/{drivers.length})
+                            </label>
+                            <div className="flex gap-2 text-xs mb-2">
+                                <button onClick={() => setSelectedDrivers(drivers.map(d => d.id))} className="text-blue-600 hover:underline font-medium">All</button>
+                                <span className="text-muted-foreground">|</span>
+                                <button onClick={() => setSelectedDrivers(drivers.filter(d => isDriverReallyOnline(d)).map(d => d.id))} className="text-green-600 hover:underline font-medium">
+                                    Online ({drivers.filter(d => isDriverReallyOnline(d)).length})
+                                </button>
+                                <span className="text-muted-foreground">|</span>
+                                <button onClick={() => setSelectedDrivers([])} className="text-red-600 hover:underline font-medium">None</button>
+                            </div>
+                            <div className="space-y-1 bg-muted/30 rounded-lg p-2 border border-border/50 max-h-36 overflow-y-auto">
+                                {drivers.map(driver => {
+                                    const isOnline = isDriverReallyOnline(driver)
+                                    const isSelected = selectedDrivers.includes(driver.id)
+                                    return (
+                                        <label
+                                            key={driver.id}
+                                            className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected
+                                                ? 'bg-primary/10 border border-primary/20'
+                                                : 'hover:bg-muted/50 border border-transparent'
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedDrivers([...selectedDrivers, driver.id])
+                                                    } else {
+                                                        setSelectedDrivers(selectedDrivers.filter(id => id !== driver.id))
+                                                    }
+                                                }}
+                                                className="h-3.5 w-3.5 rounded border-gray-300 accent-primary"
+                                            />
+                                            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+                                            <span className={`text-xs font-medium truncate ${isOnline ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                {driver.name}
+                                            </span>
+                                            <span className={`text-[9px] ml-auto px-1 py-0.5 rounded font-medium ${isOnline
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                            }`}>
+                                                {isOnline ? 'Online' : 'Offline'}
+                                            </span>
+                                        </label>
+                                    )
+                                })}
+                                {drivers.length === 0 && (
+                                    <p className="text-xs text-muted-foreground text-center py-2">No drivers found</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Optimization Mode Toggle */}
+                        <div className="mx-4 mb-3 flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border">
+                            <input
+                                type="checkbox"
+                                id="mobile-reoptimize-mode"
+                                checked={optimizationMode === 'reoptimize'}
+                                onChange={(e) => setOptimizationMode(e.target.checked ? 'reoptimize' : 'morning')}
+                                className="h-4 w-4 rounded border-gray-300 accent-primary"
+                            />
+                            <label htmlFor="mobile-reoptimize-mode" className="text-sm cursor-pointer flex-1">
+                                <span className="font-medium text-foreground">Use current locations</span>
+                                <span className="block text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                                    {optimizationMode === 'reoptimize'
+                                        ? '📍 Routes start from where drivers are now'
+                                        : '🏢 Routes start from depot (morning)'}
+                                </span>
+                            </label>
+                        </div>
+
+                        {/* No Drivers Warning */}
+                        {selectedDrivers.length === 0 && (
+                            <div className="mx-4 mb-3 flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-300 text-xs rounded-lg border border-orange-200 dark:border-orange-900">
+                                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                                <p>Select at least one driver to optimize routes.</p>
+                            </div>
+                        )}
+
+                        {/* Optimize Button */}
+                        <div className="px-4 mb-4">
+                            <Button
+                                onClick={() => handleOptimize(false)}
+                                disabled={isLoading}
+                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all active:scale-95 border-0 py-3 text-base"
+                            >
+                                <Sparkles size={18} className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                                {isLoading ? 'Optimizing...' : 'Smart Optimize'}
+                            </Button>
+                        </div>
+
+                        {/* Workload Dashboard */}
+                        <div className="px-4 mb-4">
+                            <WorkloadDashboard />
+                        </div>
+
+                        <SplitSuggestionsModal
+                            open={isSplitModalOpen}
+                            onOpenChange={setIsSplitModalOpen}
+                            suggestions={splitSuggestions}
+                            onConfirm={() => handleOptimize(true)}
+                        />
+
+                        {/* Divider */}
+                        <div className="border-t border-border mx-4 mb-3" />
+
+                        {/* Unassigned Orders */}
+                        <div className="px-4 mb-4">
+                            <UnassignedArea count={unassignedOrders.length}>
+                                {unassignedOrders.map(order => (
+                                    <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
+                                ))}
+                            </UnassignedArea>
+                        </div>
+
+                        {/* Assigned — By Driver */}
+                        <div className="px-4 pb-4">
+                            <h2 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-2 mb-3">
+                                <Truck size={12} /> Drivers ({drivers.length})
+                            </h2>
+                            <div className="space-y-3">
+                                {drivers.map((driver, index) => (
+                                    <DroppableDriverContainer
+                                        key={driver.id}
+                                        driver={driver}
+                                        orders={orders.filter(o => o.driver_id === driver.id)}
+                                        isLocked={index >= driverLimit}
+                                    >
+                                        {orders.filter(o => o.driver_id === driver.id).map(order => (
+                                            <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
+                                        ))}
+                                    </DroppableDriverContainer>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
 
                 {/* DRAG OVERLAY (Visual Feedback) */}
                 <DragOverlay dropAnimation={{
