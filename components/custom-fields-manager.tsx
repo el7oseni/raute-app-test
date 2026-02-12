@@ -119,7 +119,7 @@ export function CustomFieldsManager({ onFieldsChange, entityType = 'order' }: Cu
     }
 
     if (isLoading) {
-        return <div className="p-4 flex items-center justify-center h-32"><div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
+        return <div className="p-4 space-y-3 h-32 animate-pulse"><div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" /><div className="h-10 w-full bg-slate-200 dark:bg-slate-800 rounded" /><div className="h-10 w-full bg-slate-200 dark:bg-slate-800 rounded" /></div>
     }
 
     return (

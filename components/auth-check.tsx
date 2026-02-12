@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { isSessionCorrupted } from "@/lib/session-cleanup"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/debug-auth']
@@ -30,22 +31,14 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        // Maximum timeout to prevent frozen screens (5 seconds)
+        // Maximum timeout to prevent frozen screens (8 seconds for Capacitor)
+        // IMPORTANT: Do NOT call signOut here — it destroys sessions mid-establishment
         const maxTimeout = setTimeout(() => {
-            console.warn('⏱️ Auth check timeout (5s) - forcing stop')
+            console.warn('⏱️ Auth check timeout (8s) - forcing render')
             setIsLoading(false)
-            
-            // Only clear session on PROTECTED routes where no session = corrupted state
-            // NEVER sign out on public routes like /auth/callback — OAuth flows
-            // (especially Apple) can take longer than 5s to establish a session
-            if (!isPublicRoute) {
-                supabase.auth.signOut({ scope: 'local' }).catch(err => {
-                    console.error('Failed to clear session on timeout:', err)
-                })
-            }
-        }, 5000)
+        }, 8000)
 
-        const checkAuth = async (retries = 3) => {
+        const checkAuth = async (retries = 5) => {
             try {
                 const { data, error } = await supabase.auth.getSession()
 
@@ -68,10 +61,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     return
                 }
 
-                // Retry if no session found (might be restoring from storage)
+                // Retry if no session found (might be restoring from Capacitor Preferences)
                 if (!data.session && retries > 0) {
                     console.log(`⏳ Checking session... (${retries} retries left)`)
-                    setTimeout(() => checkAuth(retries - 1), 1000) // Increased from 700ms to 1000ms
+                    setTimeout(() => checkAuth(retries - 1), 800)
                     return // Don't stop loading yet
                 }
 
@@ -153,11 +146,40 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         return <>{children}</>
     }
 
-    // Show loading spinner while checking auth
+    // Show dashboard skeleton while checking auth (no spinner circles)
     if (isLoading) {
         return (
-            <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-6">
+                {/* Header skeleton */}
+                <div className="flex items-center justify-between mb-8">
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-48" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                </div>
+                {/* Stats skeleton */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="bg-white dark:bg-slate-900 rounded-lg p-4 space-y-3 ring-1 ring-slate-200 dark:ring-slate-800">
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-8 w-16" />
+                        </div>
+                    ))}
+                </div>
+                {/* Content skeleton */}
+                <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="bg-white dark:bg-slate-900 rounded-lg p-4 space-y-3 ring-1 ring-slate-200 dark:ring-slate-800">
+                            <div className="flex items-center justify-between">
+                                <Skeleton className="h-5 w-40" />
+                                <Skeleton className="h-6 w-20 rounded-full" />
+                            </div>
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-3/4" />
+                        </div>
+                    ))}
+                </div>
             </div>
         )
     }

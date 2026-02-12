@@ -15,8 +15,11 @@ const InteractiveMap = dynamic(
     () => import("@/components/map/interactive-map"),
     {
         loading: () => (
-            <div className="h-full w-full flex items-center justify-center bg-muted/20">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="h-full w-full bg-muted/20 animate-pulse flex items-center justify-center">
+                <div className="text-center space-y-3">
+                    <div className="h-12 w-12 bg-muted/40 rounded-lg mx-auto" />
+                    <div className="h-4 w-24 bg-muted/40 rounded mx-auto" />
+                </div>
             </div>
         ),
         ssr: false

@@ -74,13 +74,13 @@ export default function LoginPage() {
             // 3. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
-                window.location.href = '/verify-email'
+                router.push('/verify-email')
                 return
             }
 
             // Success - redirect to dashboard
             console.log('✅ Email verified - redirecting to /dashboard')
-            window.location.href = '/dashboard'
+            router.push('/dashboard')
 
         } catch (err: any) {
             toast({

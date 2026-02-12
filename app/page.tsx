@@ -40,9 +40,10 @@ export default function LandingPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto" />
-          <p className="text-slate-500 dark:text-slate-400 text-sm animate-pulse">Initializing Raute...</p>
+        <div className="text-center space-y-4 animate-pulse">
+          <div className="h-12 w-12 bg-slate-200 dark:bg-slate-800 rounded-xl mx-auto" />
+          <div className="h-5 w-36 bg-slate-200 dark:bg-slate-800 rounded mx-auto" />
+          <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded mx-auto" />
         </div>
       </div>
     )
