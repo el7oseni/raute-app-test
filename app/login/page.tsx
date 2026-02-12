@@ -50,17 +50,46 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            // 1. Attempt Standard Supabase Login
+            // 1. Clear any corrupted session data before login
+            console.log('🧹 Clearing any existing session data...')
+            await supabase.auth.signOut({ scope: 'local' })
+
+            // Small delay to ensure cleanup completes
+            await new Promise(resolve => setTimeout(resolve, 300))
+
+            // 2. Attempt Standard Supabase Login
+            console.log('🔐 Attempting login...')
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password
             })
 
-            console.log('🔐 Login Response:', { error: authError, hasSession: !!authData.session })
+            console.log('🔐 Login Response:', {
+                error: authError?.message,
+                hasSession: !!authData.session,
+                userId: authData.session?.user?.id?.substring(0, 8)
+            })
 
             if (authError) {
-                console.error('Login Error:', authError)
-                setApiError("Incorrect email or password") // Generic user message, log real one
+                console.error('❌ Login Error:', authError)
+
+                // Check for specific error types
+                if (authError.message.includes('Invalid login credentials')) {
+                    setApiError("Incorrect email or password")
+                } else if (authError.message.includes('string did not match') ||
+                           authError.message.includes('pattern')) {
+                    // Session validation error - clear all auth data and retry
+                    console.warn('⚠️ Session validation error detected, clearing storage...')
+                    try {
+                        const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                        await capacitorStorage.clearAllAuthData()
+                        setApiError("Please try logging in again")
+                    } catch {
+                        setApiError("Authentication error. Please restart the app.")
+                    }
+                } else {
+                    setApiError(authError.message || "Login failed")
+                }
                 throw authError
             }
 
@@ -68,10 +97,31 @@ export default function LoginPage() {
                 throw new Error('Login succeeded but no session was created.')
             }
 
-            // 2. Check Email Verification
+            // 3. Validate session data before proceeding
+            const session = authData.session
+            if (!session.access_token || !session.user) {
+                console.error('❌ Invalid session data received')
+                throw new Error('Invalid session data')
+            }
+
+            console.log('✅ Session created successfully')
+
+            // 4. Wait a bit for session to be persisted (especially on iOS)
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // 5. Verify session was actually saved
+            const { data: savedSession } = await supabase.auth.getSession()
+            if (!savedSession.session) {
+                console.error('❌ Session was not persisted to storage!')
+                throw new Error('Failed to save session. Please try again.')
+            }
+
+            console.log('✅ Session persisted successfully')
+
+            // 6. Check Email Verification
             const isEmailVerified = authData.session.user.email_confirmed_at
 
-            // 3. Handle Redirection
+            // 7. Handle Redirection
             if (!isEmailVerified) {
                 console.log('📧 Email NOT verified - redirecting to /verify-email')
                 router.push('/verify-email')
@@ -83,6 +133,7 @@ export default function LoginPage() {
             router.push('/dashboard')
 
         } catch (err: any) {
+            console.error('❌ Login failed:', err)
             toast({
                 title: "Login Failed",
                 description: err.message || "Invalid credentials",

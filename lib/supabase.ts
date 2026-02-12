@@ -27,6 +27,7 @@ function createSupabaseClient() {
     }
 
     if (isNativePlatform) {
+        console.log('🔧 Creating Supabase client for NATIVE platform')
         // Native platform (iOS/Android) — use standard client with Capacitor storage
         // This avoids the cookie-based auth flow that createBrowserClient uses
         return createClient(supabaseUrl, supabaseAnonKey, {
@@ -35,11 +36,21 @@ function createSupabaseClient() {
                 autoRefreshToken: true,
                 persistSession: true,
                 detectSessionInUrl: false, // Deep links handled by AuthListener
-                flowType: 'implicit',
+                flowType: 'pkce', // Use PKCE flow for better security on native
+                debug: false, // Set to true for debugging
+                // Add storage key to avoid conflicts
+                storageKey: 'sb-raute-auth',
             },
+            // Add global error handler
+            global: {
+                headers: {
+                    'x-client-info': 'raute-app-ios',
+                }
+            }
         })
     }
 
+    console.log('🔧 Creating Supabase client for WEB platform')
     // Web browser — use SSR-compatible browser client (cookie-based)
     return createBrowserClient(supabaseUrl, supabaseAnonKey, {
         auth: {
@@ -47,7 +58,8 @@ function createSupabaseClient() {
             autoRefreshToken: true,
             persistSession: true,
             detectSessionInUrl: true,
-            flowType: 'implicit',
+            flowType: 'pkce', // Use PKCE flow for better security
+            storageKey: 'sb-raute-auth',
         },
     })
 }

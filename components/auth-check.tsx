@@ -50,14 +50,42 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             authCheckRunningRef.current = false
         }, 10000)
 
-        const checkAuth = async (retries = 8) => {
+        const checkAuth = async (retries = 10) => {
             authCheckRunningRef.current = true
 
             try {
                 const { data, error } = await supabase.auth.getSession()
 
                 if (error) {
-                    console.error("Auth error:", error)
+                    console.error("❌ Auth error:", error.message)
+
+                    // Handle specific error types
+                    if (error.message.includes('string did not match') ||
+                        error.message.includes('pattern') ||
+                        error.message.includes('Invalid')) {
+                        console.warn('⚠️ Session validation error - clearing corrupted data')
+
+                        // Clear corrupted session data
+                        try {
+                            await supabase.auth.signOut({ scope: 'local' })
+                            const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                            await capacitorStorage.clearAllAuthData()
+                        } catch (cleanupErr) {
+                            console.error('Cleanup failed:', cleanupErr)
+                        }
+
+                        // Redirect to login after cleanup
+                        if (!isPublicRoute) {
+                            clearTimeout(maxTimeout)
+                            if (isMountedRef.current) {
+                                setIsLoading(false)
+                                router.push('/login?error=session_invalid')
+                            }
+                            authCheckRunningRef.current = false
+                            return
+                        }
+                    }
+
                     clearTimeout(maxTimeout)
                     if (isMountedRef.current) setIsLoading(false)
                     authCheckRunningRef.current = false
@@ -65,16 +93,23 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 }
 
                 // Retry if no session found (session is being restored from storage)
+                // On native platforms, use more retries with shorter delays
                 if (!data.session && retries > 0) {
+                    const delay = retries > 5 ? 400 : 600 // Shorter delay for first few retries
                     console.log(`⏳ Waiting for session... (${retries} retries left)`)
                     setTimeout(() => {
                         if (isMountedRef.current) checkAuth(retries - 1)
-                    }, 500)
+                    }, delay)
                     return
                 }
 
                 const isAuthenticated = !!data.session
-                console.log('AuthCheck result:', { path: pathname, authenticated: isAuthenticated, hasSession: !!data.session })
+                console.log('✅ AuthCheck result:', {
+                    path: pathname,
+                    authenticated: isAuthenticated,
+                    hasSession: !!data.session,
+                    userId: data.session?.user?.id?.substring(0, 8)
+                })
 
                 if (!isAuthenticated && !isPublicRoute) {
                     // No session on protected route — redirect to login
@@ -85,6 +120,20 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         router.push('/login')
                     }
                 } else if (isAuthenticated) {
+                    // Validate session data
+                    const session = data.session!
+                    if (!session.access_token || !session.user) {
+                        console.error('❌ Invalid session data, clearing and redirecting')
+                        await supabase.auth.signOut({ scope: 'local' })
+                        if (!isPublicRoute) {
+                            router.push('/login?error=invalid_session')
+                        }
+                        clearTimeout(maxTimeout)
+                        if (isMountedRef.current) setIsLoading(false)
+                        authCheckRunningRef.current = false
+                        return
+                    }
+
                     // Check email verification
                     const user = data.session!.user
                     if (!user.email_confirmed_at && pathname !== '/verify-email') {
@@ -101,8 +150,22 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 if (isMountedRef.current) setIsLoading(false)
                 authCheckRunningRef.current = false
 
-            } catch (error) {
-                console.error("Auth check failed:", error)
+            } catch (error: any) {
+                console.error("❌ Auth check failed:", error)
+
+                // Handle session validation errors
+                if (error?.message?.includes('string did not match') ||
+                    error?.message?.includes('pattern')) {
+                    console.warn('⚠️ Clearing corrupted session and redirecting')
+                    try {
+                        await supabase.auth.signOut({ scope: 'local' })
+                    } catch {}
+
+                    if (!isPublicRoute) {
+                        router.push('/login?error=session_corrupted')
+                    }
+                }
+
                 clearTimeout(maxTimeout)
                 if (isMountedRef.current) setIsLoading(false)
                 authCheckRunningRef.current = false
