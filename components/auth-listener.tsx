@@ -17,7 +17,6 @@ export function AuthListener() {
 
             // Only handle auth callbacks
             if (url.includes('auth/callback')) {
-                // Extract code or error from URL
                 const parsedUrl = new URL(url)
                 const code = parsedUrl.searchParams.get('code')
                 const error = parsedUrl.searchParams.get('error')
@@ -39,7 +38,6 @@ export function AuthListener() {
                         type: 'info'
                     })
 
-                    // Manual PKCE Exchange
                     const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
                     if (sessionError) {
@@ -51,19 +49,11 @@ export function AuthListener() {
                         })
                     } else if (data.session) {
                         console.log('✅ Session established via Deep Link')
-                        // Force refresh to sync checks
-                        await supabase.auth.refreshSession()
-                        
-                        // Wait for session to be persisted to Capacitor storage
-                        await new Promise(resolve => setTimeout(resolve, 1000))
-
                         toast({
                             title: 'Welcome Back!',
                             description: 'Successfully logged in.',
                             type: 'success'
                         })
-
-                        // Use router.push instead of window.location.href to avoid re-triggering auth checks
                         router.push('/dashboard')
                     }
                 }
@@ -71,17 +61,22 @@ export function AuthListener() {
         })
 
         // Listen for app state changes (resume/pause)
+        // IMPORTANT: Do NOT run cleanup on resume — it was deleting active session tokens
+        // On resume, just let Supabase auto-refresh the token if needed
         const appStateListener = App.addListener('appStateChange', async ({ isActive }) => {
             if (isActive) {
-                console.log('📱 App resumed - checking for session conflicts')
-                
-                // Check current session
-                const { data } = await supabase.auth.getSession()
-                
-                // If no valid session, cleanup orphaned data
-                if (!data.session) {
-                    const { cleanupOrphanedSessions } = await import('@/lib/session-cleanup')
-                    await cleanupOrphanedSessions()
+                console.log('📱 App resumed')
+                // Simply trigger a session refresh — Supabase handles the rest
+                // Do NOT run cleanup or signOut here
+                try {
+                    const { data } = await supabase.auth.getSession()
+                    if (data.session) {
+                        // Session exists — trigger a refresh to keep it alive
+                        await supabase.auth.refreshSession()
+                        console.log('✅ Session refreshed on resume')
+                    }
+                } catch (err) {
+                    console.warn('⚠️ Session refresh on resume failed (non-critical):', err)
                 }
             }
         })

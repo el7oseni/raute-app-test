@@ -2,43 +2,46 @@ import { Preferences } from '@capacitor/preferences'
 import { Capacitor } from '@capacitor/core'
 
 /**
- * Cleanup orphaned session data from old storage implementations
- * This fixes issues where the app migrated from localStorage/Capacitor Preferences to cookies
+ * Cleanup truly orphaned session data from DEPRECATED storage implementations.
+ * 
+ * CRITICAL: This must NOT delete keys that capacitorStorage is actively using!
+ * The active storage key format is: sb-{project_ref}-auth-token
+ * with optional chunked suffixes: .0, .1, .2, etc.
+ * 
+ * Only clean up keys from OLD/deprecated storage implementations that are
+ * no longer in use (e.g., a different project ref or a different format).
  */
 export async function cleanupOrphanedSessions() {
     if (!Capacitor.isNativePlatform()) {
-        console.log('📱 Web platform - skipping Capacitor storage cleanup')
         return
     }
 
     try {
-        console.log('🧹 Starting orphaned session cleanup...')
+        console.log('🧹 Checking for orphaned session data...')
         
-        // Old keys from capacitor-storage-adapter implementation
-        const oldKeys = [
-            'sb-ysqcovxkqviufagguvue-auth-token',
-            'sb-ysqcovxkqviufagguvue-auth-token.0',
-            'sb-ysqcovxkqviufagguvue-auth-token.1',
-            'sb-ysqcovxkqviufagguvue-auth-token.2',
-            'sb-ysqcovxkqviufagguvue-auth-token.3',
-            'sb-ysqcovxkqviufagguvue-auth-token.4',
-            'sb-ysqcovxkqviufagguvue-auth-token-code-verifier',
+        // IMPORTANT: Do NOT delete the active session keys!
+        // The active key is: sb-ysqcovxkqviufagguvue-auth-token (and .0, .1, etc.)
+        // These are used by capacitorStorage and deleting them will log the user out.
+        
+        // Only clean up keys from completely different/deprecated storage formats
+        // that are known to no longer be used.
+        const deprecatedKeys: string[] = [
+            // Add truly deprecated keys here if any exist
+            // DO NOT add 'sb-ysqcovxkqviufagguvue-auth-token' variants — those are ACTIVE
         ]
 
         let removedCount = 0
-        for (const key of oldKeys) {
+        for (const key of deprecatedKeys) {
             const { value } = await Preferences.get({ key })
             if (value) {
                 await Preferences.remove({ key })
                 removedCount++
-                console.log(`  ✓ Removed: ${key}`)
+                console.log(`  ✓ Removed deprecated: ${key}`)
             }
         }
 
         if (removedCount > 0) {
-            console.log(`✅ Cleaned up ${removedCount} orphaned session keys`)
-        } else {
-            console.log('✅ No orphaned session data found')
+            console.log(`✅ Cleaned up ${removedCount} deprecated session keys`)
         }
     } catch (error) {
         console.error('❌ Session cleanup failed:', error)
@@ -46,18 +49,20 @@ export async function cleanupOrphanedSessions() {
 }
 
 /**
- * Check if session data appears corrupted or invalid
+ * Check if session data appears corrupted or invalid.
+ * IMPORTANT: Do NOT flag expired sessions as corrupted — Supabase handles
+ * token refresh automatically. Only flag structurally broken sessions.
  */
 export function isSessionCorrupted(session: unknown): boolean {
     if (!session) return false
     
-    // Type guard: check if session is an object
     if (typeof session !== 'object') return true
 
     try {
         const sess = session as Record<string, any>
         
-        // Basic validation checks
+        // Only check for structural corruption, NOT expiry
+        // Supabase auto-refreshes expired tokens — don't kill them
         if (!sess.access_token || typeof sess.access_token !== 'string') {
             console.warn('⚠️ Invalid access_token format')
             return true
@@ -68,16 +73,7 @@ export function isSessionCorrupted(session: unknown): boolean {
             return true
         }
 
-        // Check token expiry
-        if (sess.expires_at) {
-            const expiryTime = new Date(sess.expires_at * 1000).getTime()
-            const now = Date.now()
-            if (expiryTime < now) {
-                console.warn('⚠️ Session expired')
-                return true
-            }
-        }
-
+        // DO NOT check expires_at — let Supabase handle token refresh
         return false
     } catch (error) {
         console.error('❌ Session validation error:', error)
