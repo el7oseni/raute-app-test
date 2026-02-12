@@ -1,33 +1,58 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { capacitorStorage } from './capacitor-storage'
+import { Capacitor } from '@capacitor/core'
 
 // Get environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-// Create Supabase client with Capacitor-compatible storage
-// This ensures sessions persist on mobile (iOS/Android) using Preferences API
-// FIX: Added flowType:'implicit' and cookieOptions to ensure auth tokens from
-// capacitorStorage (localStorage on web) are properly used for DB queries.
-// Without this, createBrowserClient looks for cookies for the Authorization header
-// while the session is stored in localStorage, causing auth.uid()=null in RLS.
-export const supabase = typeof window !== 'undefined'
-    ? createBrowserClient(supabaseUrl, supabaseAnonKey, {
+// Detect if running on native platform (iOS/Android)
+const isNativePlatform = typeof window !== 'undefined' && Capacitor.isNativePlatform()
+
+// Create Supabase client with platform-appropriate configuration
+// CRITICAL FIX: On native platforms, use createClient (not createBrowserClient)
+// createBrowserClient is designed for cookie-based SSR auth which doesn't work on Capacitor
+// because there's no server to set/read cookies. On native, we use capacitorStorage
+// (Capacitor Preferences API) for session persistence instead.
+function createSupabaseClient() {
+    if (typeof window === 'undefined') {
+        // Server-side rendering — no session needed
+        return createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: false,
+            }
+        })
+    }
+
+    if (isNativePlatform) {
+        // Native platform (iOS/Android) — use standard client with Capacitor storage
+        // This avoids the cookie-based auth flow that createBrowserClient uses
+        return createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                storage: capacitorStorage,
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: false, // Deep links handled by AuthListener
+                flowType: 'implicit',
+            },
+        })
+    }
+
+    // Web browser — use SSR-compatible browser client (cookie-based)
+    return createBrowserClient(supabaseUrl, supabaseAnonKey, {
         auth: {
-          storage: capacitorStorage,
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true,
-          flowType: 'implicit',
+            storage: capacitorStorage, // Falls back to localStorage on web
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: 'implicit',
         },
-      })
-    : createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-            persistSession: false,
-        }
     })
+}
+
+export const supabase = createSupabaseClient()
 
 // Create Admin Client (Server-side only, uses Service Role Key)
 // ⚠️ NEVER expose this client or the Service Role Key to the browser
@@ -158,4 +183,3 @@ export type DriverActivityLog = {
 }
 
 export type Permission = 'create_orders' | 'delete_orders' | 'view_drivers' | 'manage_drivers' | 'view_map' | 'access_settings'
-
