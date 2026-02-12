@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Server-side Supabase client with Service Role Key
-// This bypasses RLS to fetch user data reliably
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        }
+// Lazy-init: avoid crash at build time when env vars are not set
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null
+function getSupabaseAdmin() {
+    if (!_supabaseAdmin) {
+        _supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false,
+                }
+            }
+        )
     }
-)
+    return _supabaseAdmin
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,11 +35,11 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch user profile using admin client (bypasses RLS)
-        const { data: user, error } = await supabaseAdmin
+        const { data: user, error } = await getSupabaseAdmin()
             .from('users')
             .select('id, email, role, company_id, full_name, status, permissions')
             .eq('id', userId)
-            .single()
+            .single() as { data: { id: string; email: string; role: string; company_id: string; full_name: string; status: string; permissions: string } | null; error: { message: string } | null }
 
         if (error || !user) {
             console.error('user-profile API error:', error?.message)

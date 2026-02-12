@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Server-side Supabase client with Service Role Key
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        }
+// Lazy-init: avoid crash at build time when env vars are not set
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null
+function getSupabaseAdmin() {
+    if (!_supabaseAdmin) {
+        _supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false,
+                }
+            }
+        )
     }
-)
+    return _supabaseAdmin
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,11 +29,11 @@ export async function GET(request: NextRequest) {
         }
 
         // 1. Get the user's role and company_id from public.users
-        const { data: user, error: userError } = await supabaseAdmin
+        const { data: user, error: userError } = await getSupabaseAdmin()
             .from('users')
             .select('role, company_id')
             .eq('id', userId)
-            .single()
+            .single() as { data: { role: string; company_id: string } | null; error: { message: string } | null }
 
         if (userError || !user) {
             return NextResponse.json(
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 2. Update auth.users raw_user_meta_data with the correct role
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        const { error: updateError } = await getSupabaseAdmin().auth.admin.updateUserById(userId, {
             user_metadata: {
                 role: user.role,
                 company_id: user.company_id,

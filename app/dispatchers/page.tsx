@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase, User as AppUser } from '@/lib/supabase' // Use our type alias
+import { waitForSession } from '@/lib/wait-for-session'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -58,7 +59,7 @@ export default function DispatchersPage() {
         setIsLoading(true)
         try {
             let currentUserId = null
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+            const session = await waitForSession()
 
             if (session?.user) {
                 currentUserId = session.user.id

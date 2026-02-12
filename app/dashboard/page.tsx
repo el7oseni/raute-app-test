@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { waitForSession } from '@/lib/wait-for-session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -53,22 +54,13 @@ export default function DashboardPage() {
 
         isMountedRef.current = true
 
-        // Minimal async auth check
-        const initDashboard = async () => {
+        // Session-aware init with retry for Capacitor async storage
+        const initDashboard = async (): Promise<void> => {
             try {
-                const { data: { session } } = await supabase.auth.getSession()
+                const session = await waitForSession()
                 if (!session) {
-                    // No fallback - redirects handled by AuthCheck or below
-                    // Don't redirect - AuthCheck in layout handles this
-                    if (isMountedRef.current) {
-                        setIsLoading(false)
-                    }
-                    return
-
-                    // Don't redirect - AuthCheck in layout handles this
-                    if (isMountedRef.current) {
-                        setIsLoading(false)
-                    }
+                    // No session after retries — AuthCheck handles redirect
+                    if (isMountedRef.current) setIsLoading(false)
                     return
                 }
 

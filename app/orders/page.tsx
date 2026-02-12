@@ -6,6 +6,7 @@ import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truc
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
+import { waitForSession } from "@/lib/wait-for-session"
 import { parseOrderAI, type ParsedOrder } from "@/lib/gemini"
 import { reverseGeocode } from "@/lib/geocoding"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -196,20 +197,9 @@ export default function OrdersPage() {
     async function fetchData() {
         setIsLoading(true)
         try {
-            // 1. Try standard Supabase Auth
-            let currentUserId = null
-
-            const { data: { user } } = await supabase.auth.getUser()
-
-            if (user) {
-                currentUserId = user.id
-            } else {
-                // 2. If no user, try to get user from session (e.g., after refresh)
-                const { data: { session } } = await supabase.auth.getSession()
-                if (session) {
-                    currentUserId = session.user.id
-                }
-            }
+            // Use waitForSession to handle Capacitor async storage lag
+            const session = await waitForSession()
+            const currentUserId = session?.user?.id
 
             if (!currentUserId) return
 

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase, type Order, type Driver } from '@/lib/supabase'
+import { waitForSession } from '@/lib/wait-for-session'
 import type { OptimizationStrategy } from '@/lib/optimizer'
 import { SplitSuggestionsModal } from '@/components/split-suggestions-modal'
 import { calculateEvenSplit, type SplitSuggestion } from '@/lib/split-calculator'
@@ -357,9 +358,9 @@ export default function PlannerPage() {
     async function fetchData() {
         setIsLoading(true)
         try {
-            // Auth with Fallback
+            // Auth with retry for Capacitor async storage
             let userId: string | undefined
-            const { data: { session } } = await supabase.auth.getSession()
+            const session = await waitForSession()
 
             if (session?.user) {
                 userId = session.user.id
