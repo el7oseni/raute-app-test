@@ -52,16 +52,10 @@ function createSupabaseClient() {
 
     console.log('🔧 Creating Supabase client for WEB platform')
     // Web browser — use SSR-compatible browser client (cookie-based)
-    return createBrowserClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-            storage: capacitorStorage, // Falls back to localStorage on web
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true,
-            flowType: 'pkce', // Use PKCE flow for better security
-            storageKey: 'sb-raute-auth',
-        },
-    })
+    // IMPORTANT: Do NOT use capacitorStorage here — createBrowserClient
+    // uses cookies for session storage, which the middleware reads via createServerClient.
+    // Using custom storage breaks the cookie-based SSR auth flow.
+    return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
 
 export const supabase = createSupabaseClient()
