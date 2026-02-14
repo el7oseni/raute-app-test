@@ -1,7 +1,7 @@
--- 1. Enable pgcrypto just in case
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- 1. Enable pgcrypto (required for gen_salt/crypt)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA extensions;
 
--- 2. Create the ULTIMATE Dispatcher Creation Function
+-- 2. Create the Dispatcher Creation Function
 CREATE OR REPLACE FUNCTION public.create_dispatcher_account(
     email TEXT,
     password TEXT,
@@ -13,14 +13,21 @@ DECLARE
     new_user_id UUID;
     check_user_id UUID;
 BEGIN
-    -- A. Check if user already exists
+    -- A. Check if user already exists in auth.users
     SELECT id INTO check_user_id FROM auth.users WHERE auth.users.email = create_dispatcher_account.email;
-    
+
     IF check_user_id IS NOT NULL THEN
         RETURN json_build_object('success', false, 'error', 'User with this email already exists');
     END IF;
 
-    -- B. DIRECT INSERT into auth.users (Magic Step)
+    -- B. Also check public.users to be safe
+    SELECT id INTO check_user_id FROM public.users WHERE public.users.email = create_dispatcher_account.email;
+
+    IF check_user_id IS NOT NULL THEN
+        RETURN json_build_object('success', false, 'error', 'User with this email already exists');
+    END IF;
+
+    -- C. DIRECT INSERT into auth.users
     INSERT INTO auth.users (
         instance_id,
         id,
@@ -45,7 +52,7 @@ BEGIN
         'authenticated',
         'authenticated',
         email,
-        crypt(password, gen_salt('bf'::text)), -- Secure Hash
+        extensions.crypt(password, extensions.gen_salt('bf'::text)),
         now(),
         NULL,
         NULL,
@@ -59,9 +66,15 @@ BEGIN
         ''
     ) RETURNING id INTO new_user_id;
 
-    -- C. Insert into public.users
+    -- D. Insert into public.users (use ON CONFLICT to handle the auto-trigger)
     INSERT INTO public.users (id, email, full_name, role, company_id, permissions, status)
-    VALUES (new_user_id, email, full_name, 'dispatcher', company_id, permissions, 'active');
+    VALUES (new_user_id, email, full_name, 'dispatcher', company_id, permissions, 'active')
+    ON CONFLICT (id) DO UPDATE SET
+        role = 'dispatcher',
+        full_name = EXCLUDED.full_name,
+        company_id = EXCLUDED.company_id,
+        permissions = EXCLUDED.permissions,
+        status = 'active';
 
     RETURN json_build_object('success', true, 'user_id', new_user_id);
 

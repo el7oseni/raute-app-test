@@ -140,15 +140,10 @@ export function MobileNav() {
         }
     }, [])
 
-    // Hide on auth pages and verification/activation pages
-    const isHidden = pathname === '/login' ||
-        pathname === '/signup' ||
-        pathname === '/' ||
-        pathname === '/verify-email' ||
-        pathname === '/pending-activation' ||
-        pathname.includes('/auth') ||
-        pathname === '/privacy' ||
-        pathname === '/terms';
+    // Hide on auth pages, landing page, and verification/activation pages
+    const cleanPath = pathname.replace(/\/+$/, '') || '/' // Remove trailing slashes
+    const hiddenPaths = ['/login', '/signup', '/', '/verify-email', '/pending-activation', '/privacy', '/terms', '/onboarding']
+    const isHidden = hiddenPaths.includes(cleanPath) || pathname.includes('/auth')
 
     if (isHidden) {
         return null

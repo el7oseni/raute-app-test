@@ -12,7 +12,11 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const pathname = usePathname()
     const isMarketingPage = pathname === '/' || pathname === '/privacy' || pathname === '/terms'
-    const [isLoading, setIsLoading] = useState(() => !isMarketingPage)
+    // Don't show skeleton on public routes (login, signup, etc) — render immediately
+    const isPublicPage = PUBLIC_ROUTES.some(route =>
+        pathname === route || pathname === `${route}/` || pathname.startsWith(`${route}/`)
+    )
+    const [isLoading, setIsLoading] = useState(() => !isMarketingPage && !isPublicPage)
 
     // Use ref for redirect cooldown to avoid re-renders
     const lastRedirectRef = useRef<number>(0)
@@ -203,8 +207,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     // that change during the effect (like lastRedirect) — that causes infinite loops.
     }, [router, pathname, isPublicRoute, isMarketingPage])
 
-    // Marketing pages render immediately
-    if (isMarketingPage) {
+    // Public and marketing pages render immediately (no skeleton)
+    if (isMarketingPage || isPublicPage) {
         return <>{children}</>
     }
 
