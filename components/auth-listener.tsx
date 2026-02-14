@@ -4,17 +4,121 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { App } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/toast-provider'
+
+const SESSION_BACKUP_KEY = 'raute-session-backup'
+
+/**
+ * Save session tokens to Preferences as a backup.
+ * This is separate from Supabase's internal storage to ensure
+ * session survives force-stop on iOS.
+ */
+async function backupSession(accessToken: string, refreshToken: string) {
+    if (!Capacitor.isNativePlatform()) return
+    try {
+        const { Preferences } = await import('@capacitor/preferences')
+        await Preferences.set({
+            key: SESSION_BACKUP_KEY,
+            value: JSON.stringify({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                saved_at: Date.now()
+            })
+        })
+        console.log('💾 Session backed up to Preferences')
+    } catch (err) {
+        console.error('❌ Failed to backup session:', err)
+    }
+}
+
+/**
+ * Try to restore session from our backup when Supabase can't find its own.
+ */
+export async function restoreSessionFromBackup(): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return false
+    try {
+        const { Preferences } = await import('@capacitor/preferences')
+        const { value } = await Preferences.get({ key: SESSION_BACKUP_KEY })
+        if (!value) {
+            console.log('📦 No session backup found')
+            return false
+        }
+
+        const backup = JSON.parse(value)
+        if (!backup.access_token || !backup.refresh_token) {
+            console.log('📦 Invalid session backup data')
+            return false
+        }
+
+        // Check if backup is too old (30 days)
+        if (Date.now() - backup.saved_at > 30 * 24 * 60 * 60 * 1000) {
+            console.log('📦 Session backup too old, clearing')
+            await Preferences.remove({ key: SESSION_BACKUP_KEY })
+            return false
+        }
+
+        console.log('📦 Restoring session from backup...')
+        const { data, error } = await supabase.auth.setSession({
+            access_token: backup.access_token,
+            refresh_token: backup.refresh_token
+        })
+
+        if (error) {
+            console.error('❌ Backup session restore failed:', error.message)
+            // Clear invalid backup
+            await Preferences.remove({ key: SESSION_BACKUP_KEY })
+            return false
+        }
+
+        if (data.session) {
+            console.log('✅ Session restored from backup!')
+            // Re-backup with fresh tokens
+            await backupSession(data.session.access_token, data.session.refresh_token)
+            return true
+        }
+
+        return false
+    } catch (err) {
+        console.error('❌ Backup restore error:', err)
+        return false
+    }
+}
+
+/**
+ * Clear the session backup (on explicit sign-out).
+ */
+async function clearSessionBackup() {
+    if (!Capacitor.isNativePlatform()) return
+    try {
+        const { Preferences } = await import('@capacitor/preferences')
+        await Preferences.remove({ key: SESSION_BACKUP_KEY })
+        console.log('🗑️ Session backup cleared')
+    } catch (err) {
+        console.error('❌ Failed to clear session backup:', err)
+    }
+}
 
 export function AuthListener() {
     const router = useRouter()
     const { toast } = useToast()
 
     useEffect(() => {
+        // Listen to ALL auth state changes to backup/clear session
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('🔔 AuthListener event:', event, 'hasSession:', !!session)
+
+            if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
+                // Backup session on every auth event
+                await backupSession(session.access_token, session.refresh_token)
+            } else if (event === 'SIGNED_OUT') {
+                await clearSessionBackup()
+            }
+        })
+
         // Helper: verify session is persisted before navigating
         async function waitForSessionAndNavigate() {
-            // Wait for session to be written to storage
             for (let i = 0; i < 5; i++) {
                 await new Promise(resolve => setTimeout(resolve, 300))
                 const { data } = await supabase.auth.getSession()
@@ -37,16 +141,11 @@ export function AuthListener() {
         const listener = App.addListener('appUrlOpen', async ({ url }) => {
             console.log('🔗 Deep link received:', url)
 
-            // Only handle auth callbacks
             if (url.includes('auth/callback')) {
-                // Close the in-app browser immediately
                 try {
                     await Browser.close()
-                } catch (e) {
-                    // Browser might already be closed
-                }
+                } catch (e) {}
 
-                // Delay to let app fully resume and storage become accessible
                 await new Promise(resolve => setTimeout(resolve, 500))
 
                 const parsedUrl = new URL(url)
@@ -54,7 +153,6 @@ export function AuthListener() {
                 const error = parsedUrl.searchParams.get('error')
                 const errorDescription = parsedUrl.searchParams.get('error_description')
 
-                // Also check hash fragment for tokens (implicit flow fallback)
                 const hashParams = new URLSearchParams(url.split('#')[1] || '')
                 const accessToken = hashParams.get('access_token')
                 const refreshToken = hashParams.get('refresh_token')
@@ -68,7 +166,7 @@ export function AuthListener() {
                     return
                 }
 
-                // Approach 1: PKCE code exchange
+                // PKCE code exchange
                 if (code) {
                     console.log('🔐 Attempting PKCE code exchange...')
                     toast({
@@ -77,17 +175,16 @@ export function AuthListener() {
                         type: 'info'
                     })
 
-                    // Retry code exchange up to 3 times
                     for (let attempt = 0; attempt < 3; attempt++) {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
                         if (!sessionError && data.session) {
                             console.log('✅ Session established via PKCE code exchange')
-                            // Wait for session to persist to storage before navigating
+                            // Explicitly backup the session
+                            await backupSession(data.session.access_token, data.session.refresh_token)
                             await new Promise(resolve => setTimeout(resolve, 500))
                             const navigated = await waitForSessionAndNavigate()
                             if (!navigated) {
-                                // Session was set but couldn't be verified - try navigating anyway
                                 console.warn('⚠️ Session set but verification failed, navigating anyway')
                                 toast({
                                     title: 'Welcome Back!',
@@ -100,19 +197,17 @@ export function AuthListener() {
                         }
 
                         console.warn(`⚠️ Code exchange attempt ${attempt + 1} failed:`, sessionError?.message)
-
                         if (attempt < 2) {
                             await new Promise(resolve => setTimeout(resolve, 500))
                         }
                     }
 
-                    // Fallback: check if session was established by another mechanism
+                    // Fallback
                     console.log('🔄 Code exchange failed, checking for existing session...')
                     await new Promise(resolve => setTimeout(resolve, 1000))
-
                     const { data: sessionData } = await supabase.auth.getSession()
                     if (sessionData.session) {
-                        console.log('✅ Session found via fallback check')
+                        await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await waitForSessionAndNavigate()
                         return
                     }
@@ -125,7 +220,7 @@ export function AuthListener() {
                     return
                 }
 
-                // Approach 2: Handle implicit flow tokens in hash fragment
+                // Implicit flow tokens
                 if (accessToken && refreshToken) {
                     console.log('🔐 Setting session from hash tokens...')
                     const { error: setError } = await supabase.auth.setSession({
@@ -134,11 +229,10 @@ export function AuthListener() {
                     })
 
                     if (!setError) {
-                        console.log('✅ Session established via hash tokens')
+                        await backupSession(accessToken, refreshToken)
                         await new Promise(resolve => setTimeout(resolve, 500))
                         await waitForSessionAndNavigate()
                     } else {
-                        console.error('❌ Failed to set session from tokens:', setError)
                         toast({
                             title: 'Login Failed',
                             description: 'Could not complete sign in.',
@@ -148,12 +242,11 @@ export function AuthListener() {
                     return
                 }
 
-                // Approach 3: No code or tokens — check if session exists anyway
+                // No code or tokens — check session anyway
                 console.log('🔄 No code or tokens in URL, checking for session...')
                 await new Promise(resolve => setTimeout(resolve, 1000))
                 const { data: fallbackSession } = await supabase.auth.getSession()
                 if (fallbackSession.session) {
-                    console.log('✅ Session found via final fallback')
                     await waitForSessionAndNavigate()
                 }
             }
@@ -176,6 +269,7 @@ export function AuthListener() {
         })
 
         return () => {
+            subscription.unsubscribe()
             listener.then(handle => handle.remove())
             appStateListener.then(handle => handle.remove())
         }

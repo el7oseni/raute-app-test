@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Capacitor } from "@capacitor/core"
+import { restoreSessionFromBackup } from "@/components/auth-listener"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/debug-auth']
@@ -116,13 +117,13 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 // try refreshing from storage one more time
                 if (!data.session && retries === 0 && Capacitor.isNativePlatform() && !isPublicRoute) {
                     console.log('🔄 Final native session recovery attempt...')
+
+                    // Attempt 1: Try Supabase's internal storage key
                     try {
                         const { capacitorStorage } = await import('@/lib/capacitor-storage')
                         const stored = await capacitorStorage.getItem('sb-raute-auth')
                         if (stored) {
                             console.log('📦 Found stored session data, forcing refresh...')
-                            // Session data exists in storage but Supabase couldn't read it
-                            // Try to parse and set it manually
                             const parsed = JSON.parse(stored)
                             if (parsed?.access_token && parsed?.refresh_token) {
                                 const { data: refreshData } = await supabase.auth.setSession({
@@ -140,6 +141,21 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         }
                     } catch (recoveryErr) {
                         console.warn('⚠️ Storage recovery failed:', recoveryErr)
+                    }
+
+                    // Attempt 2: Try our redundant session backup (separate Preferences key)
+                    try {
+                        console.log('📦 Trying redundant session backup...')
+                        const restored = await restoreSessionFromBackup()
+                        if (restored) {
+                            console.log('✅ Session recovered from backup!')
+                            clearTimeout(maxTimeout)
+                            if (isMountedRef.current) setIsLoading(false)
+                            authCheckRunningRef.current = false
+                            return
+                        }
+                    } catch (backupErr) {
+                        console.warn('⚠️ Backup restore failed:', backupErr)
                     }
                 }
 
@@ -228,8 +244,15 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     authCheckRunningRef.current = false
                 } else if (!session && Capacitor.isNativePlatform() && !isPublicRoute) {
                     // On native, INITIAL_SESSION may fire before Preferences is ready
-                    // Wait and retry session check from storage directly
-                    console.log('⏳ INITIAL_SESSION null on native - will retry via checkAuth')
+                    // Try immediate backup restore as an early recovery path
+                    console.log('⏳ INITIAL_SESSION null on native - trying backup restore...')
+                    restoreSessionFromBackup().then(restored => {
+                        if (restored && isMountedRef.current) {
+                            console.log('✅ Session restored from backup on INITIAL_SESSION')
+                            setIsLoading(false)
+                            authCheckRunningRef.current = false
+                        }
+                    }).catch(() => {})
                 }
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 // Session established or refreshed — stop loading
