@@ -25,10 +25,18 @@ export function AuthListener() {
                     // Browser might already be closed
                 }
 
+                // Small delay to let the app fully resume and storage become accessible
+                await new Promise(resolve => setTimeout(resolve, 300))
+
                 const parsedUrl = new URL(url)
                 const code = parsedUrl.searchParams.get('code')
                 const error = parsedUrl.searchParams.get('error')
                 const errorDescription = parsedUrl.searchParams.get('error_description')
+
+                // Also check hash fragment for tokens (implicit flow fallback)
+                const hashParams = new URLSearchParams(url.split('#')[1] || '')
+                const accessToken = hashParams.get('access_token')
+                const refreshToken = hashParams.get('refresh_token')
 
                 if (error) {
                     toast({
@@ -39,47 +47,115 @@ export function AuthListener() {
                     return
                 }
 
+                // Approach 1: PKCE code exchange
                 if (code) {
+                    console.log('🔐 Attempting PKCE code exchange...')
                     toast({
                         title: 'Verifying...',
                         description: 'Finalizing secure login',
                         type: 'info'
                     })
 
-                    const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                    // Retry code exchange up to 3 times
+                    let exchangeSuccess = false
+                    for (let attempt = 0; attempt < 3; attempt++) {
+                        const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
-                    if (sessionError) {
-                        console.error('Code exchange failed:', sessionError)
+                        if (!sessionError && data.session) {
+                            console.log('✅ Session established via PKCE code exchange')
+                            exchangeSuccess = true
+                            toast({
+                                title: 'Welcome Back!',
+                                description: 'Successfully logged in.',
+                                type: 'success'
+                            })
+                            router.push('/dashboard')
+                            return
+                        }
+
+                        console.warn(`⚠️ Code exchange attempt ${attempt + 1} failed:`, sessionError?.message)
+
+                        if (attempt < 2) {
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                        }
+                    }
+
+                    // Approach 2: Fallback - check if session was established by another mechanism
+                    if (!exchangeSuccess) {
+                        console.log('🔄 Code exchange failed, checking for existing session...')
+                        await new Promise(resolve => setTimeout(resolve, 1000))
+
+                        const { data: sessionData } = await supabase.auth.getSession()
+                        if (sessionData.session) {
+                            console.log('✅ Session found via fallback check')
+                            toast({
+                                title: 'Welcome Back!',
+                                description: 'Successfully logged in.',
+                                type: 'success'
+                            })
+                            router.push('/dashboard')
+                            return
+                        }
+
                         toast({
                             title: 'Login Failed',
-                            description: 'Could not exchange code for session.',
+                            description: 'Could not complete sign in. Please try again.',
                             type: 'error'
                         })
-                    } else if (data.session) {
-                        console.log('✅ Session established via Deep Link')
+                    }
+                    return
+                }
+
+                // Approach 3: Handle implicit flow tokens in hash fragment
+                if (accessToken && refreshToken) {
+                    console.log('🔐 Setting session from hash tokens...')
+                    const { error: setError } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    })
+
+                    if (!setError) {
+                        console.log('✅ Session established via hash tokens')
                         toast({
                             title: 'Welcome Back!',
                             description: 'Successfully logged in.',
                             type: 'success'
                         })
                         router.push('/dashboard')
+                    } else {
+                        console.error('❌ Failed to set session from tokens:', setError)
+                        toast({
+                            title: 'Login Failed',
+                            description: 'Could not complete sign in.',
+                            type: 'error'
+                        })
                     }
+                    return
+                }
+
+                // Approach 4: No code or tokens — check if session exists anyway
+                console.log('🔄 No code or tokens in URL, checking for session...')
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                const { data: fallbackSession } = await supabase.auth.getSession()
+                if (fallbackSession.session) {
+                    console.log('✅ Session found via final fallback')
+                    toast({
+                        title: 'Welcome Back!',
+                        description: 'Successfully logged in.',
+                        type: 'success'
+                    })
+                    router.push('/dashboard')
                 }
             }
         })
 
         // Listen for app state changes (resume/pause)
-        // IMPORTANT: Do NOT run cleanup on resume — it was deleting active session tokens
-        // On resume, just let Supabase auto-refresh the token if needed
         const appStateListener = App.addListener('appStateChange', async ({ isActive }) => {
             if (isActive) {
                 console.log('📱 App resumed')
-                // Simply trigger a session refresh — Supabase handles the rest
-                // Do NOT run cleanup or signOut here
                 try {
                     const { data } = await supabase.auth.getSession()
                     if (data.session) {
-                        // Session exists — trigger a refresh to keep it alive
                         await supabase.auth.refreshSession()
                         console.log('✅ Session refreshed on resume')
                     }

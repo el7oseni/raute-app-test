@@ -355,7 +355,10 @@ export default function LoginPage() {
                                                             provider: 'google',
                                                             options: {
                                                                 redirectTo: redirectUrl,
-                                                                skipBrowserRedirect: isNative
+                                                                skipBrowserRedirect: isNative,
+                                                                queryParams: {
+                                                                    prompt: 'select_account'
+                                                                }
                                                             }
                                                         })
                                                         if (error) throw error
