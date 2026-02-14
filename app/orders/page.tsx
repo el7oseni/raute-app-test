@@ -24,7 +24,10 @@ import { DriverSetupGuide } from "@/components/driver-setup-guide"
 import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { isValidPhoneNumber } from "react-phone-number-input"
 import { DriverActivityHistory } from "@/components/driver-activity-history"
-import { format } from "date-fns"
+import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay, isToday } from "date-fns"
+import { DateRange } from "react-day-picker"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 
 const statusColors = {
@@ -91,9 +94,14 @@ export default function OrdersPage() {
     const [selectedOrders, setSelectedOrders] = useState<string[]>([])
     const [isSelectionMode, setIsSelectionMode] = useState(false)
 
-    // Location Tracking State  
+    // Location Tracking State
     const [userId, setUserId] = useState<string | null>(null)
     const [priorityLevel, setPriorityLevel] = useState<'normal' | 'high' | 'critical'>('normal')
+
+    // Date Range Filter
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() })
+    const [incompleteOrders, setIncompleteOrders] = useState<Order[]>([])
+    const [showIncomplete, setShowIncomplete] = useState(true)
 
     useEffect(() => {
         fetchData()
@@ -101,7 +109,7 @@ export default function OrdersPage() {
 
     useEffect(() => {
         filterOrders()
-    }, [orders, searchQuery, statusFilter])
+    }, [orders, searchQuery, statusFilter, dateRange])
 
     // Real-time Address Verification
     useEffect(() => {
@@ -313,15 +321,39 @@ export default function OrdersPage() {
 
     function filterOrders() {
         let filtered = orders
+        const todayStart = startOfDay(new Date())
 
-        // DRIVER: Daily Reset (Hide old completed/cancelled)
-        if (userRole === 'driver') {
+        // Compute incomplete orders (from previous days, still active) — for ALL roles
+        const incomplete = orders.filter(o => {
+            if (!['assigned', 'in_progress', 'pending'].includes(o.status)) return false
+            const d = new Date(o.delivery_date || o.created_at)
+            return d < todayStart
+        })
+        setIncompleteOrders(incomplete)
+
+        // Date range filter
+        if (dateRange?.from) {
+            const start = startOfDay(dateRange.from)
+            const end = endOfDay(dateRange.to || dateRange.from)
             filtered = filtered.filter(o => {
-                // Always show active
-                if (['assigned', 'in_progress', 'pending'].includes(o.status)) return true
-                // Show completed/cancelled ONLY if from today
+                // Active incomplete orders always pass through (shown in separate section)
+                if (['assigned', 'in_progress', 'pending'].includes(o.status)) {
+                    const d = new Date(o.delivery_date || o.created_at)
+                    if (d < todayStart) return false // exclude from main list, shown in incomplete section
+                }
+                const d = new Date(o.delivery_date || o.delivered_at || o.created_at)
+                return d >= start && d <= end
+            })
+        } else if (userRole === 'driver') {
+            // If no date range set (cleared), still hide old completed for drivers
+            filtered = filtered.filter(o => {
+                if (['assigned', 'in_progress', 'pending'].includes(o.status)) {
+                    const d = new Date(o.delivery_date || o.created_at)
+                    if (d < todayStart) return false
+                    return true
+                }
                 const d = new Date(o.delivered_at || o.updated_at || o.delivery_date || new Date())
-                return d.toDateString() === new Date().toDateString()
+                return isToday(d)
             })
         }
 
@@ -869,6 +901,41 @@ export default function OrdersPage() {
                         </button>
                     </div>
 
+                    {/* Date Range Picker */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button className="flex items-center gap-2 w-full px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground hover:bg-muted transition-colors">
+                                <Calendar size={14} />
+                                {dateRange?.from ? (
+                                    dateRange.to && dateRange.from.toDateString() !== dateRange.to.toDateString() ? (
+                                        <span className="text-xs font-medium text-foreground">{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}</span>
+                                    ) : (
+                                        <span className="text-xs font-medium text-foreground">{format(dateRange.from, "MMM dd, yyyy")}</span>
+                                    )
+                                ) : (
+                                    <span className="text-xs">Filter by date</span>
+                                )}
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <div className="p-3 border-b border-border">
+                                <div className="flex gap-2 flex-wrap">
+                                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setDateRange({ from: new Date(), to: new Date() })}>Today</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setDateRange({ from: subDays(new Date(), 6), to: new Date() })}>Last 7 Days</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>This Month</Button>
+                                    <Button size="sm" variant="ghost" className="text-xs h-7 text-muted-foreground" onClick={() => setDateRange(undefined)}>All</Button>
+                                </div>
+                            </div>
+                            <CalendarPicker
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                disabled={(date) => date > new Date() || date < new Date("2024-01-01")}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+
                     {/* Status Filter (remains) */}
                     <div className="flex bg-muted p-1 rounded-xl shadow-inner mb-4 overflow-x-auto">
                         {["all", "assigned", "delivered", "cancelled"].map((status) => (
@@ -878,10 +945,55 @@ export default function OrdersPage() {
                         ))}
                     </div>
 
+                    {/* Incomplete Orders from Previous Days */}
+                    {incompleteOrders.length > 0 && (
+                        <div className="rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden">
+                            <button
+                                onClick={() => setShowIncomplete(!showIncomplete)}
+                                className="w-full flex items-center justify-between p-3 text-left"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle size={14} className="text-amber-600" />
+                                    <span className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wider">
+                                        Previous Incomplete ({incompleteOrders.length})
+                                    </span>
+                                </div>
+                                <span className="text-xs text-amber-600">{showIncomplete ? 'Hide' : 'Show'}</span>
+                            </button>
+                            {showIncomplete && (
+                                <div className="px-3 pb-3 space-y-2">
+                                    {incompleteOrders.map(order => (
+                                        <Link key={order.id} href={`/my-editor?id=${order.id}`} className="block">
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-amber-200/50 dark:border-amber-800/30 flex items-center gap-3">
+                                                <div className={cn("w-2 h-2 rounded-full shrink-0",
+                                                    order.status === 'in_progress' ? 'bg-purple-500' : order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
+                                                )} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-foreground truncate">{order.customer_name}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{order.address}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", statusColors[order.status as keyof typeof statusColors])}>
+                                                        {order.status.replace('_', ' ')}
+                                                    </span>
+                                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                                        {format(new Date(order.delivery_date || order.created_at), "MMM dd")}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {activeTab === 'list' ? (
                         // LIST VIEW
                         <div className="space-y-4" id="orders-list">
-                            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest pl-1">Today's Route</h2>
+                            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                                {dateRange?.from && isToday(dateRange.from) && (!dateRange.to || isToday(dateRange.to)) ? "Today's Route" : "Orders"}
+                            </h2>
                             {filteredOrders.length === 0 ? (
                                 <div className="text-center py-12 bg-muted/30 rounded-2xl border border-dashed border-border">
                                     <Package className="mx-auto h-12 w-12 text-muted-foreground mb-3 opacity-50" />
@@ -1333,14 +1445,50 @@ export default function OrdersPage() {
             </header>
 
             <div className="space-y-3 pb-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search orders..."
-                        className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search orders..."
+                            className="pl-9 bg-card border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("justify-start text-left font-normal w-[220px] shrink-0", !dateRange && "text-muted-foreground")}>
+                                <Calendar className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                    dateRange.to && dateRange.from.toDateString() !== dateRange.to.toDateString() ? (
+                                        <span className="text-xs">{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}</span>
+                                    ) : (
+                                        <span className="text-xs">{format(dateRange.from, "MMM dd, yyyy")}</span>
+                                    )
+                                ) : (
+                                    <span className="text-xs">All dates</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <div className="p-3 border-b border-border">
+                                <h4 className="font-bold text-xs text-muted-foreground mb-2 uppercase tracking-wider">Quick Select</h4>
+                                <div className="flex gap-2 flex-wrap">
+                                    <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setDateRange({ from: new Date(), to: new Date() })}>Today</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setDateRange({ from: subDays(new Date(), 6), to: new Date() })}>Last 7 Days</Button>
+                                    <Button size="sm" variant="outline" className="text-xs h-8" onClick={() => setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>This Month</Button>
+                                    <Button size="sm" variant="ghost" className="text-xs h-8 text-muted-foreground" onClick={() => setDateRange(undefined)}>All Time</Button>
+                                </div>
+                            </div>
+                            <CalendarPicker
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                disabled={(date) => date > new Date() || date < new Date("2024-01-01")}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {["all", "pending", "assigned", "in_progress", "delivered", "cancelled"].map((status) => (
@@ -1359,6 +1507,61 @@ export default function OrdersPage() {
                     ))}
                 </div>
             </div>
+
+            {/* Incomplete Orders from Previous Days */}
+            {incompleteOrders.length > 0 && (
+                <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden mb-4">
+                    <button
+                        onClick={() => setShowIncomplete(!showIncomplete)}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle size={14} className="text-amber-600" />
+                            <span className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                                Incomplete Orders
+                            </span>
+                            <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-bold">
+                                {incompleteOrders.length}
+                            </span>
+                        </div>
+                        <span className="text-xs text-amber-600 font-medium">{showIncomplete ? 'Hide' : 'Show'}</span>
+                    </button>
+                    {showIncomplete && (
+                        <div className="px-3 pb-3 space-y-2">
+                            <p className="text-[11px] text-amber-700 dark:text-amber-300 px-1 mb-2">Orders from previous days that haven't been completed yet.</p>
+                            {incompleteOrders.map(order => (
+                                <Link key={order.id} href={userRole === 'driver' ? `/my-editor?id=${order.id}` : `/orders`} className="block">
+                                    <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-amber-200/50 dark:border-amber-800/30 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                                        <div className={cn("w-2 h-2 rounded-full shrink-0",
+                                            order.status === 'in_progress' ? 'bg-purple-500' : order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
+                                        )} />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-[10px] text-muted-foreground">#{order.order_number}</span>
+                                                <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", statusColors[order.status as keyof typeof statusColors])}>
+                                                    {order.status.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium text-foreground truncate">{order.customer_name}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate">{order.address}</p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {format(new Date(order.delivery_date || order.created_at), "MMM dd")}
+                                            </p>
+                                            {order.driver_id ? (
+                                                <span className="text-[9px] text-blue-600 font-medium">Assigned</span>
+                                            ) : (
+                                                <span className="text-[9px] text-amber-600 font-medium">Unassigned</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="space-y-3">
                 {filteredOrders.length > 0 && (
