@@ -315,10 +315,7 @@ export default function LoginPage() {
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({
-                                                                url: data.url,
-                                                                presentationStyle: 'popover'
-                                                            })
+                                                            await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -365,10 +362,7 @@ export default function LoginPage() {
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({
-                                                                url: data.url,
-                                                                presentationStyle: 'popover'
-                                                            })
+                                                            await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {
                                                         toast({

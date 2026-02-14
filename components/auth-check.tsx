@@ -180,17 +180,15 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
-            // IMPORTANT: Ignore INITIAL_SESSION — we handle that in checkAuth
-            if (event === 'INITIAL_SESSION') return
-
             if (event === 'SIGNED_OUT') {
                 if (isMountedRef.current && !isPublicRoute) {
                     router.push('/login')
                 }
-            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // Session established or refreshed — stop loading
-                if (isMountedRef.current) {
+            } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // Session restored from storage, established, or refreshed — stop loading
+                if (session && isMountedRef.current) {
                     setIsLoading(false)
+                    authCheckRunningRef.current = false
                 }
             }
         })
