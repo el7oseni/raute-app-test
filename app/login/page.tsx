@@ -31,13 +31,24 @@ export default function LoginPage() {
 
         const listener = Browser.addListener('browserFinished', () => {
             // Reset loading when OAuth browser is dismissed
-            setIsLoading(false)
+            // Small delay to let auth-listener process the deep link first
+            setTimeout(() => setIsLoading(false), 200)
         })
 
         return () => {
             listener.then(handle => handle?.remove())
         }
     }, [])
+
+    // Safety timeout: if loading persists for 20s (OAuth flow), reset it
+    useEffect(() => {
+        if (!isLoading) return
+        const timeout = setTimeout(() => {
+            console.warn('⏱️ Login page loading timeout - resetting')
+            setIsLoading(false)
+        }, 20000)
+        return () => clearTimeout(timeout)
+    }, [isLoading])
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()

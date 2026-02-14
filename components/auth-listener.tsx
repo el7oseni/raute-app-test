@@ -12,6 +12,27 @@ export function AuthListener() {
     const { toast } = useToast()
 
     useEffect(() => {
+        // Helper: verify session is persisted before navigating
+        async function waitForSessionAndNavigate() {
+            // Wait for session to be written to storage
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 300))
+                const { data } = await supabase.auth.getSession()
+                if (data.session) {
+                    console.log(`✅ Session verified on check ${i + 1}, navigating to dashboard`)
+                    toast({
+                        title: 'Welcome Back!',
+                        description: 'Successfully logged in.',
+                        type: 'success'
+                    })
+                    router.push('/dashboard')
+                    return true
+                }
+            }
+            console.error('❌ Session not found after 5 verification checks')
+            return false
+        }
+
         // Listen for deep links (e.g. io.raute.app://auth/callback?code=...)
         const listener = App.addListener('appUrlOpen', async ({ url }) => {
             console.log('🔗 Deep link received:', url)
@@ -25,8 +46,8 @@ export function AuthListener() {
                     // Browser might already be closed
                 }
 
-                // Small delay to let the app fully resume and storage become accessible
-                await new Promise(resolve => setTimeout(resolve, 300))
+                // Delay to let app fully resume and storage become accessible
+                await new Promise(resolve => setTimeout(resolve, 500))
 
                 const parsedUrl = new URL(url)
                 const code = parsedUrl.searchParams.get('code')
@@ -57,19 +78,24 @@ export function AuthListener() {
                     })
 
                     // Retry code exchange up to 3 times
-                    let exchangeSuccess = false
                     for (let attempt = 0; attempt < 3; attempt++) {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
                         if (!sessionError && data.session) {
                             console.log('✅ Session established via PKCE code exchange')
-                            exchangeSuccess = true
-                            toast({
-                                title: 'Welcome Back!',
-                                description: 'Successfully logged in.',
-                                type: 'success'
-                            })
-                            router.push('/dashboard')
+                            // Wait for session to persist to storage before navigating
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                            const navigated = await waitForSessionAndNavigate()
+                            if (!navigated) {
+                                // Session was set but couldn't be verified - try navigating anyway
+                                console.warn('⚠️ Session set but verification failed, navigating anyway')
+                                toast({
+                                    title: 'Welcome Back!',
+                                    description: 'Successfully logged in.',
+                                    type: 'success'
+                                })
+                                router.push('/dashboard')
+                            }
                             return
                         }
 
@@ -80,33 +106,26 @@ export function AuthListener() {
                         }
                     }
 
-                    // Approach 2: Fallback - check if session was established by another mechanism
-                    if (!exchangeSuccess) {
-                        console.log('🔄 Code exchange failed, checking for existing session...')
-                        await new Promise(resolve => setTimeout(resolve, 1000))
+                    // Fallback: check if session was established by another mechanism
+                    console.log('🔄 Code exchange failed, checking for existing session...')
+                    await new Promise(resolve => setTimeout(resolve, 1000))
 
-                        const { data: sessionData } = await supabase.auth.getSession()
-                        if (sessionData.session) {
-                            console.log('✅ Session found via fallback check')
-                            toast({
-                                title: 'Welcome Back!',
-                                description: 'Successfully logged in.',
-                                type: 'success'
-                            })
-                            router.push('/dashboard')
-                            return
-                        }
-
-                        toast({
-                            title: 'Login Failed',
-                            description: 'Could not complete sign in. Please try again.',
-                            type: 'error'
-                        })
+                    const { data: sessionData } = await supabase.auth.getSession()
+                    if (sessionData.session) {
+                        console.log('✅ Session found via fallback check')
+                        await waitForSessionAndNavigate()
+                        return
                     }
+
+                    toast({
+                        title: 'Login Failed',
+                        description: 'Could not complete sign in. Please try again.',
+                        type: 'error'
+                    })
                     return
                 }
 
-                // Approach 3: Handle implicit flow tokens in hash fragment
+                // Approach 2: Handle implicit flow tokens in hash fragment
                 if (accessToken && refreshToken) {
                     console.log('🔐 Setting session from hash tokens...')
                     const { error: setError } = await supabase.auth.setSession({
@@ -116,12 +135,8 @@ export function AuthListener() {
 
                     if (!setError) {
                         console.log('✅ Session established via hash tokens')
-                        toast({
-                            title: 'Welcome Back!',
-                            description: 'Successfully logged in.',
-                            type: 'success'
-                        })
-                        router.push('/dashboard')
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await waitForSessionAndNavigate()
                     } else {
                         console.error('❌ Failed to set session from tokens:', setError)
                         toast({
@@ -133,18 +148,13 @@ export function AuthListener() {
                     return
                 }
 
-                // Approach 4: No code or tokens — check if session exists anyway
+                // Approach 3: No code or tokens — check if session exists anyway
                 console.log('🔄 No code or tokens in URL, checking for session...')
                 await new Promise(resolve => setTimeout(resolve, 1000))
                 const { data: fallbackSession } = await supabase.auth.getSession()
                 if (fallbackSession.session) {
                     console.log('✅ Session found via final fallback')
-                    toast({
-                        title: 'Welcome Back!',
-                        description: 'Successfully logged in.',
-                        type: 'success'
-                    })
-                    router.push('/dashboard')
+                    await waitForSessionAndNavigate()
                 }
             }
         })
