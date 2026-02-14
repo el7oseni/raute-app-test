@@ -308,14 +308,17 @@ export default function LoginPage() {
                                                             provider: 'apple',
                                                             options: {
                                                                 redirectTo: redirectUrl,
-                                                                skipBrowserRedirect: false
+                                                                skipBrowserRedirect: isNative
                                                             }
                                                         })
                                                         if (error) throw error
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url })
+                                                            await Browser.open({
+                                                                url: data.url,
+                                                                presentationStyle: 'popover'
+                                                            })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -352,14 +355,17 @@ export default function LoginPage() {
                                                             provider: 'google',
                                                             options: {
                                                                 redirectTo: redirectUrl,
-                                                                skipBrowserRedirect: false
+                                                                skipBrowserRedirect: isNative
                                                             }
                                                         })
                                                         if (error) throw error
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
-                                                            await Browser.open({ url: data.url })
+                                                            await Browser.open({
+                                                                url: data.url,
+                                                                presentationStyle: 'popover'
+                                                            })
                                                         }
                                                     } catch (err: any) {
                                                         toast({
@@ -561,14 +567,17 @@ export default function LoginPage() {
                                                         provider: 'apple',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: false
+                                                            skipBrowserRedirect: isNative
                                                         }
                                                     })
                                                     if (error) throw error
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url })
+                                                        await Browser.open({
+                                                            url: data.url,
+                                                            presentationStyle: 'popover'
+                                                        })
                                                     }
                                                 } catch (err: any) {
                                                     toast({
@@ -605,14 +614,17 @@ export default function LoginPage() {
                                                         provider: 'google',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: false
+                                                            skipBrowserRedirect: isNative
                                                         }
                                                     })
                                                     if (error) throw error
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({ url: data.url })
+                                                        await Browser.open({
+                                                            url: data.url,
+                                                            presentationStyle: 'popover'
+                                                        })
                                                     }
                                                 } catch (err: any) {
                                                     toast({

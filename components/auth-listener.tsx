@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { App } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/toast-provider'
 
@@ -17,6 +18,13 @@ export function AuthListener() {
 
             // Only handle auth callbacks
             if (url.includes('auth/callback')) {
+                // Close the in-app browser immediately
+                try {
+                    await Browser.close()
+                } catch (e) {
+                    // Browser might already be closed
+                }
+
                 const parsedUrl = new URL(url)
                 const code = parsedUrl.searchParams.get('code')
                 const error = parsedUrl.searchParams.get('error')
