@@ -70,9 +70,9 @@ function DraggableOrderCard({ order, isOverlay = false, onViewDetails }: { order
         data: { order }
     })
 
-    const style = isDragging 
-        ? { opacity: 0.5, willChange: 'transform' } 
-        : { willChange: 'auto' }
+    const style: React.CSSProperties = isDragging
+        ? { opacity: 0.4, willChange: 'transform', touchAction: 'none' }
+        : { touchAction: 'none' }
 
     return (
         <Card
@@ -305,19 +305,19 @@ export default function PlannerPage() {
     // Drag State
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
-    // Sensors - Optimized for Mobile
+    // Sensors - Optimized for Mobile (higher thresholds to prevent jumpiness)
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // Increased to reduce accidental drags
-                delay: 100, // Small delay prevents jumpiness on desktop
+                distance: 10, // Minimum drag distance before activation
+                delay: 150, // Delay prevents accidental drags on desktop
                 tolerance: 5
             }
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 150, // Longer delay for touch to distinguish from scroll
-                tolerance: 8 // Higher tolerance for touch interactions
+                delay: 250, // Longer delay for touch to distinguish from scroll
+                tolerance: 10 // Higher tolerance for finger imprecision
             }
         }),
         useSensor(KeyboardSensor)
@@ -1309,8 +1309,8 @@ export default function PlannerPage() {
 
                 {/* DRAG OVERLAY (Visual Feedback) */}
                 <DragOverlay dropAnimation={{
-                    duration: 200,
-                    easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)'
+                    duration: 250,
+                    easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)' // Smooth ease-out, no overshoot
                 }}>
                     {activeDragOrder ? <DraggableOrderCard order={activeDragOrder} isOverlay /> : null}
                 </DragOverlay>

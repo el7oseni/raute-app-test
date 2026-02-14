@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Capacitor } from "@capacitor/core"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/debug-auth']
@@ -44,15 +45,18 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        // Maximum timeout to prevent frozen screens (10 seconds for Capacitor)
+        // Maximum timeout to prevent frozen screens
+        // Native needs more time (15s) for Preferences to restore session after force-stop
         // IMPORTANT: Do NOT call signOut here — it destroys sessions mid-establishment
+        const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
+        const maxTimeoutMs = isNative ? 15000 : 10000
         const maxTimeout = setTimeout(() => {
-            console.warn('⏱️ Auth check timeout (10s) - forcing render')
+            console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing render`)
             if (isMountedRef.current) {
                 setIsLoading(false)
             }
             authCheckRunningRef.current = false
-        }, 10000)
+        }, maxTimeoutMs)
 
         const checkAuth = async (retries = 10) => {
             authCheckRunningRef.current = true
@@ -97,14 +101,46 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 }
 
                 // Retry if no session found (session is being restored from storage)
-                // On native platforms, use more retries with shorter delays
                 if (!data.session && retries > 0) {
-                    const delay = retries > 5 ? 400 : 600 // Shorter delay for first few retries
-                    console.log(`⏳ Waiting for session... (${retries} retries left)`)
+                    // On native, use longer delays to give Preferences time to restore
+                    const isNative = Capacitor.isNativePlatform()
+                    const delay = isNative ? 600 : (retries > 5 ? 400 : 600)
+                    console.log(`⏳ Waiting for session... (${retries} retries left, ${isNative ? 'native' : 'web'})`)
                     setTimeout(() => {
                         if (isMountedRef.current) checkAuth(retries - 1)
                     }, delay)
                     return
+                }
+
+                // Last resort on native: if no session after all retries,
+                // try refreshing from storage one more time
+                if (!data.session && retries === 0 && Capacitor.isNativePlatform() && !isPublicRoute) {
+                    console.log('🔄 Final native session recovery attempt...')
+                    try {
+                        const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                        const stored = await capacitorStorage.getItem('sb-raute-auth')
+                        if (stored) {
+                            console.log('📦 Found stored session data, forcing refresh...')
+                            // Session data exists in storage but Supabase couldn't read it
+                            // Try to parse and set it manually
+                            const parsed = JSON.parse(stored)
+                            if (parsed?.access_token && parsed?.refresh_token) {
+                                const { data: refreshData } = await supabase.auth.setSession({
+                                    access_token: parsed.access_token,
+                                    refresh_token: parsed.refresh_token
+                                })
+                                if (refreshData.session) {
+                                    console.log('✅ Session recovered from storage!')
+                                    clearTimeout(maxTimeout)
+                                    if (isMountedRef.current) setIsLoading(false)
+                                    authCheckRunningRef.current = false
+                                    return
+                                }
+                            }
+                        }
+                    } catch (recoveryErr) {
+                        console.warn('⚠️ Storage recovery failed:', recoveryErr)
+                    }
                 }
 
                 const isAuthenticated = !!data.session
@@ -177,15 +213,26 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         }
 
         // Subscribe to auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
             if (event === 'SIGNED_OUT') {
                 if (isMountedRef.current && !isPublicRoute) {
                     router.push('/login')
                 }
-            } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // Session restored from storage, established, or refreshed — stop loading
+            } else if (event === 'INITIAL_SESSION') {
+                if (session && isMountedRef.current) {
+                    // Session successfully restored from storage
+                    console.log('✅ INITIAL_SESSION with session - stopping loading')
+                    setIsLoading(false)
+                    authCheckRunningRef.current = false
+                } else if (!session && Capacitor.isNativePlatform() && !isPublicRoute) {
+                    // On native, INITIAL_SESSION may fire before Preferences is ready
+                    // Wait and retry session check from storage directly
+                    console.log('⏳ INITIAL_SESSION null on native - will retry via checkAuth')
+                }
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // Session established or refreshed — stop loading
                 if (session && isMountedRef.current) {
                     setIsLoading(false)
                     authCheckRunningRef.current = false
@@ -193,7 +240,14 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             }
         })
 
-        checkAuth()
+        // On native platforms, add extra delay before first check to let Preferences init
+        if (Capacitor.isNativePlatform()) {
+            setTimeout(() => {
+                if (isMountedRef.current) checkAuth(12)
+            }, 500)
+        } else {
+            checkAuth()
+        }
 
         return () => {
             isMountedRef.current = false

@@ -128,12 +128,19 @@ body::-webkit-scrollbar,
 }
 
 
-/* Prevent iOS zoom on focus for inputs */
+/* Prevent iOS zoom on focus for inputs + fix form width overflow */
 @media screen and (max-width: 768px) {
   input,
   select,
   textarea {
     font-size: 16px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Prevent textarea from being resized wider than parent */
+  textarea {
+    resize: vertical !important;
   }
 }
 

@@ -571,10 +571,7 @@ export default function LoginPage() {
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({
-                                                            url: data.url,
-                                                            presentationStyle: 'popover'
-                                                        })
+                                                        await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {
                                                     toast({
@@ -611,17 +608,17 @@ export default function LoginPage() {
                                                         provider: 'google',
                                                         options: {
                                                             redirectTo: redirectUrl,
-                                                            skipBrowserRedirect: isNative
+                                                            skipBrowserRedirect: isNative,
+                                                            queryParams: {
+                                                                prompt: 'select_account'
+                                                            }
                                                         }
                                                     })
                                                     if (error) throw error
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
-                                                        await Browser.open({
-                                                            url: data.url,
-                                                            presentationStyle: 'popover'
-                                                        })
+                                                        await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {
                                                     toast({

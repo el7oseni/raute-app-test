@@ -11,15 +11,21 @@ export const capacitorStorage = {
     try {
       if (Capacitor.isNativePlatform()) {
         // Retry Preferences.get in case native bridge isn't ready on cold start
-        for (let attempt = 0; attempt < 3; attempt++) {
+        // Use 5 attempts with increasing delays for resilience after force-stop
+        for (let attempt = 0; attempt < 5; attempt++) {
           try {
             const result = await Preferences.get({ key })
+            if (attempt > 0 && result.value) {
+              console.log(`✅ Storage read succeeded on attempt ${attempt + 1} for: ${key.substring(0, 20)}`)
+            }
             return result.value
           } catch (err) {
-            if (attempt < 2) {
-              await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)))
+            if (attempt < 4) {
+              const delay = 150 * (attempt + 1) // 150, 300, 450, 600ms
+              console.warn(`⏳ Storage retry ${attempt + 1}/5 for ${key.substring(0, 20)}, waiting ${delay}ms`)
+              await new Promise(resolve => setTimeout(resolve, delay))
             } else {
-              console.error('❌ Storage getItem failed after retries:', key, err)
+              console.error('❌ Storage getItem failed after 5 retries:', key, err)
               return null // Return null but do NOT delete the key
             }
           }
