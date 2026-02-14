@@ -508,8 +508,8 @@ export default function ClientOrderDetails() {
                     </button></div></div>
                     {order.notes && (<div className="p-4 bg-yellow-50/50"><p className="text-xs text-yellow-600 font-bold uppercase tracking-wider mb-1">Driver Notes</p><p className="text-sm text-slate-700 italic">"{order.notes}"</p></div>)}
 
-                    {/* Proof Images Gallery */}
-                    {(proofImages.length > 0 || order.proof_url) && (
+                    {/* Proof Images Gallery - Only show when order is delivered */}
+                    {order.status === 'delivered' && (proofImages.length > 0 || order.proof_url || order.signature_url) && (
                         <div className="p-4 bg-slate-50">
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Proof of Delivery</p>
@@ -863,7 +863,23 @@ export default function ClientOrderDetails() {
                             onClick={async () => {
                                 try {
                                     setIsUpdating(true)
+
+                                    // Clear proof data from DB
+                                    await supabase.from('orders').update({
+                                        proof_url: null,
+                                        signature_url: null
+                                    }).eq('id', orderId)
+
+                                    // Delete proof images from proof_images table
+                                    if (proofImages.length > 0) {
+                                        await supabase.from('proof_images').delete().eq('order_id', orderId)
+                                        setProofImages([])
+                                    }
+
                                     await updateOrderStatus('in_progress')
+
+                                    // Update local state
+                                    setOrder(prev => prev ? { ...prev, proof_url: null, signature_url: null } : prev)
                                 } finally {
                                     setIsUpdating(false)
                                     setIsUndoDialogOpen(false)
