@@ -60,20 +60,31 @@ export async function restoreSessionFromBackup(): Promise<boolean> {
         }
 
         console.log('📦 Restoring session from backup...')
-        const { data, error } = await supabase.auth.setSession({
-            access_token: backup.access_token,
+
+        // Use refreshSession instead of setSession — more reliable when access_token is expired
+        const { data, error } = await supabase.auth.refreshSession({
             refresh_token: backup.refresh_token
         })
 
         if (error) {
             console.error('❌ Backup session restore failed:', error.message)
-            // Clear invalid backup
-            await Preferences.remove({ key: SESSION_BACKUP_KEY })
-            return false
+            // Fallback: try setSession in case refreshSession doesn't work
+            const { data: fallbackData, error: fallbackError } = await supabase.auth.setSession({
+                access_token: backup.access_token,
+                refresh_token: backup.refresh_token
+            })
+            if (fallbackError || !fallbackData.session) {
+                console.error('❌ Fallback setSession also failed')
+                await Preferences.remove({ key: SESSION_BACKUP_KEY })
+                return false
+            }
+            console.log('✅ Session restored via fallback setSession!')
+            await backupSession(fallbackData.session.access_token, fallbackData.session.refresh_token)
+            return true
         }
 
         if (data.session) {
-            console.log('✅ Session restored from backup!')
+            console.log('✅ Session restored from backup via refreshSession!')
             // Re-backup with fresh tokens
             await backupSession(data.session.access_token, data.session.refresh_token)
             return true

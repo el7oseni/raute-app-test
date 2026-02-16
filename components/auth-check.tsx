@@ -26,6 +26,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const isMountedRef = useRef(true)
     // Track if auth check is already running to prevent duplicates
     const authCheckRunningRef = useRef(false)
+    // Track if we already resolved (session found or redirected)
+    const resolvedRef = useRef(false)
 
     const isPublicRoute = useMemo(() => {
         return PUBLIC_ROUTES.some(route =>
@@ -33,8 +35,30 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         )
     }, [pathname])
 
+    // Helper: stop loading and mark resolved
+    const finishLoading = () => {
+        if (isMountedRef.current) setIsLoading(false)
+        authCheckRunningRef.current = false
+        resolvedRef.current = true
+    }
+
+    // Helper: redirect to login (with cooldown)
+    const redirectToLogin = (reason?: string) => {
+        if (!isMountedRef.current || isPublicRoute || resolvedRef.current) return
+        const now = Date.now()
+        if (now - lastRedirectRef.current > 3000) {
+            console.log(`⛔ Redirecting to login: ${reason || 'no session'}`)
+            lastRedirectRef.current = now
+            resolvedRef.current = true
+            if (isMountedRef.current) setIsLoading(false)
+            authCheckRunningRef.current = false
+            router.push('/login')
+        }
+    }
+
     useEffect(() => {
         isMountedRef.current = true
+        resolvedRef.current = false
 
         // For marketing pages, skip all auth checks
         if (isMarketingPage) {
@@ -46,20 +70,24 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
-        // Maximum timeout to prevent frozen screens
-        // Native needs more time (15s) for Preferences to restore session after force-stop
-        // IMPORTANT: Do NOT call signOut here — it destroys sessions mid-establishment
         const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
-        const maxTimeoutMs = isNative ? 15000 : 10000
+
+        // TIMEOUT: Force resolve after timeout
+        // Web: 5s (cookies are instant), Native: 12s (Preferences needs time)
+        const maxTimeoutMs = isNative ? 12000 : 5000
         const maxTimeout = setTimeout(() => {
-            console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing render`)
-            if (isMountedRef.current) {
-                setIsLoading(false)
+            if (resolvedRef.current) return
+            console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing resolve`)
+            // On timeout, redirect to login if on protected route (don't just show empty page)
+            if (!isPublicRoute) {
+                redirectToLogin('timeout')
+            } else {
+                finishLoading()
             }
-            authCheckRunningRef.current = false
         }, maxTimeoutMs)
 
-        const checkAuth = async (retries = 10) => {
+        const checkAuth = async (retries: number) => {
+            if (resolvedRef.current) return
             authCheckRunningRef.current = true
 
             try {
@@ -68,163 +96,131 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 if (error) {
                     console.error("❌ Auth error:", error.message)
 
-                    // Handle specific error types
+                    // Handle corrupted session
                     if (error.message.includes('string did not match') ||
                         error.message.includes('pattern') ||
                         error.message.includes('Invalid')) {
                         console.warn('⚠️ Session validation error - clearing corrupted data')
-
-                        // Clear corrupted session data
                         try {
                             await supabase.auth.signOut({ scope: 'local' })
-                            const { capacitorStorage } = await import('@/lib/capacitor-storage')
-                            await capacitorStorage.clearAllAuthData()
+                            if (isNative) {
+                                const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                                await capacitorStorage.clearAllAuthData()
+                            }
                         } catch (cleanupErr) {
                             console.error('Cleanup failed:', cleanupErr)
                         }
-
-                        // Redirect to login after cleanup
-                        if (!isPublicRoute) {
-                            clearTimeout(maxTimeout)
-                            if (isMountedRef.current) {
-                                setIsLoading(false)
-                                router.push('/login?error=session_invalid')
-                            }
-                            authCheckRunningRef.current = false
-                            return
-                        }
-                    }
-
-                    clearTimeout(maxTimeout)
-                    if (isMountedRef.current) setIsLoading(false)
-                    authCheckRunningRef.current = false
-                    return
-                }
-
-                // Retry if no session found (session is being restored from storage)
-                if (!data.session && retries > 0) {
-                    // On native, use longer delays to give Preferences time to restore
-                    const isNative = Capacitor.isNativePlatform()
-                    const delay = isNative ? 600 : (retries > 5 ? 400 : 600)
-                    console.log(`⏳ Waiting for session... (${retries} retries left, ${isNative ? 'native' : 'web'})`)
-                    setTimeout(() => {
-                        if (isMountedRef.current) checkAuth(retries - 1)
-                    }, delay)
-                    return
-                }
-
-                // Last resort on native: if no session after all retries,
-                // try refreshing from storage one more time
-                if (!data.session && retries === 0 && Capacitor.isNativePlatform() && !isPublicRoute) {
-                    console.log('🔄 Final native session recovery attempt...')
-
-                    // Attempt 1: Try Supabase's internal storage key
-                    try {
-                        const { capacitorStorage } = await import('@/lib/capacitor-storage')
-                        const stored = await capacitorStorage.getItem('sb-raute-auth')
-                        if (stored) {
-                            console.log('📦 Found stored session data, forcing refresh...')
-                            const parsed = JSON.parse(stored)
-                            if (parsed?.access_token && parsed?.refresh_token) {
-                                const { data: refreshData } = await supabase.auth.setSession({
-                                    access_token: parsed.access_token,
-                                    refresh_token: parsed.refresh_token
-                                })
-                                if (refreshData.session) {
-                                    console.log('✅ Session recovered from storage!')
-                                    clearTimeout(maxTimeout)
-                                    if (isMountedRef.current) setIsLoading(false)
-                                    authCheckRunningRef.current = false
-                                    return
-                                }
-                            }
-                        }
-                    } catch (recoveryErr) {
-                        console.warn('⚠️ Storage recovery failed:', recoveryErr)
-                    }
-
-                    // Attempt 2: Try our redundant session backup (separate Preferences key)
-                    try {
-                        console.log('📦 Trying redundant session backup...')
-                        const restored = await restoreSessionFromBackup()
-                        if (restored) {
-                            console.log('✅ Session recovered from backup!')
-                            clearTimeout(maxTimeout)
-                            if (isMountedRef.current) setIsLoading(false)
-                            authCheckRunningRef.current = false
-                            return
-                        }
-                    } catch (backupErr) {
-                        console.warn('⚠️ Backup restore failed:', backupErr)
-                    }
-                }
-
-                const isAuthenticated = !!data.session
-                console.log('✅ AuthCheck result:', {
-                    path: pathname,
-                    authenticated: isAuthenticated,
-                    hasSession: !!data.session,
-                    userId: data.session?.user?.id?.substring(0, 8)
-                })
-
-                if (!isAuthenticated && !isPublicRoute) {
-                    // No session on protected route — redirect to login
-                    const now = Date.now()
-                    if (now - lastRedirectRef.current > 3000) {
-                        console.log('⛔ No session on protected route, redirecting to login')
-                        lastRedirectRef.current = now
-                        router.push('/login')
-                    }
-                } else if (isAuthenticated) {
-                    // Validate session data
-                    const session = data.session!
-                    if (!session.access_token || !session.user) {
-                        console.error('❌ Invalid session data, clearing and redirecting')
-                        await supabase.auth.signOut({ scope: 'local' })
-                        if (!isPublicRoute) {
-                            router.push('/login?error=invalid_session')
-                        }
                         clearTimeout(maxTimeout)
-                        if (isMountedRef.current) setIsLoading(false)
-                        authCheckRunningRef.current = false
+                        redirectToLogin('session_invalid')
                         return
                     }
 
+                    clearTimeout(maxTimeout)
+                    finishLoading()
+                    return
+                }
+
+                // SESSION FOUND
+                if (data.session) {
+                    // Validate session data
+                    if (!data.session.access_token || !data.session.user) {
+                        console.error('❌ Invalid session data, clearing')
+                        await supabase.auth.signOut({ scope: 'local' })
+                        clearTimeout(maxTimeout)
+                        redirectToLogin('invalid_session')
+                        return
+                    }
+
+                    console.log('✅ AuthCheck: session found', {
+                        path: pathname,
+                        userId: data.session.user.id.substring(0, 8)
+                    })
+
                     // Check email verification
-                    const user = data.session!.user
-                    if (!user.email_confirmed_at && pathname !== '/verify-email') {
+                    if (!data.session.user.email_confirmed_at && pathname !== '/verify-email') {
                         const now = Date.now()
                         if (now - lastRedirectRef.current > 3000) {
                             lastRedirectRef.current = now
                             router.push('/verify-email')
                         }
                     }
+
+                    clearTimeout(maxTimeout)
+                    finishLoading()
+                    return
                 }
 
-                // Done checking — render children
-                clearTimeout(maxTimeout)
-                if (isMountedRef.current) setIsLoading(false)
-                authCheckRunningRef.current = false
+                // NO SESSION — retry on native (Preferences may be slow)
+                if (isNative && retries > 0) {
+                    console.log(`⏳ No session yet, retrying... (${retries} left)`)
+                    setTimeout(() => {
+                        if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
+                    }, 500)
+                    return
+                }
 
-            } catch (error: any) {
-                console.error("❌ Auth check failed:", error)
+                // NO SESSION — last resort on native: try backup restore
+                if (isNative && retries === 0 && !isPublicRoute) {
+                    console.log('🔄 Final recovery: trying session backup...')
 
-                // Handle session validation errors
-                if (error?.message?.includes('string did not match') ||
-                    error?.message?.includes('pattern')) {
-                    console.warn('⚠️ Clearing corrupted session and redirecting')
+                    // Try Supabase's internal storage key first
                     try {
-                        await supabase.auth.signOut({ scope: 'local' })
-                    } catch {}
+                        const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                        const stored = await capacitorStorage.getItem('sb-raute-auth')
+                        if (stored) {
+                            const parsed = JSON.parse(stored)
+                            if (parsed?.refresh_token) {
+                                // Use refreshSession instead of setSession for better reliability
+                                const { data: refreshData } = await supabase.auth.refreshSession({
+                                    refresh_token: parsed.refresh_token
+                                })
+                                if (refreshData.session) {
+                                    console.log('✅ Session recovered via refreshSession!')
+                                    clearTimeout(maxTimeout)
+                                    finishLoading()
+                                    return
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('⚠️ Storage recovery failed:', err)
+                    }
 
-                    if (!isPublicRoute) {
-                        router.push('/login?error=session_corrupted')
+                    // Try redundant backup
+                    try {
+                        const restored = await restoreSessionFromBackup()
+                        if (restored) {
+                            console.log('✅ Session recovered from backup!')
+                            clearTimeout(maxTimeout)
+                            finishLoading()
+                            return
+                        }
+                    } catch (err) {
+                        console.warn('⚠️ Backup restore failed:', err)
                     }
                 }
 
+                // NO SESSION on web — no retries needed (cookies are instant)
+                // Give up and redirect to login
+                console.log('✅ AuthCheck: no session found', { path: pathname })
                 clearTimeout(maxTimeout)
-                if (isMountedRef.current) setIsLoading(false)
-                authCheckRunningRef.current = false
+                if (!isPublicRoute) {
+                    redirectToLogin('no_session')
+                } else {
+                    finishLoading()
+                }
+
+            } catch (error: any) {
+                console.error("❌ Auth check failed:", error)
+                if (error?.message?.includes('string did not match') || error?.message?.includes('pattern')) {
+                    try { await supabase.auth.signOut({ scope: 'local' }) } catch {}
+                }
+                clearTimeout(maxTimeout)
+                if (!isPublicRoute) {
+                    redirectToLogin('error')
+                } else {
+                    finishLoading()
+                }
             }
         }
 
@@ -238,38 +234,32 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 }
             } else if (event === 'INITIAL_SESSION') {
                 if (session && isMountedRef.current) {
-                    // Session successfully restored from storage
                     console.log('✅ INITIAL_SESSION with session - stopping loading')
-                    setIsLoading(false)
-                    authCheckRunningRef.current = false
-                } else if (!session && Capacitor.isNativePlatform() && !isPublicRoute) {
-                    // On native, INITIAL_SESSION may fire before Preferences is ready
-                    // Try immediate backup restore as an early recovery path
-                    console.log('⏳ INITIAL_SESSION null on native - trying backup restore...')
-                    restoreSessionFromBackup().then(restored => {
-                        if (restored && isMountedRef.current) {
-                            console.log('✅ Session restored from backup on INITIAL_SESSION')
-                            setIsLoading(false)
-                            authCheckRunningRef.current = false
-                        }
-                    }).catch(() => {})
+                    clearTimeout(maxTimeout)
+                    finishLoading()
+                } else if (!session && isNative && !isPublicRoute) {
+                    // On native, INITIAL_SESSION fires before Preferences is ready
+                    // Let checkAuth handle the retries
+                    console.log('⏳ INITIAL_SESSION null on native - waiting for retries...')
                 }
+                // On web, if INITIAL_SESSION has no session, checkAuth will handle redirect
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // Session established or refreshed — stop loading
                 if (session && isMountedRef.current) {
-                    setIsLoading(false)
-                    authCheckRunningRef.current = false
+                    clearTimeout(maxTimeout)
+                    finishLoading()
                 }
             }
         })
 
-        // On native platforms, add extra delay before first check to let Preferences init
-        if (Capacitor.isNativePlatform()) {
+        // Start auth check
+        if (isNative) {
+            // Native: small delay for Preferences init, then retry up to 8 times
             setTimeout(() => {
-                if (isMountedRef.current) checkAuth(12)
-            }, 500)
+                if (isMountedRef.current && !resolvedRef.current) checkAuth(8)
+            }, 300)
         } else {
-            checkAuth()
+            // Web: check once immediately (cookies are instant, no retries needed)
+            checkAuth(0)
         }
 
         return () => {
