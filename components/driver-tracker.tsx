@@ -4,15 +4,15 @@ import { supabase } from "@/lib/supabase"
 
 interface DriverTrackerProps {
     driverId: string
+    companyId?: string
     isOnline: boolean
     userId?: string
 }
 
-export function DriverTracker({ driverId, isOnline, userId }: DriverTrackerProps) {
+export function DriverTracker({ driverId, companyId, isOnline, userId }: DriverTrackerProps) {
     useEffect(() => {
-        // We now pass driverId to helper to avoid "None" issue in Diagnostics
-        if (userId && driverId) geoService.init(userId, supabase, driverId, undefined) // We don't have companyId prop here yet, but driverId is most critical for diagnostics
-    }, [userId, driverId])
+        if (userId && driverId) geoService.init(userId, supabase, driverId, companyId)
+    }, [userId, driverId, companyId])
 
     useEffect(() => {
         if (isOnline) {

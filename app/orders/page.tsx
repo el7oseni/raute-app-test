@@ -802,7 +802,7 @@ export default function OrdersPage() {
         return (
             <PullToRefresh onRefresh={fetchData}>
                 <div className="p-4 space-y-6 pb-24 max-w-lg mx-auto bg-background min-h-screen safe-area-pt">
-                    {driverId && userId && <DriverTracker driverId={driverId} isOnline={isOnline} userId={userId} />}
+                    {driverId && userId && <DriverTracker driverId={driverId} companyId={companyId || undefined} isOnline={isOnline} userId={userId} />}
 
                     {/* OFFLINE / CACHE INDICATOR */}
                     {(!isOnline || isLoading) && (

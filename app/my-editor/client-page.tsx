@@ -78,6 +78,7 @@ export default function ClientOrderDetails() {
     const [drivers, setDrivers] = useState<any[]>([])
     const [currentDriverId, setCurrentDriverId] = useState<string | null>(null)
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+    const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null)
 
 
     // Proof Images State
@@ -160,6 +161,7 @@ export default function ClientOrderDetails() {
 
                 if (userProfile) {
                     setUserRole(userProfile.role)
+                    setCurrentCompanyId(userProfile.company_id)
                     if (userProfile.role !== 'driver') {
                         // Fetch drivers with online status fields
                         const { data: driversData } = await supabase
@@ -962,7 +964,8 @@ export default function ClientOrderDetails() {
             {userRole === 'driver' && currentDriverId && (
                 <DriverTracker
                     driverId={currentDriverId}
-                    isOnline={true} // Driver in active order flow is assumed online
+                    companyId={currentCompanyId || undefined}
+                    isOnline={true}
                     userId={currentUserId || undefined}
                 />
             )}
