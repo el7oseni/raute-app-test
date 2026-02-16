@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { App } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
@@ -112,7 +111,6 @@ async function clearSessionBackup() {
 }
 
 export function AuthListener() {
-    const router = useRouter()
     const { toast } = useToast()
 
     useEffect(() => {
@@ -128,10 +126,12 @@ export function AuthListener() {
             }
         })
 
-        // Helper: verify session is persisted before navigating
+        // Helper: verify session is persisted, then hard-navigate to dashboard
+        // Uses window.location.href (NOT router.push) to force a full page reload.
+        // This ensures auth-check starts fresh with the session already in storage.
         async function waitForSessionAndNavigate() {
             for (let i = 0; i < 5; i++) {
-                await new Promise(resolve => setTimeout(resolve, 300))
+                await new Promise(resolve => setTimeout(resolve, 400))
                 const { data } = await supabase.auth.getSession()
                 if (data.session) {
                     console.log(`✅ Session verified on check ${i + 1}, navigating to dashboard`)
@@ -140,7 +140,7 @@ export function AuthListener() {
                         description: 'Successfully logged in.',
                         type: 'success'
                     })
-                    router.push('/dashboard')
+                    window.location.href = '/dashboard'
                     return true
                 }
             }
@@ -202,7 +202,7 @@ export function AuthListener() {
                                     description: 'Successfully logged in.',
                                     type: 'success'
                                 })
-                                router.push('/dashboard')
+                                window.location.href = '/dashboard'
                             }
                             return
                         }
@@ -284,7 +284,7 @@ export function AuthListener() {
             listener.then(handle => handle.remove())
             appStateListener.then(handle => handle.remove())
         }
-    }, [router, toast])
+    }, [toast])
 
     return null
 }
