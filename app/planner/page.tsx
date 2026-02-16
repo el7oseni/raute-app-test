@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase, type Order, type Driver } from '@/lib/supabase'
+import { isDriverOnline } from '@/lib/driver-status'
 import { waitForSession } from '@/lib/wait-for-session'
 import type { OptimizationStrategy } from '@/lib/optimizer'
 import { SplitSuggestionsModal } from '@/components/split-suggestions-modal'
@@ -402,18 +403,8 @@ export default function PlannerPage() {
         finally { setIsLoading(false) }
     }
 
-    // Helper: Check if driver is really online
-    function isDriverReallyOnline(driver: Driver): boolean {
-        // Simple check: active status + last_location_update within 5 mins
-        if (!driver.last_location_update) return false
-
-        const lastUpdate = new Date(driver.last_location_update)
-        const now = new Date()
-        const diffMs = now.getTime() - lastUpdate.getTime()
-        const minutesAgo = diffMs / 1000 / 60
-
-        return minutesAgo < 5 // Online if updated in last 5 minutes
-    }
+    // Use shared helper from lib/driver-status.ts
+    const isDriverReallyOnline = isDriverOnline
 
     // Helper: Format relative time
     function formatRelativeTime(timestamp: string): string {

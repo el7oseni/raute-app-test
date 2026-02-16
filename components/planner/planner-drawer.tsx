@@ -4,6 +4,7 @@ import { Sparkles, Package, Truck, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { type Order, type Driver } from "@/lib/supabase"
+import { isDriverOnline } from "@/lib/driver-status"
 
 interface PlannerDrawerProps {
     orders: Order[]
@@ -159,12 +160,12 @@ export function PlannerDrawer({
                                                 <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                                                     <Truck size={14} />
                                                 </div>
-                                                <div className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${driver.is_online ? 'bg-green-500' : 'bg-slate-300'}`} />
+                                                <div className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${isDriverOnline(driver) ? 'bg-green-500' : 'bg-slate-300'}`} />
                                             </div>
                                             <div>
                                                 <div className={`text-sm font-semibold ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{driver.name}</div>
                                                 <div className="text-[10px] text-muted-foreground">
-                                                    {driver.is_online ? 'Online' : 'Offline'}
+                                                    {isDriverOnline(driver) ? 'Online' : 'Offline'}
                                                 </div>
                                             </div>
                                         </div>

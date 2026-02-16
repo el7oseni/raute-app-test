@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { supabase, type CustomField } from "@/lib/supabase"
+import { isDriverOnline } from "@/lib/driver-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -135,14 +136,14 @@ export default function ProfilePage() {
                 if (profileData.role === 'driver') {
                     promises.push(
                         supabase.from('drivers')
-                            .select('phone, vehicle_type, is_online, custom_values')
+                            .select('phone, vehicle_type, is_online, last_location_update, custom_values')
                             .eq('user_id', currentUserId)
                             .single()
                             .then(({ data }) => {
                                 if (data) {
                                     setPhone(data.phone || '')
                                     setVehicleType(data.vehicle_type || '')
-                                    setIsOnline(data.is_online || false)
+                                    setIsOnline(isDriverOnline(data))
                                     setCustomValues(data.custom_values || {})
                                 }
                             })

@@ -2,6 +2,7 @@
 
 import { Truck, Layers, CheckCircle2, AlertCircle, MapPinOff } from "lucide-react"
 import type { Driver } from "@/lib/supabase"
+import { isDriverOnline, getLastSeenText } from "@/lib/driver-status"
 import { Button } from "@/components/ui/button"
 
 interface FleetPanelProps {
@@ -78,6 +79,7 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                     {drivers.map(driver => {
                         const stats = getDriverStats(driver.id)
                         const isSelected = selectedDriverId === driver.id
+                        const online = isDriverOnline(driver)
 
                         return (
                             <Button
@@ -87,17 +89,17 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                 onClick={() => onSelectDriver(driver.id)}
                             >
                                 <div className="relative shrink-0">
-                                    <div className={`p-2 rounded-full ${driver.is_online ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className={`p-2 rounded-full ${online ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                                         <Truck size={20} />
                                     </div>
-                                    {driver.is_online && (
+                                    {online && (
                                         <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-background rounded-full animate-pulse" />
                                     )}
                                 </div>
                                 <div className="flex-1 text-left overflow-hidden min-w-0">
                                     <div className="font-semibold truncate flex items-center gap-2">
                                         {driver.name}
-                                        {driver.current_lat && driver.current_lng && (
+                                        {online && driver.current_lat && driver.current_lng && (
                                             <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-normal">
                                                 📍 Live
                                             </span>
@@ -127,19 +129,9 @@ export function FleetPanel({ drivers, orders, selectedDriverId, onSelectDriver, 
                                             {stats.completed} Done
                                         </span>
                                     </div>
-                                    {driver.last_location_update && (
-                                        <div className="text-[10px] text-slate-500 mt-1">
-                                            {(() => {
-                                                const diff = Date.now() - new Date(driver.last_location_update).getTime()
-                                                const seconds = Math.floor(diff / 1000)
-                                                if (seconds < 60) return `Last seen: ${seconds}s ago`
-                                                const minutes = Math.floor(seconds / 60)
-                                                if (minutes < 60) return `Last seen: ${minutes}m ago`
-                                                const hours = Math.floor(minutes / 60)
-                                                return `Last seen: ${hours}h ago`
-                                            })()}
-                                        </div>
-                                    )}
+                                    <div className="text-[10px] text-slate-500 mt-1">
+                                        Last seen: {getLastSeenText(driver)}
+                                    </div>
                                 </div>
                             </Button>
                         )

@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Calendar, User as UserIcon, Phone, Package, Edit, Tr
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { supabase, type Order, type ProofImage } from "@/lib/supabase"
+import { isDriverOnline } from "@/lib/driver-status"
 import dynamic from "next/dynamic"
 import {
     AlertDialog,
@@ -160,10 +161,10 @@ export default function ClientOrderDetails() {
                 if (userProfile) {
                     setUserRole(userProfile.role)
                     if (userProfile.role !== 'driver') {
-                        // Fetch drivers with 'is_online' status
+                        // Fetch drivers with online status fields
                         const { data: driversData } = await supabase
                             .from('drivers')
-                            .select('id, name, is_online, vehicle_type')
+                            .select('id, name, is_online, last_location_update, vehicle_type')
                             .eq('company_id', userProfile.company_id)
                             .eq('status', 'active')
                             .order('name')
@@ -833,8 +834,8 @@ export default function ClientOrderDetails() {
                             >
                                 <option value="">Unassigned</option>
                                 {drivers.map((driver) => (
-                                    <option key={driver.id} value={driver.id} className={!driver.is_online ? 'text-slate-400' : 'text-green-700 font-bold'}>
-                                        {driver.is_online ? '🟢' : '⚪'} {driver.name} {!driver.is_online ? '(Offline)' : ''}
+                                    <option key={driver.id} value={driver.id} className={!isDriverOnline(driver) ? 'text-slate-400' : 'text-green-700 font-bold'}>
+                                        {isDriverOnline(driver) ? '🟢' : '⚪'} {driver.name} {!isDriverOnline(driver) ? '(Offline)' : ''}
                                     </option>
                                 ))}
                             </select>

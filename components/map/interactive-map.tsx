@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import "leaflet/dist/leaflet.css"
 import { MapPin, Package, Truck, User, Trash2 } from "lucide-react"
 import { supabase, type Order, type Driver } from "@/lib/supabase"
+import { isDriverOnline } from "@/lib/driver-status"
 import * as L from "leaflet" // Import Leaflet directly
 import { useTheme } from "next-themes"
 import type { MapControllerProps } from "@/components/map/map-controller"
@@ -161,8 +162,8 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
 
     const displayedDrivers = useMemo(() => {
         if (!selectedDriverId) {
-            // Global view: Show ONLY online drivers
-            return drivers.filter(d => d.is_online)
+            // Global view: Show ONLY online drivers (based on last_location_update freshness)
+            return drivers.filter(d => isDriverOnline(d))
         }
         // Selected view: Show selected driver even if offline (last known location)
         return drivers.filter(d => d.id === selectedDriverId)
@@ -306,19 +307,19 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                     <Marker
                         key={driver.id}
                         position={[driver.current_lat, driver.current_lng]}
-                        icon={createDriverIcon(driver.is_online || false)}
+                        icon={createDriverIcon(isDriverOnline(driver))}
                         zIndexOffset={1000}
                     >
                         <Popup>
                             <div className="p-2 min-w-[200px]">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${ driver.is_online ? 'bg-green-500' : 'bg-slate-500'}`}>
+                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white ${isDriverOnline(driver) ? 'bg-green-500' : 'bg-slate-500'}`}>
                                         <Truck size={16} />
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-900">{driver.name}</p>
                                         <p className="text-xs text-slate-500">
-                                            {driver.is_online ? '🟢 Online' : '⚪ Offline'}
+                                            {isDriverOnline(driver) ? '🟢 Online' : '⚪ Offline'}
                                         </p>
                                     </div>
                                 </div>

@@ -242,7 +242,7 @@ export default function OrdersPage() {
             if (userProfile.role === 'driver') {
                 const { data: driverData } = await supabase
                     .from('drivers')
-                    .select('id, is_online')
+                    .select('id, is_online, last_location_update')
                     .eq('user_id', currentUserId)
                     .maybeSingle()
 
@@ -252,15 +252,14 @@ export default function OrdersPage() {
                 }
 
                 setDriverId(driverData.id)
-                // IMPORTANT: Set initial state from DB to prevent flip-flopping
-                // Also check localStorage for instant UI feedback
+                // Check localStorage for instant UI feedback
                 const cachedOnlineStatus = localStorage.getItem('driver_online_status')
                 if (cachedOnlineStatus !== null) {
-                    // Show cached status immediately for instant feedback
                     setIsOnline(cachedOnlineStatus === 'true')
                 }
-                // Then update from DB (source of truth)
-                setIsOnline(driverData.is_online === true)
+                // Then derive from last_location_update (source of truth)
+                const { isDriverOnline: checkOnline } = await import('@/lib/driver-status')
+                setIsOnline(checkOnline(driverData))
 
                 const { data, error } = await supabase
                     .from('orders')

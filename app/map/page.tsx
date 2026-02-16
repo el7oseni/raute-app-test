@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
 import { Menu, Navigation } from "lucide-react"
 import { supabase, type Order, type Driver } from "@/lib/supabase"
+import { isDriverOnline } from "@/lib/driver-status"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -209,20 +210,11 @@ export default function MapPage() {
                     todayString
                 });
 
-                // Auto-Offline Logic: Mark drivers offline if last update > 5 minutes ago
-                const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
-                const processedDrivers = (driversData || []).map(driver => {
-                    if (!driver.is_online) return driver // Already offline
-
-                    const lastUpdate = driver.last_location_update ? new Date(driver.last_location_update).getTime() : 0
-                    const now = Date.now()
-                    const isStale = (now - lastUpdate) > OFFLINE_THRESHOLD_MS
-
-                    if (isStale) {
-                        return { ...driver, is_online: false }
-                    }
-                    return driver
-                })
+                // Derive online status from last_location_update (single source of truth)
+                const processedDrivers = (driversData || []).map(driver => ({
+                    ...driver,
+                    is_online: isDriverOnline(driver)
+                }))
 
                 setOrders(visibleOrders)
                 setDrivers(processedDrivers)
