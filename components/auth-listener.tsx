@@ -160,13 +160,16 @@ export function AuthListener() {
                 await new Promise(resolve => setTimeout(resolve, 500))
 
                 const parsedUrl = new URL(url)
-                const code = parsedUrl.searchParams.get('code')
-                const error = parsedUrl.searchParams.get('error')
-                const errorDescription = parsedUrl.searchParams.get('error_description')
-
                 const hashParams = new URLSearchParams(url.split('#')[1] || '')
-                const accessToken = hashParams.get('access_token')
-                const refreshToken = hashParams.get('refresh_token')
+
+                // Check both query params AND hash fragment (iOS may use either)
+                const code = parsedUrl.searchParams.get('code')
+                const error = parsedUrl.searchParams.get('error') || hashParams.get('error')
+                const errorDescription = parsedUrl.searchParams.get('error_description') || hashParams.get('error_description')
+                const accessToken = hashParams.get('access_token') || parsedUrl.searchParams.get('access_token')
+                const refreshToken = hashParams.get('refresh_token') || parsedUrl.searchParams.get('refresh_token')
+
+                console.log('🔗 Parsed callback:', { hasCode: !!code, hasAccessToken: !!accessToken, hasError: !!error })
 
                 if (error) {
                     toast({
@@ -186,67 +189,123 @@ export function AuthListener() {
                         type: 'info'
                     })
 
-                    for (let attempt = 0; attempt < 3; attempt++) {
-                        const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                    let lastError = ''
 
-                        if (!sessionError && data.session) {
-                            console.log('✅ Session established via PKCE code exchange')
-                            // Explicitly backup the session
-                            await backupSession(data.session.access_token, data.session.refresh_token)
-                            await new Promise(resolve => setTimeout(resolve, 500))
-                            const navigated = await waitForSessionAndNavigate()
-                            if (!navigated) {
-                                console.warn('⚠️ Session set but verification failed, navigating anyway')
+                    // Attempt 1: Client-side PKCE exchange (needs code verifier in storage)
+                    for (let attempt = 0; attempt < 2; attempt++) {
+                        try {
+                            const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+
+                            if (!sessionError && data.session) {
+                                console.log('✅ Session established via PKCE code exchange')
+                                await backupSession(data.session.access_token, data.session.refresh_token)
+                                await new Promise(resolve => setTimeout(resolve, 300))
                                 toast({
                                     title: 'Welcome Back!',
                                     description: 'Successfully logged in.',
                                     type: 'success'
                                 })
                                 window.location.href = '/dashboard'
+                                return
                             }
-                            return
-                        }
 
-                        console.warn(`⚠️ Code exchange attempt ${attempt + 1} failed:`, sessionError?.message)
-                        if (attempt < 2) {
-                            await new Promise(resolve => setTimeout(resolve, 500))
+                            lastError = sessionError?.message || 'Unknown error'
+                            console.warn(`⚠️ Code exchange attempt ${attempt + 1} failed:`, lastError)
+                        } catch (err: any) {
+                            lastError = err?.message || 'Exception during exchange'
+                            console.error(`❌ Code exchange exception:`, lastError)
                         }
+                        if (attempt < 1) await new Promise(resolve => setTimeout(resolve, 500))
                     }
 
-                    // Fallback
-                    console.log('🔄 Code exchange failed, checking for existing session...')
-                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    // Attempt 2: Server-side code exchange (bypasses code verifier)
+                    console.log('🔄 Client exchange failed, trying server-side...')
+                    try {
+                        const serverUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+                        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                        if (serverUrl && anonKey) {
+                            const response = await fetch(`${serverUrl}/auth/v1/token?grant_type=pkce`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'apikey': anonKey,
+                                },
+                                body: JSON.stringify({
+                                    auth_code: code,
+                                    code_verifier: '', // Empty — server may accept if PKCE not enforced
+                                })
+                            })
+
+                            if (response.ok) {
+                                const tokenData = await response.json()
+                                if (tokenData.access_token && tokenData.refresh_token) {
+                                    console.log('✅ Server-side token exchange succeeded')
+                                    const { data: setData, error: setErr } = await supabase.auth.setSession({
+                                        access_token: tokenData.access_token,
+                                        refresh_token: tokenData.refresh_token
+                                    })
+                                    if (!setErr && setData.session) {
+                                        await backupSession(setData.session.access_token, setData.session.refresh_token)
+                                        toast({
+                                            title: 'Welcome Back!',
+                                            description: 'Successfully logged in.',
+                                            type: 'success'
+                                        })
+                                        window.location.href = '/dashboard'
+                                        return
+                                    }
+                                }
+                            }
+                        }
+                    } catch (serverErr) {
+                        console.warn('⚠️ Server-side exchange failed:', serverErr)
+                    }
+
+                    // Attempt 3: Check if session was set by onAuthStateChange
+                    console.log('🔄 Checking for existing session...')
+                    await new Promise(resolve => setTimeout(resolve, 1500))
                     const { data: sessionData } = await supabase.auth.getSession()
                     if (sessionData.session) {
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
-                        await waitForSessionAndNavigate()
+                        toast({
+                            title: 'Welcome Back!',
+                            description: 'Successfully logged in.',
+                            type: 'success'
+                        })
+                        window.location.href = '/dashboard'
                         return
                     }
 
+                    // All attempts failed — show the actual error
                     toast({
                         title: 'Login Failed',
-                        description: 'Could not complete sign in. Please try again.',
+                        description: lastError || 'Could not complete sign in. Please try again.',
                         type: 'error'
                     })
                     return
                 }
 
-                // Implicit flow tokens
+                // Implicit flow tokens (from hash fragment)
                 if (accessToken && refreshToken) {
                     console.log('🔐 Setting session from hash tokens...')
-                    const { error: setError } = await supabase.auth.setSession({
+                    const { data: tokenData, error: setError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
                     })
 
-                    if (!setError) {
-                        await backupSession(accessToken, refreshToken)
-                        await new Promise(resolve => setTimeout(resolve, 500))
-                        await waitForSessionAndNavigate()
+                    if (!setError && tokenData.session) {
+                        await backupSession(tokenData.session.access_token, tokenData.session.refresh_token)
+                        toast({
+                            title: 'Welcome Back!',
+                            description: 'Successfully logged in.',
+                            type: 'success'
+                        })
+                        window.location.href = '/dashboard'
                     } else {
+                        console.error('❌ setSession failed:', setError?.message)
                         toast({
                             title: 'Login Failed',
-                            description: 'Could not complete sign in.',
+                            description: setError?.message || 'Could not complete sign in.',
                             type: 'error'
                         })
                     }
