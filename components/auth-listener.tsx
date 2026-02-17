@@ -144,7 +144,7 @@ export function AuthListener() {
                         description: 'Successfully logged in.',
                         type: 'success'
                     })
-                    router.push('/dashboard')
+                    window.location.href = '/dashboard'
                     return true
                 }
             }
@@ -217,6 +217,14 @@ export function AuthListener() {
                         })
                     } catch {}
 
+                    // Helper: navigate to dashboard with full page reload
+                    // Using window.location.href instead of router.push to ensure
+                    // auth-check starts completely fresh with the session already in storage
+                    const navigateToDashboard = () => {
+                        toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
+                        window.location.href = '/dashboard'
+                    }
+
                     // Attempt 1: Direct code exchange
                     try {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
@@ -224,8 +232,9 @@ export function AuthListener() {
                             console.log('✅ Session via PKCE exchange (attempt 1)')
                             await backupSession(data.session.access_token, data.session.refresh_token)
                             await clearCodeVerifierBackup()
-                            toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                            router.push('/dashboard')
+                            // Wait for session to be fully persisted before navigating
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                            navigateToDashboard()
                             return
                         }
                         lastError = sessionError?.message || 'Unknown error'
@@ -248,8 +257,8 @@ export function AuthListener() {
                                 console.log('✅ Session via PKCE exchange (attempt 2 - restored verifier)')
                                 await backupSession(data.session.access_token, data.session.refresh_token)
                                 await clearCodeVerifierBackup()
-                                toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                                router.push('/dashboard')
+                                await new Promise(resolve => setTimeout(resolve, 500))
+                                navigateToDashboard()
                                 return
                             }
                             lastError = sessionError?.message || 'Unknown error'
@@ -267,8 +276,7 @@ export function AuthListener() {
                     if (sessionData.session) {
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await clearCodeVerifierBackup()
-                        toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                        router.push('/dashboard')
+                        navigateToDashboard()
                         return
                     }
 
@@ -301,7 +309,7 @@ export function AuthListener() {
                             description: 'Successfully logged in.',
                             type: 'success'
                         })
-                        router.push('/dashboard')
+                        window.location.href = '/dashboard'
                     } else {
                         console.error('❌ setSession failed:', setError?.message)
                         toast({
