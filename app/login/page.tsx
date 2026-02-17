@@ -15,6 +15,7 @@ import { MobileAuthWrapper } from "@/components/mobile-auth-wrapper"
 import { AuthSkeleton } from "@/components/auth-skeleton"
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
+import { backupCodeVerifier } from '@/lib/pkce-backup'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -326,6 +327,7 @@ export default function LoginPage() {
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
+                                                            await backupCodeVerifier()
                                                             await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {
@@ -373,6 +375,7 @@ export default function LoginPage() {
 
                                                         // Open in-app browser on mobile
                                                         if (isNative && data?.url) {
+                                                            await backupCodeVerifier()
                                                             await Browser.open({ url: data.url })
                                                         }
                                                     } catch (err: any) {

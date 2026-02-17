@@ -6,6 +6,7 @@ import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/toast-provider'
+import { restoreCodeVerifier, clearCodeVerifierBackup } from '@/lib/pkce-backup'
 
 const SESSION_BACKUP_KEY = 'raute-session-backup'
 
@@ -191,74 +192,45 @@ export function AuthListener() {
 
                     let lastError = ''
 
-                    // Attempt 1: Client-side PKCE exchange (needs code verifier in storage)
-                    for (let attempt = 0; attempt < 2; attempt++) {
+                    // Attempt 1: Direct code exchange
+                    try {
+                        const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                        if (!sessionError && data.session) {
+                            console.log('✅ Session via PKCE exchange (attempt 1)')
+                            await backupSession(data.session.access_token, data.session.refresh_token)
+                            await clearCodeVerifierBackup()
+                            toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
+                            window.location.href = '/dashboard'
+                            return
+                        }
+                        lastError = sessionError?.message || 'Unknown error'
+                        console.warn('⚠️ Exchange attempt 1 failed:', lastError)
+                    } catch (err: any) {
+                        lastError = err?.message || 'Exception'
+                        console.error('❌ Exchange attempt 1 exception:', lastError)
+                    }
+
+                    // Attempt 2: Restore code verifier from backup, then retry
+                    console.log('🔄 Restoring code verifier from backup...')
+                    const restored = await restoreCodeVerifier()
+                    if (restored) {
+                        await new Promise(resolve => setTimeout(resolve, 300))
                         try {
                             const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
-
                             if (!sessionError && data.session) {
-                                console.log('✅ Session established via PKCE code exchange')
+                                console.log('✅ Session via PKCE exchange (attempt 2 - restored verifier)')
                                 await backupSession(data.session.access_token, data.session.refresh_token)
-                                await new Promise(resolve => setTimeout(resolve, 300))
-                                toast({
-                                    title: 'Welcome Back!',
-                                    description: 'Successfully logged in.',
-                                    type: 'success'
-                                })
+                                await clearCodeVerifierBackup()
+                                toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
                                 window.location.href = '/dashboard'
                                 return
                             }
-
                             lastError = sessionError?.message || 'Unknown error'
-                            console.warn(`⚠️ Code exchange attempt ${attempt + 1} failed:`, lastError)
+                            console.warn('⚠️ Exchange attempt 2 failed:', lastError)
                         } catch (err: any) {
-                            lastError = err?.message || 'Exception during exchange'
-                            console.error(`❌ Code exchange exception:`, lastError)
+                            lastError = err?.message || 'Exception'
+                            console.error('❌ Exchange attempt 2 exception:', lastError)
                         }
-                        if (attempt < 1) await new Promise(resolve => setTimeout(resolve, 500))
-                    }
-
-                    // Attempt 2: Server-side code exchange (bypasses code verifier)
-                    console.log('🔄 Client exchange failed, trying server-side...')
-                    try {
-                        const serverUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-                        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-                        if (serverUrl && anonKey) {
-                            const response = await fetch(`${serverUrl}/auth/v1/token?grant_type=pkce`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'apikey': anonKey,
-                                },
-                                body: JSON.stringify({
-                                    auth_code: code,
-                                    code_verifier: '', // Empty — server may accept if PKCE not enforced
-                                })
-                            })
-
-                            if (response.ok) {
-                                const tokenData = await response.json()
-                                if (tokenData.access_token && tokenData.refresh_token) {
-                                    console.log('✅ Server-side token exchange succeeded')
-                                    const { data: setData, error: setErr } = await supabase.auth.setSession({
-                                        access_token: tokenData.access_token,
-                                        refresh_token: tokenData.refresh_token
-                                    })
-                                    if (!setErr && setData.session) {
-                                        await backupSession(setData.session.access_token, setData.session.refresh_token)
-                                        toast({
-                                            title: 'Welcome Back!',
-                                            description: 'Successfully logged in.',
-                                            type: 'success'
-                                        })
-                                        window.location.href = '/dashboard'
-                                        return
-                                    }
-                                }
-                            }
-                        }
-                    } catch (serverErr) {
-                        console.warn('⚠️ Server-side exchange failed:', serverErr)
                     }
 
                     // Attempt 3: Check if session was set by onAuthStateChange
@@ -267,19 +239,16 @@ export function AuthListener() {
                     const { data: sessionData } = await supabase.auth.getSession()
                     if (sessionData.session) {
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
-                        toast({
-                            title: 'Welcome Back!',
-                            description: 'Successfully logged in.',
-                            type: 'success'
-                        })
+                        await clearCodeVerifierBackup()
+                        toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
                         window.location.href = '/dashboard'
                         return
                     }
 
-                    // All attempts failed — show the actual error
+                    // All attempts failed — show the actual error so we can debug
                     toast({
                         title: 'Login Failed',
-                        description: lastError || 'Could not complete sign in. Please try again.',
+                        description: `Error: ${lastError}`,
                         type: 'error'
                     })
                     return

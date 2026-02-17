@@ -36,7 +36,7 @@ function createSupabaseClient() {
                 autoRefreshToken: true,
                 persistSession: true,
                 detectSessionInUrl: false, // Deep links handled by AuthListener
-                flowType: 'implicit', // Use implicit flow on native — PKCE code verifier gets lost in Capacitor storage
+                flowType: 'pkce', // PKCE flow — code verifier backed up manually in login page
                 debug: false, // Set to true for debugging
                 // Add storage key to avoid conflicts
                 storageKey: 'sb-raute-auth',
