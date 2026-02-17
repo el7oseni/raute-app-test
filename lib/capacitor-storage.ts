@@ -88,7 +88,10 @@ export const capacitorStorage = {
         const authKeys = keys.filter(key =>
           key.includes('supabase') ||
           key.includes('sb-') ||
-          key.includes('auth-token')
+          key.includes('auth-token') ||
+          key.includes('raute-') ||
+          key.includes('pkce') ||
+          key.includes('code-verifier')
         )
 
         for (const key of authKeys) {
@@ -99,7 +102,7 @@ export const capacitorStorage = {
         const keysToRemove: string[] = []
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i)
-          if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token'))) {
+          if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token') || key.includes('raute-') || key.includes('pkce') || key.includes('code-verifier'))) {
             keysToRemove.push(key)
           }
         }

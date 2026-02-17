@@ -8,7 +8,7 @@ import { Capacitor } from "@capacitor/core"
 import { restoreSessionFromBackup } from "@/components/auth-listener"
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/debug-auth']
+const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
 
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()

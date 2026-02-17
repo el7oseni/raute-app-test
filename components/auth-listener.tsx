@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/toast-provider'
 import { restoreCodeVerifier, clearCodeVerifierBackup } from '@/lib/pkce-backup'
+import { capacitorStorage } from '@/lib/capacitor-storage'
 
 const SESSION_BACKUP_KEY = 'raute-session-backup'
 
@@ -175,6 +176,11 @@ export function AuthListener() {
                 console.log('🔗 Parsed callback:', { hasCode: !!code, hasAccessToken: !!accessToken, hasError: !!error })
 
                 if (error) {
+                    // Clear stale auth data on OAuth error to prevent poisoning
+                    console.log('🧹 OAuth error received, clearing auth data...')
+                    await supabase.auth.signOut({ scope: 'local' })
+                    await capacitorStorage.clearAllAuthData()
+
                     toast({
                         title: 'Login Error',
                         description: errorDescription || error,
@@ -247,7 +253,12 @@ export function AuthListener() {
                         return
                     }
 
-                    // All attempts failed — show the actual error so we can debug
+                    // All attempts failed — clear ALL auth data to prevent poisoning
+                    // subsequent login attempts (including email/password)
+                    console.log('🧹 PKCE exchange failed, clearing all auth data to prevent poisoning...')
+                    await supabase.auth.signOut({ scope: 'local' })
+                    await capacitorStorage.clearAllAuthData()
+
                     toast({
                         title: 'Login Failed',
                         description: `Error: ${lastError}`,

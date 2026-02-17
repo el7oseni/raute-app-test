@@ -16,6 +16,7 @@ import { AuthSkeleton } from "@/components/auth-skeleton"
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 import { backupCodeVerifier } from '@/lib/pkce-backup'
+import { capacitorStorage } from '@/lib/capacitor-storage'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -313,6 +314,16 @@ export default function LoginPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+
+                                                        // Clear ALL stale auth data before starting OAuth
+                                                        // This prevents poisoned state from a previous failed attempt
+                                                        if (isNative) {
+                                                            console.log('🧹 Clearing stale auth data before OAuth...')
+                                                            await supabase.auth.signOut({ scope: 'local' })
+                                                            await capacitorStorage.clearAllAuthData()
+                                                            await new Promise(resolve => setTimeout(resolve, 300))
+                                                        }
+
                                                         const redirectUrl = isNative
                                                             ? 'io.raute.app://auth/callback'
                                                             : `${window.location.origin}/auth/callback`
@@ -358,6 +369,15 @@ export default function LoginPage() {
                                                     setIsLoading(true)
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
+
+                                                        // Clear ALL stale auth data before starting OAuth
+                                                        if (isNative) {
+                                                            console.log('🧹 Clearing stale auth data before OAuth...')
+                                                            await supabase.auth.signOut({ scope: 'local' })
+                                                            await capacitorStorage.clearAllAuthData()
+                                                            await new Promise(resolve => setTimeout(resolve, 300))
+                                                        }
+
                                                         const redirectUrl = isNative
                                                             ? 'io.raute.app://auth/callback'
                                                             : `${window.location.origin}/auth/callback`
@@ -560,6 +580,15 @@ export default function LoginPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+
+                                                    // Clear ALL stale auth data before starting OAuth
+                                                    if (isNative) {
+                                                        console.log('🧹 Clearing stale auth data before OAuth...')
+                                                        await supabase.auth.signOut({ scope: 'local' })
+                                                        await capacitorStorage.clearAllAuthData()
+                                                        await new Promise(resolve => setTimeout(resolve, 300))
+                                                    }
+
                                                     const redirectUrl = isNative
                                                         ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
@@ -605,6 +634,15 @@ export default function LoginPage() {
                                                 setIsLoading(true)
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
+
+                                                    // Clear ALL stale auth data before starting OAuth
+                                                    if (isNative) {
+                                                        console.log('🧹 Clearing stale auth data before OAuth...')
+                                                        await supabase.auth.signOut({ scope: 'local' })
+                                                        await capacitorStorage.clearAllAuthData()
+                                                        await new Promise(resolve => setTimeout(resolve, 300))
+                                                    }
+
                                                     const redirectUrl = isNative
                                                         ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
