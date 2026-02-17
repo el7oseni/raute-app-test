@@ -32,8 +32,9 @@ export default function LoginPage() {
 
         const listener = Browser.addListener('browserFinished', () => {
             // Reset loading when OAuth browser is dismissed
-            // Small delay to let auth-listener process the deep link first
-            setTimeout(() => setIsLoading(false), 200)
+            // Use a longer delay to let auth-listener process the deep link + PKCE exchange
+            // The auth-listener will navigate away on success, so this only fires if OAuth fails/cancelled
+            setTimeout(() => setIsLoading(false), 5000)
         })
 
         return () => {
@@ -50,6 +51,18 @@ export default function LoginPage() {
         }, 20000)
         return () => clearTimeout(timeout)
     }, [isLoading])
+
+    // Listen for auth state changes — if user gets signed in (e.g. OAuth callback),
+    // redirect to dashboard immediately. This is a safety net for the auth-listener flow.
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                console.log('🔔 Login page: SIGNED_IN detected, redirecting to dashboard')
+                router.push('/dashboard')
+            }
+        })
+        return () => subscription.unsubscribe()
+    }, [router])
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -585,6 +598,7 @@ export default function LoginPage() {
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
+                                                        await backupCodeVerifier()
                                                         await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {
@@ -632,6 +646,7 @@ export default function LoginPage() {
 
                                                     // Open in-app browser on mobile
                                                     if (isNative && data?.url) {
+                                                        await backupCodeVerifier()
                                                         await Browser.open({ url: data.url })
                                                     }
                                                 } catch (err: any) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { App } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
@@ -113,6 +114,7 @@ async function clearSessionBackup() {
 
 export function AuthListener() {
     const { toast } = useToast()
+    const router = useRouter()
 
     useEffect(() => {
         // Listen to ALL auth state changes to backup/clear session
@@ -141,7 +143,7 @@ export function AuthListener() {
                         description: 'Successfully logged in.',
                         type: 'success'
                     })
-                    window.location.href = '/dashboard'
+                    router.push('/dashboard')
                     return true
                 }
             }
@@ -200,7 +202,7 @@ export function AuthListener() {
                             await backupSession(data.session.access_token, data.session.refresh_token)
                             await clearCodeVerifierBackup()
                             toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                            window.location.href = '/dashboard'
+                            router.push('/dashboard')
                             return
                         }
                         lastError = sessionError?.message || 'Unknown error'
@@ -222,7 +224,7 @@ export function AuthListener() {
                                 await backupSession(data.session.access_token, data.session.refresh_token)
                                 await clearCodeVerifierBackup()
                                 toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                                window.location.href = '/dashboard'
+                                router.push('/dashboard')
                                 return
                             }
                             lastError = sessionError?.message || 'Unknown error'
@@ -241,7 +243,7 @@ export function AuthListener() {
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await clearCodeVerifierBackup()
                         toast({ title: 'Welcome Back!', description: 'Successfully logged in.', type: 'success' })
-                        window.location.href = '/dashboard'
+                        router.push('/dashboard')
                         return
                     }
 
@@ -269,7 +271,7 @@ export function AuthListener() {
                             description: 'Successfully logged in.',
                             type: 'success'
                         })
-                        window.location.href = '/dashboard'
+                        router.push('/dashboard')
                     } else {
                         console.error('❌ setSession failed:', setError?.message)
                         toast({
@@ -312,7 +314,7 @@ export function AuthListener() {
             listener.then(handle => handle.remove())
             appStateListener.then(handle => handle.remove())
         }
-    }, [toast])
+    }, [toast, router])
 
     return null
 }
