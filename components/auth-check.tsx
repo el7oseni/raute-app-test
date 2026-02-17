@@ -28,6 +28,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const authCheckRunningRef = useRef(false)
     // Track if we already resolved (session found or redirected)
     const resolvedRef = useRef(false)
+    // Track if we've confirmed a valid session (prevents skeleton flash between protected routes)
+    const sessionConfirmedRef = useRef(false)
 
     const isPublicRoute = useMemo(() => {
         return PUBLIC_ROUTES.some(route =>
@@ -40,6 +42,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         if (isMountedRef.current) setIsLoading(false)
         authCheckRunningRef.current = false
         resolvedRef.current = true
+        sessionConfirmedRef.current = true
     }
 
     // Helper: redirect to login (with cooldown)
@@ -50,6 +53,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.log(`⛔ Redirecting to login: ${reason || 'no session'}`)
             lastRedirectRef.current = now
             resolvedRef.current = true
+            sessionConfirmedRef.current = false
             if (isMountedRef.current) setIsLoading(false)
             authCheckRunningRef.current = false
             router.push('/login')
@@ -63,6 +67,14 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         // For marketing pages, skip all auth checks
         if (isMarketingPage) {
             return
+        }
+
+        // When entering a protected route without a previously confirmed session,
+        // show loading until we verify. This prevents rendering children before
+        // auth is confirmed (e.g. navigating from /login to /dashboard after login).
+        // If session was already confirmed (navigating between protected routes), skip.
+        if (!isPublicRoute && !sessionConfirmedRef.current) {
+            setIsLoading(true)
         }
 
         // Prevent duplicate auth checks
@@ -229,6 +241,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
             if (event === 'SIGNED_OUT') {
+                sessionConfirmedRef.current = false
                 if (isMountedRef.current && !isPublicRoute) {
                     router.push('/login')
                 }

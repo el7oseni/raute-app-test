@@ -52,18 +52,6 @@ export default function LoginPage() {
         return () => clearTimeout(timeout)
     }, [isLoading])
 
-    // Listen for auth state changes — if user gets signed in (e.g. OAuth callback),
-    // redirect to dashboard immediately. This is a safety net for the auth-listener flow.
-    useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                console.log('🔔 Login page: SIGNED_IN detected, redirecting to dashboard')
-                router.push('/dashboard')
-            }
-        })
-        return () => subscription.unsubscribe()
-    }, [router])
-
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setIsLoading(true)
