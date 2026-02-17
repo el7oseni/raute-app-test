@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Capacitor } from "@capacitor/core"
-import { restoreSessionFromBackup } from "@/components/auth-listener"
+import { restoreSessionFromBackup, oauthExchangeInProgress } from "@/components/auth-listener"
 import { useToast } from "@/components/toast-provider"
 
 // Public routes that don't require authentication
@@ -50,6 +50,11 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
     // Helper: redirect to login (with cooldown)
     const redirectToLogin = (reason?: string) => {
         if (!isMountedRef.current || isPublicRoute || resolvedRef.current) return
+        // Don't redirect while OAuth PKCE exchange is in progress
+        if (oauthExchangeInProgress) {
+            console.log('⏳ OAuth exchange in progress, skipping redirect to login')
+            return
+        }
         const now = Date.now()
         if (now - lastRedirectRef.current > 3000) {
             console.log(`⛔ Redirecting to login: ${reason || 'no session'}`)
@@ -93,6 +98,11 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const maxTimeoutMs = isNative ? 6000 : 5000
         const maxTimeout = setTimeout(() => {
             if (resolvedRef.current) return
+            // Don't timeout while OAuth PKCE exchange is still in progress
+            if (oauthExchangeInProgress) {
+                console.log('⏳ OAuth exchange in progress, extending auth check timeout...')
+                return
+            }
             console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing resolve`)
             // On timeout, redirect to login if on protected route (don't just show empty page)
             if (!isPublicRoute) {

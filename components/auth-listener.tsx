@@ -13,6 +13,18 @@ import { capacitorStorage } from '@/lib/capacitor-storage'
 const SESSION_BACKUP_KEY = 'raute-session-backup'
 
 /**
+ * Global flag: true while OAuth PKCE exchange is in progress.
+ * AuthCheck reads this to avoid redirecting to /login mid-exchange.
+ */
+export let oauthExchangeInProgress = false
+
+/**
+ * Guard against processing the same authorization code twice
+ * (AppDelegate may fire the deep link event multiple times).
+ */
+let processingCode: string | null = null
+
+/**
  * Save session tokens to Preferences as a backup.
  * This is separate from Supabase's internal storage to ensure
  * session survives force-stop on iOS.
@@ -198,6 +210,14 @@ export function AuthListener() {
 
                 // PKCE code exchange
                 if (code) {
+                    // Guard: prevent processing the same code twice
+                    if (processingCode === code) {
+                        console.log('⚠️ Already processing this code, skipping duplicate')
+                        return
+                    }
+                    processingCode = code
+                    oauthExchangeInProgress = true
+
                     console.log('🔐 Attempting PKCE code exchange...')
                     toast({ title: 'Step 1/6', description: 'Starting PKCE exchange...', type: 'info' })
 
@@ -212,9 +232,9 @@ export function AuthListener() {
                     // Attempt 1: Direct code exchange
                     try {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
-                        if (!sessionError && data.session) {
-                            toast({ title: 'Step 3/6: Exchange', description: `OK - ${data.session.user.email || 'success'}`, type: 'success' })
+                        toast({ title: 'Step 3/6: Exchange', description: sessionError ? `FAILED: ${sessionError.message}` : `OK - ${data.session?.user.email || 'success'}`, type: sessionError ? 'error' : 'success' })
 
+                        if (!sessionError && data.session) {
                             // Backup session
                             await backupSession(data.session.access_token, data.session.refresh_token)
                             await clearCodeVerifierBackup()
@@ -230,19 +250,16 @@ export function AuthListener() {
                             const stored = await capacitorStorage.getItem('sb-raute-auth')
                             toast({ title: 'Step 5/6: Storage', description: stored ? `Stored (${stored.length} chars)` : 'EMPTY!', type: stored ? 'success' : 'error' })
 
-                            // Give user time to see the debug toasts before navigating
-                            await new Promise(resolve => setTimeout(resolve, 3000))
-
                             toast({ title: 'Step 6/6: Navigate', description: 'Going to dashboard...', type: 'info' })
-                            await new Promise(resolve => setTimeout(resolve, 500))
+                            oauthExchangeInProgress = false
+                            processingCode = null
                             window.location.href = '/dashboard'
                             return
                         }
                         lastError = sessionError?.message || 'Unknown error'
-                        toast({ title: 'Exchange FAILED', description: lastError, type: 'error' })
                     } catch (err: any) {
                         lastError = err?.message || 'Exception'
-                        toast({ title: 'Exchange ERROR', description: lastError, type: 'error' })
+                        toast({ title: 'Step 3/6: Exchange', description: `ERROR: ${lastError}`, type: 'error' })
                     }
 
                     // Attempt 2: Restore code verifier from backup, then retry
@@ -257,7 +274,9 @@ export function AuthListener() {
                                 toast({ title: 'Attempt 2 OK', description: 'Exchange succeeded with restored verifier', type: 'success' })
                                 await backupSession(data.session.access_token, data.session.refresh_token)
                                 await clearCodeVerifierBackup()
-                                await new Promise(resolve => setTimeout(resolve, 2000))
+                                oauthExchangeInProgress = false
+                                processingCode = null
+                                await new Promise(resolve => setTimeout(resolve, 500))
                                 window.location.href = '/dashboard'
                                 return
                             }
@@ -279,13 +298,17 @@ export function AuthListener() {
                         toast({ title: 'Attempt 3 OK', description: 'Found existing session', type: 'success' })
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await clearCodeVerifierBackup()
-                        await new Promise(resolve => setTimeout(resolve, 2000))
+                        oauthExchangeInProgress = false
+                        processingCode = null
+                        await new Promise(resolve => setTimeout(resolve, 500))
                         window.location.href = '/dashboard'
                         return
                     }
 
                     // All attempts failed
                     console.log('🧹 PKCE exchange failed, clearing all auth data...')
+                    oauthExchangeInProgress = false
+                    processingCode = null
                     await supabase.auth.signOut({ scope: 'local' })
                     await capacitorStorage.clearAllAuthData()
 
