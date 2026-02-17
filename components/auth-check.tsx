@@ -85,8 +85,8 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
 
         // TIMEOUT: Force resolve after timeout
-        // Web: 5s (cookies are instant), Native: 12s (Preferences needs time)
-        const maxTimeoutMs = isNative ? 12000 : 5000
+        // Web: 5s (cookies are instant), Native: 6s (Preferences needs time)
+        const maxTimeoutMs = isNative ? 6000 : 5000
         const maxTimeout = setTimeout(() => {
             if (resolvedRef.current) return
             console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing resolve`)
@@ -225,7 +225,13 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             } catch (error: any) {
                 console.error("❌ Auth check failed:", error)
                 if (error?.message?.includes('string did not match') || error?.message?.includes('pattern')) {
-                    try { await supabase.auth.signOut({ scope: 'local' }) } catch {}
+                    try {
+                        await supabase.auth.signOut({ scope: 'local' })
+                        if (isNative) {
+                            const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                            await capacitorStorage.clearAllAuthData()
+                        }
+                    } catch {}
                 }
                 clearTimeout(maxTimeout)
                 if (!isPublicRoute) {
@@ -266,9 +272,9 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
         // Start auth check
         if (isNative) {
-            // Native: small delay for Preferences init, then retry up to 8 times
+            // Native: small delay for Preferences init, then retry up to 4 times
             setTimeout(() => {
-                if (isMountedRef.current && !resolvedRef.current) checkAuth(8)
+                if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
             }, 300)
         } else {
             // Web: check once immediately (cookies are instant, no retries needed)

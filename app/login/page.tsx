@@ -64,9 +64,12 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            // 1. Clear any corrupted session data before login
+            // 1. Clear any corrupted session/PKCE data before login
             console.log('🧹 Clearing any existing session data...')
             await supabase.auth.signOut({ scope: 'local' })
+            if (Capacitor.isNativePlatform()) {
+                await capacitorStorage.clearAllAuthData()
+            }
 
             // Small delay to ensure cleanup completes
             await new Promise(resolve => setTimeout(resolve, 300))
