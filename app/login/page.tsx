@@ -32,10 +32,14 @@ export default function LoginPage() {
         if (!Capacitor.isNativePlatform()) return
 
         const listener = Browser.addListener('browserFinished', () => {
+            console.log('🔗 Browser finished/closed by user')
             // Reset loading when OAuth browser is dismissed
             // Use a longer delay to let auth-listener process the deep link + PKCE exchange
             // The auth-listener will navigate away on success, so this only fires if OAuth fails/cancelled
-            setTimeout(() => setIsLoading(false), 5000)
+            setTimeout(() => {
+                console.log('🔗 Browser timeout - resetting loading state')
+                setIsLoading(false)
+            }, 5000)
         })
 
         return () => {

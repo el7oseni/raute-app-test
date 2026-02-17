@@ -156,6 +156,13 @@ export function AuthListener() {
         const listener = App.addListener('appUrlOpen', async ({ url }) => {
             console.log('🔗 Deep link received:', url)
 
+            // Debug: show that deep link was received (visible to user)
+            toast({
+                title: 'Deep Link Received',
+                description: url.substring(0, 80),
+                type: 'info'
+            })
+
             if (url.includes('auth/callback')) {
                 try {
                     await Browser.close()
@@ -200,6 +207,16 @@ export function AuthListener() {
 
                     let lastError = ''
 
+                    // Check if code verifier exists before attempting exchange
+                    try {
+                        const verifier = await capacitorStorage.getItem('sb-raute-auth-code-verifier')
+                        toast({
+                            title: 'PKCE Debug',
+                            description: `Code verifier: ${verifier ? 'EXISTS' : 'MISSING'}`,
+                            type: verifier ? 'info' : 'error'
+                        })
+                    } catch {}
+
                     // Attempt 1: Direct code exchange
                     try {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
@@ -213,9 +230,11 @@ export function AuthListener() {
                         }
                         lastError = sessionError?.message || 'Unknown error'
                         console.warn('⚠️ Exchange attempt 1 failed:', lastError)
+                        toast({ title: 'Exchange 1 Failed', description: lastError, type: 'error' })
                     } catch (err: any) {
                         lastError = err?.message || 'Exception'
                         console.error('❌ Exchange attempt 1 exception:', lastError)
+                        toast({ title: 'Exchange 1 Error', description: lastError, type: 'error' })
                     }
 
                     // Attempt 2: Restore code verifier from backup, then retry

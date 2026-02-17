@@ -38,7 +38,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // but if you want the App API to support tracking app url opens, make sure to keep this call
         
         // Handle OAuth callback - close in-app browser if auth/callback
-        if url.path.contains("/auth/callback") {
+        // Note: For io.raute.app://auth/callback, url.host is "auth" and url.path is "/callback"
+        // So we check the full URL string instead of just the path
+        let urlString = url.absoluteString
+        if urlString.contains("auth/callback") || (url.host == "auth" && url.path == "/callback") {
             // Give Supabase a moment to process the session
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 // Close any open in-app browser
