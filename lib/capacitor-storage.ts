@@ -2,6 +2,12 @@ import { Capacitor } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
 
 /**
+ * Mutex flag to prevent concurrent clearAllAuthData() calls
+ * which can corrupt the Supabase client's internal state.
+ */
+let clearingInProgress = false
+
+/**
  * Custom Storage Adapter for Supabase Auth
  * Uses Capacitor Preferences on native platforms (iOS/Android)
  * Falls back to localStorage on web
@@ -21,7 +27,7 @@ export const capacitorStorage = {
             return result.value
           } catch (err) {
             if (attempt < 4) {
-              const delay = 150 * (attempt + 1) // 150, 300, 450, 600ms
+              const delay = Math.min(200 * Math.pow(2, attempt), 3200) // 200, 400, 800, 1600ms (exponential backoff)
               console.warn(`⏳ Storage retry ${attempt + 1}/5 for ${key.substring(0, 20)}, waiting ${delay}ms`)
               await new Promise(resolve => setTimeout(resolve, delay))
             } else {
@@ -81,6 +87,13 @@ export const capacitorStorage = {
    * Only call this explicitly for recovery from corrupted state
    */
   async clearAllAuthData(): Promise<void> {
+    // Prevent concurrent calls which corrupt Supabase client state
+    if (clearingInProgress) {
+      console.log('⏳ clearAllAuthData already running, skipping duplicate call')
+      return
+    }
+    clearingInProgress = true
+
     console.log('🧹 Clearing all auth data from storage...')
     try {
       if (Capacitor.isNativePlatform()) {
@@ -111,6 +124,8 @@ export const capacitorStorage = {
       console.log('✅ Auth data cleared successfully')
     } catch (error) {
       console.error('❌ Failed to clear auth data:', error)
+    } finally {
+      clearingInProgress = false
     }
   }
 }

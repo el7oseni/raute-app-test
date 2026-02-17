@@ -95,7 +95,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
         // TIMEOUT: Force resolve after timeout
         // Web: 5s (cookies are instant), Native: 6s (Preferences needs time)
-        const maxTimeoutMs = isNative ? 6000 : 5000
+        const maxTimeoutMs = isNative ? 10000 : 5000
         const maxTimeout = setTimeout(() => {
             if (resolvedRef.current) return
             // Don't timeout while OAuth PKCE exchange is still in progress
@@ -290,10 +290,11 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
         // Start auth check
         if (isNative) {
-            // Native: small delay for Preferences init, then retry up to 4 times
+            // Native: longer delay for Capacitor Preferences bridge to initialize on cold start,
+            // then retry up to 4 times with 500ms gaps
             setTimeout(() => {
                 if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
-            }, 300)
+            }, 1500)
         } else {
             // Web: check once immediately (cookies are instant, no retries needed)
             checkAuth(0)

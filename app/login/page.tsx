@@ -17,6 +17,7 @@ import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 import { backupCodeVerifier } from '@/lib/pkce-backup'
 import { capacitorStorage } from '@/lib/capacitor-storage'
+import { oauthExchangeInProgress } from '@/components/auth-listener'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -33,13 +34,13 @@ export default function LoginPage() {
 
         const listener = Browser.addListener('browserFinished', () => {
             console.log('🔗 Browser finished/closed by user')
-            // Reset loading when OAuth browser is dismissed
-            // Use a longer delay to let auth-listener process the deep link + PKCE exchange
-            // The auth-listener will navigate away on success, so this only fires if OAuth fails/cancelled
-            setTimeout(() => {
-                console.log('🔗 Browser timeout - resetting loading state')
-                setIsLoading(false)
-            }, 5000)
+            // If OAuth PKCE exchange is in progress, let auth-listener handle navigation
+            if (oauthExchangeInProgress) {
+                console.log('🔗 OAuth exchange in progress, not resetting loading state')
+                return
+            }
+            // Otherwise user cancelled - reset loading immediately
+            setIsLoading(false)
         })
 
         return () => {
@@ -68,15 +69,10 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            // 1. Clear any corrupted session/PKCE data before login
-            console.log('🧹 Clearing any existing session data...')
+            // 1. Sign out locally before fresh login (don't use clearAllAuthData — too destructive
+            // and causes race conditions if OAuth cleanup is still running)
+            console.log('🧹 Signing out locally before login...')
             await supabase.auth.signOut({ scope: 'local' })
-            if (Capacitor.isNativePlatform()) {
-                await capacitorStorage.clearAllAuthData()
-            }
-
-            // Small delay to ensure cleanup completes
-            await new Promise(resolve => setTimeout(resolve, 300))
 
             // 2. Attempt Standard Supabase Login
             console.log('🔐 Attempting login...')

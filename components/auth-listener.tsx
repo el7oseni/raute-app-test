@@ -374,6 +374,9 @@ export function AuthListener() {
         })
 
         return () => {
+            // Reset global flags to prevent stuck state if component unmounts mid-exchange
+            oauthExchangeInProgress = false
+            processingCode = null
             subscription.unsubscribe()
             listener.then(handle => handle.remove())
             appStateListener.then(handle => handle.remove())
