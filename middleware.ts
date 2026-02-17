@@ -2,18 +2,6 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-    // 🚨 CRITICAL: Skip middleware entirely for Capacitor mobile builds
-    // Capacitor uses Preferences API for storage, NOT cookies
-    // Server-side session checks will always fail on mobile
-    const userAgent = request.headers.get('user-agent') || ''
-    const isCapacitor = userAgent.toLowerCase().includes('capacitor') ||
-                       request.headers.get('x-capacitor-platform') !== null ||
-                       process.env.NEXT_PUBLIC_CAPACITOR_BUILD === 'true'
-
-    if (isCapacitor) {
-        return NextResponse.next()
-    }
-
     // Force HTTPS redirect (before any other checks)
     const proto = request.headers.get('x-forwarded-proto')
     if (proto === 'http') {

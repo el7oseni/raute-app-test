@@ -13,6 +13,7 @@ import { StyledPhoneInput } from "@/components/ui/styled-phone-input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/toast-provider"
 import { PullToRefresh } from "@/components/pull-to-refresh"
+import { authenticatedFetch } from "@/lib/authenticated-fetch"
 
 export default function ProfilePage() {
     const router = useRouter()
@@ -90,7 +91,7 @@ export default function ProfilePage() {
             if (!profileData) {
                 console.warn('⚠️ Trying fallback API for profile...')
                 try {
-                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    const res = await authenticatedFetch('/api/user-profile')
                     if (res.ok) {
                         const apiData = await res.json()
                         if (apiData.success && apiData.user) {
@@ -276,8 +277,8 @@ export default function ProfilePage() {
             return
         }
 
-        if (newPassword.length < 6) {
-            toast({ title: '❌ Password must be at least 6 characters', type: 'error' })
+        if (newPassword.length < 8) {
+            toast({ title: '❌ Password must be at least 8 characters', type: 'error' })
             return
         }
 
@@ -589,7 +590,7 @@ export default function ProfilePage() {
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
                                             placeholder="Enter new password"
-                                            minLength={6}
+                                            minLength={8}
                                             className="h-12 rounded-xl bg-background"
                                         />
                                     </div>
@@ -601,7 +602,7 @@ export default function ProfilePage() {
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             placeholder="Confirm new password"
-                                            minLength={6}
+                                            minLength={8}
                                             className="h-12 rounded-xl bg-background"
                                         />
                                     </div>
@@ -639,10 +640,8 @@ export default function ProfilePage() {
                                     if (confirmText === 'DELETE') {
                                         try {
                                             setLoading(true);
-                                            const res = await fetch('/api/auth/delete-account', {
+                                            const res = await authenticatedFetch('/api/auth/delete-account', {
                                                 method: 'DELETE',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ userId })
                                             });
 
                                             if (!res.ok) throw new Error("Deletion failed");

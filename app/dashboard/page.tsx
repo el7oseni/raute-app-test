@@ -20,6 +20,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/toast-provider"
+import { authenticatedFetch } from "@/lib/authenticated-fetch"
 
 export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true)
@@ -82,7 +83,7 @@ export default function DashboardPage() {
                     console.warn('⚠️ Direct DB query failed:', dbError?.message, '— trying fallback API...')
                     // FALLBACK: Use server-side API to bypass RLS
                     try {
-                        const res = await fetch(`/api/user-profile?userId=${session.user.id}`)
+                        const res = await authenticatedFetch('/api/user-profile')
                         if (res.ok) {
                             const apiData = await res.json()
                             if (apiData.success && apiData.user) {
@@ -114,7 +115,7 @@ export default function DashboardPage() {
                     if (!companyId) {
                         // Fallback: use server-side API
                         try {
-                            const res = await fetch(`/api/user-profile?userId=${session.user.id}`)
+                            const res = await authenticatedFetch('/api/user-profile')
                             if (res.ok) {
                                 const apiData = await res.json()
                                 if (apiData.success && apiData.user) {
@@ -203,7 +204,7 @@ export default function DashboardPage() {
                 // Get company_id via fallback API (avoids RLS recursion on users table)
                 let companyId = null
                 try {
-                    const res = await fetch(`/api/user-profile?userId=${userId}`)
+                    const res = await authenticatedFetch('/api/user-profile')
                     if (res.ok) {
                         const apiData = await res.json()
                         if (apiData.success && apiData.user) {

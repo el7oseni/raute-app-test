@@ -11,6 +11,13 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
     try {
+        // Verify webhook authorization token
+        const authHeader = request.headers.get('authorization')
+        const expectedToken = process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN
+        if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         // Initialize Supabase Admin Client
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,20 +177,12 @@ export async function POST(request: Request) {
             })
         }
 
-    } catch (error: any) {
-        console.error('❌ RevenueCat Webhook Error:', error)
+    } catch (error) {
+        console.error('RevenueCat Webhook Error')
 
         return NextResponse.json({
             status: 'error',
-            message: error.message
+            message: 'Internal server error'
         }, { status: 500 })
     }
-}
-
-// Health check endpoint
-export async function GET() {
-    return NextResponse.json({
-        status: 'ok',
-        message: 'RevenueCat webhook endpoint is active'
-    })
 }

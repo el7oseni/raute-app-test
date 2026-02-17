@@ -299,7 +299,7 @@ export default function SignupPage() {
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
                                                         const redirectUrl = isNative
-                                                            ? 'https://raute.io/auth/callback'
+                                                            ? 'io.raute.app://auth/callback'
                                                             : `${window.location.origin}/auth/callback`
 
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
@@ -343,7 +343,7 @@ export default function SignupPage() {
                                                     try {
                                                         const isNative = Capacitor.isNativePlatform()
                                                         const redirectUrl = isNative
-                                                            ? 'https://raute.io/auth/callback'
+                                                            ? 'io.raute.app://auth/callback'
                                                             : `${window.location.origin}/auth/callback`
 
                                                         const { data, error } = await supabase.auth.signInWithOAuth({
@@ -574,7 +574,7 @@ export default function SignupPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'https://raute.io/auth/callback'
+                                                        ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -618,7 +618,7 @@ export default function SignupPage() {
                                                 try {
                                                     const isNative = Capacitor.isNativePlatform()
                                                     const redirectUrl = isNative
-                                                        ? 'https://raute.io/auth/callback'
+                                                        ? 'io.raute.app://auth/callback'
                                                         : `${window.location.origin}/auth/callback`
 
                                                     const { data, error } = await supabase.auth.signInWithOAuth({

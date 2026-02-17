@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserCog, Plus, Trash2, Power, Lock, Unlock, ShieldAlert } from 'lucide-react'
 import { useToast } from '@/components/toast-provider'
 import { Skeleton } from '@/components/ui/skeleton'
+import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -77,7 +78,7 @@ export default function DispatchersPage() {
             if (userError || !userData) {
                 console.warn('⚠️ Dispatchers: Direct DB query failed:', userError?.message, '— trying fallback API...')
                 try {
-                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    const res = await authenticatedFetch('/api/user-profile')
                     if (res.ok) {
                         const apiData = await res.json()
                         if (apiData.success && apiData.user) {
@@ -223,7 +224,7 @@ export default function DispatchersPage() {
             // FALLBACK: If direct query failed, use server-side API
             if (!companyUser) {
                 try {
-                    const res = await fetch(`/api/user-profile?userId=${currentUserId}`)
+                    const res = await authenticatedFetch('/api/user-profile')
                     if (res.ok) {
                         const apiData = await res.json()
                         if (apiData.success && apiData.user) {

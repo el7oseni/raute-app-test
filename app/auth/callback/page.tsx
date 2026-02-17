@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { authenticatedFetch } from '@/lib/authenticated-fetch'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -32,7 +33,7 @@ export default function AuthCallback() {
 
       // Sync role from DB to session metadata
       try {
-        await fetch(`/api/sync-user-role?userId=${userId}`)
+        await authenticatedFetch('/api/sync-user-role')
         addDebug('Role synced')
       } catch (syncErr) {
         addDebug('Role sync failed (non-critical)')
@@ -177,8 +178,8 @@ export default function AuthCallback() {
         <div className="h-12 w-12 mx-auto animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
         <p className="text-slate-600 dark:text-slate-400">{status}</p>
         
-        {/* Debug info - visible during development */}
-        {debugInfo.length > 0 && (
+        {/* Debug info - only visible in development */}
+        {process.env.NODE_ENV === 'development' && debugInfo.length > 0 && (
           <div className="mt-6 text-left bg-slate-100 dark:bg-slate-900 p-3 rounded-lg max-h-48 overflow-y-auto">
             <p className="text-xs font-mono text-slate-500 mb-1">Debug Log:</p>
             {debugInfo.map((info, i) => (
