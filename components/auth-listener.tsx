@@ -176,6 +176,9 @@ export function AuthListener() {
             })
 
             if (url.includes('auth/callback')) {
+                // Set flag IMMEDIATELY so AuthCheck doesn't redirect during processing
+                oauthExchangeInProgress = true
+
                 try {
                     await Browser.close()
                 } catch (e) {}
@@ -197,6 +200,8 @@ export function AuthListener() {
                 if (error) {
                     // Clear stale auth data on OAuth error to prevent poisoning
                     console.log('🧹 OAuth error received, clearing auth data...')
+                    oauthExchangeInProgress = false
+                    processingCode = null
                     await supabase.auth.signOut({ scope: 'local' })
                     await capacitorStorage.clearAllAuthData()
 
@@ -231,8 +236,10 @@ export function AuthListener() {
 
                     // Attempt 1: Direct code exchange
                     try {
+                        console.log('🔐 [PKCE] Calling exchangeCodeForSession with code:', code.substring(0, 8) + '...')
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
-                        toast({ title: 'Step 3/6: Exchange', description: sessionError ? `FAILED: ${sessionError.message}` : `OK - ${data.session?.user.email || 'success'}`, type: sessionError ? 'error' : 'success' })
+                        console.log('🔐 [PKCE] Exchange result:', { hasSession: !!data?.session, error: sessionError?.message, code: (sessionError as any)?.code, status: (sessionError as any)?.status })
+                        toast({ title: 'Step 3/6: Exchange', description: sessionError ? `FAILED: ${(sessionError as any)?.code || ''} ${sessionError.message}` : `OK - ${data.session?.user.email || 'success'}`, type: sessionError ? 'error' : 'success' })
 
                         if (!sessionError && data.session) {
                             // Backup session
@@ -335,9 +342,11 @@ export function AuthListener() {
                             description: 'Successfully logged in.',
                             type: 'success'
                         })
+                        oauthExchangeInProgress = false
                         window.location.href = '/dashboard'
                     } else {
                         console.error('❌ setSession failed:', setError?.message)
+                        oauthExchangeInProgress = false
                         toast({
                             title: 'Login Failed',
                             description: setError?.message || 'Could not complete sign in.',
@@ -354,6 +363,8 @@ export function AuthListener() {
                 if (fallbackSession.session) {
                     await waitForSessionAndNavigate()
                 }
+                // Reset flag if we reach here without success
+                oauthExchangeInProgress = false
             }
         })
 

@@ -9,7 +9,7 @@ import { restoreSessionFromBackup, oauthExchangeInProgress } from "@/components/
 import { useToast } from "@/components/toast-provider"
 
 // Public routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
+const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms', '/update-password']
 
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
@@ -185,7 +185,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     console.log(`⏳ No session yet, retrying... (${retries} left)`)
                     setTimeout(() => {
                         if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
-                    }, 500)
+                    }, 750)
                     return
                 }
 
@@ -290,11 +290,12 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
         // Start auth check
         if (isNative) {
-            // Native: longer delay for Capacitor Preferences bridge to initialize on cold start,
-            // then retry up to 4 times with 500ms gaps
+            // Native: longer delay for Capacitor Preferences bridge to initialize on cold start
+            // after force-stop. Then retry up to 6 times with 750ms gaps.
+            // Total window: 2500ms + (6 × 750ms) = 7000ms, within 10s timeout.
             setTimeout(() => {
-                if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
-            }, 1500)
+                if (isMountedRef.current && !resolvedRef.current) checkAuth(6)
+            }, 2500)
         } else {
             // Web: check once immediately (cookies are instant, no retries needed)
             checkAuth(0)

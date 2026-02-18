@@ -72,7 +72,7 @@ export async function middleware(request: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession()
 
     // 1. PUBLIC ROUTES (Allow access)
-    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/']
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/', '/update-password']
     const isPublicRoute = publicRoutes.some(route => {
         return request.nextUrl.pathname === route || request.nextUrl.pathname === `${route}/`
     })
