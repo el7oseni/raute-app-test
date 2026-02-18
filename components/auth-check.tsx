@@ -69,16 +69,24 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
+        // If session was already confirmed (navigating between protected routes),
+        // skip the loading state and full auth re-check. We still set up the
+        // onAuthStateChange listener below to catch SIGNED_OUT events.
+        const skipFullCheck = !isPublicRoute && sessionConfirmedRef.current
+
+        if (skipFullCheck) {
+            resolvedRef.current = true
+        }
+
         // When entering a protected route without a previously confirmed session,
         // show loading until we verify. This prevents rendering children before
         // auth is confirmed (e.g. navigating from /login to /dashboard after login).
-        // If session was already confirmed (navigating between protected routes), skip.
         if (!isPublicRoute && !sessionConfirmedRef.current) {
             setIsLoading(true)
         }
 
         // Prevent duplicate auth checks
-        if (authCheckRunningRef.current) {
+        if (authCheckRunningRef.current && !skipFullCheck) {
             return
         }
 
@@ -269,15 +277,17 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             }
         })
 
-        // Start auth check
-        if (isNative) {
-            // Native: small delay for Preferences init, then retry up to 4 times
-            setTimeout(() => {
-                if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
-            }, 300)
-        } else {
-            // Web: check once immediately (cookies are instant, no retries needed)
-            checkAuth(0)
+        // Start auth check (skip if session already confirmed from previous route)
+        if (!skipFullCheck) {
+            if (isNative) {
+                // Native: small delay for Preferences init, then retry up to 4 times
+                setTimeout(() => {
+                    if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
+                }, 300)
+            } else {
+                // Web: check once immediately (cookies are instant, no retries needed)
+                checkAuth(0)
+            }
         }
 
         return () => {
