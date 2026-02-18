@@ -69,6 +69,23 @@ export async function middleware(request: NextRequest) {
         }
     )
 
+    // OAuth callback: exchange code for session server-side so cookies are set properly.
+    // Without this, the client-side exchangeCodeForSession sets the session in memory
+    // but cookies aren't written, causing auth-check to fail on the next page load.
+    if (request.nextUrl.pathname === '/auth/callback') {
+        const code = request.nextUrl.searchParams.get('code')
+        if (code) {
+            const { error } = await supabase.auth.exchangeCodeForSession(code)
+            if (!error) {
+                // Cookies are set by the supabase client above — redirect to dashboard
+                const dashboardUrl = new URL('/dashboard', request.url)
+                return NextResponse.redirect(dashboardUrl)
+            }
+            // If exchange fails, let the client-side page.tsx handle it
+            console.error('Middleware code exchange failed:', error.message)
+        }
+    }
+
     const { data: { session } } = await supabase.auth.getSession()
 
     // 1. PUBLIC ROUTES (Allow access)
