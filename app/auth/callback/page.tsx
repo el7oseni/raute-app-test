@@ -31,12 +31,15 @@ export default function AuthCallback() {
 
       setStatus('Setting up your account...')
 
-      // Sync role from DB to session metadata
+      // Sync role from DB to session metadata (with timeout — don't block redirect)
       try {
-        await authenticatedFetch('/api/sync-user-role')
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+        await authenticatedFetch('/api/sync-user-role', { signal: controller.signal })
+        clearTimeout(timeoutId)
         addDebug('Role synced')
       } catch (syncErr) {
-        addDebug('Role sync failed (non-critical)')
+        addDebug('Role sync failed (non-critical) — continuing to dashboard')
       }
 
       addDebug('SUCCESS! Redirecting to dashboard...')
