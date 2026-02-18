@@ -341,10 +341,18 @@ export function AuthListener() {
                 try {
                     const { data } = await supabase.auth.getSession()
                     if (data.session) {
-                        await supabase.auth.refreshSession()
-                        console.log('✅ Session refreshed on resume')
+                        // Only refresh if the token is close to expiring (within 5 minutes)
+                        const expiresAt = data.session.expires_at
+                        const now = Math.floor(Date.now() / 1000)
+                        if (expiresAt && (expiresAt - now) < 300) {
+                            await supabase.auth.refreshSession()
+                            console.log('✅ Session refreshed on resume (was near expiry)')
+                        } else {
+                            console.log('✅ Session still valid on resume, no refresh needed')
+                        }
                     }
                 } catch (err) {
+                    // AbortError is common on resume — ignore it, session is still valid
                     console.warn('⚠️ Session refresh on resume failed (non-critical):', err)
                 }
             }

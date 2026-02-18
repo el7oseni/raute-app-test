@@ -254,9 +254,24 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
             if (event === 'SIGNED_OUT') {
+                // Don't redirect immediately — verify session is actually gone.
+                // Supabase fires SIGNED_OUT when auto token refresh fails (e.g.
+                // AbortError on resume), but the session may still be valid.
                 sessionConfirmedRef.current = false
                 if (isMountedRef.current && !isPublicRoute) {
-                    router.push('/login')
+                    try {
+                        const { data } = await supabase.auth.getSession()
+                        if (!data.session) {
+                            console.log('⛔ SIGNED_OUT confirmed — no session, redirecting')
+                            router.push('/login')
+                        } else {
+                            console.log('⚠️ SIGNED_OUT event but session still exists — ignoring redirect')
+                            sessionConfirmedRef.current = true
+                        }
+                    } catch {
+                        // If getSession fails, redirect to be safe
+                        router.push('/login')
+                    }
                 }
             } else if (event === 'INITIAL_SESSION') {
                 if (session && isMountedRef.current) {
