@@ -64,11 +64,13 @@ export default function ProfilePage() {
             if (user) {
                 currentUserId = user.id
                 currentUserEmail = user.email || ''
-                // Redirect to login handled below if no user
             }
 
             if (!currentUserId) {
-                router.push('/login')
+                // Don't redirect here — AuthCheck already handles auth redirects.
+                // Redirecting here causes a race condition where both AuthCheck and
+                // this page compete to redirect, potentially causing navigation loops.
+                console.warn('⚠️ Profile: no user found, waiting for AuthCheck to handle redirect')
                 return
             }
 
