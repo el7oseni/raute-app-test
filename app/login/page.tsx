@@ -68,15 +68,15 @@ export default function LoginPage() {
         const password = formData.get("password") as string
 
         try {
-            // 1. Clear any corrupted session/PKCE data before login
-            console.log('🧹 Clearing any existing session data...')
-            await supabase.auth.signOut({ scope: 'local' })
+            // 1. Only clear corrupted session data on native (where Capacitor storage can get stale)
+            // On web, signInWithPassword overwrites any existing session automatically.
+            // IMPORTANT: Do NOT call signOut() here — it fires a SIGNED_OUT event that causes
+            // AuthCheck to re-mount the login page, which can hang the login flow.
             if (Capacitor.isNativePlatform()) {
+                console.log('🧹 Clearing native auth data before login...')
                 await capacitorStorage.clearAllAuthData()
+                await new Promise(resolve => setTimeout(resolve, 300))
             }
-
-            // Small delay to ensure cleanup completes
-            await new Promise(resolve => setTimeout(resolve, 300))
 
             // 2. Attempt Standard Supabase Login
             console.log('🔐 Attempting login...')
