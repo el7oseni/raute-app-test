@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 import { Mail, ArrowLeft, RefreshCw } from "lucide-react"
+import { markIntentionalLogout } from "@/components/auth-check"
 
 export default function VerifyEmailPage() {
     const router = useRouter()
 
     async function handleLogout() {
+        markIntentionalLogout()
         await supabase.auth.signOut()
         router.push('/login')
     }

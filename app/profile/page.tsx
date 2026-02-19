@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/toast-provider"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { authenticatedFetch } from "@/lib/authenticated-fetch"
+import { markIntentionalLogout } from "@/components/auth-check"
 
 export default function ProfilePage() {
     const router = useRouter()
@@ -308,12 +309,13 @@ export default function ProfilePage() {
         if (!confirm('Are you sure you want to logout?')) return
 
         try {
+            // Mark as intentional so AuthCheck's SIGNED_OUT handler
+            // doesn't try to recover/refresh the session
+            markIntentionalLogout()
             await supabase.auth.signOut()
-            // Session cleared - middleware will handle redirect
             router.push('/login')
         } catch (error) {
             toast({ title: 'Log out failed', type: 'error' })
-            // Force redirect even if server fails
             router.push('/login')
         }
     }
@@ -648,6 +650,7 @@ export default function ProfilePage() {
 
                                             if (!res.ok) throw new Error("Deletion failed");
 
+                                            markIntentionalLogout();
                                             await supabase.auth.signOut();
                                             router.push('/login');
                                             toast({ title: 'Account deleted successfully', type: 'success' });

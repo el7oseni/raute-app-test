@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useToast } from '@/components/toast-provider'
+import { markIntentionalLogout } from '@/components/auth-check'
 
 export default function UpdatePasswordPage() {
     const router = useRouter()
@@ -71,6 +72,7 @@ export default function UpdatePasswordPage() {
             })
 
             // Sign out and redirect to login
+            markIntentionalLogout()
             await supabase.auth.signOut()
             router.push('/login')
 
