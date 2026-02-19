@@ -66,18 +66,33 @@ export default function VerifyEmailPage() {
                 }
             }
 
-            // No session at all — Supabase doesn't create a session until email is verified.
-            // We can't check verification status without a session.
-            // Best approach: redirect to login with the email pre-filled.
-            // If they DID verify, login will succeed → dashboard.
-            // If they didn't, login will show "Email not confirmed" → back to verify-email.
+            // No session — check the database directly via API
             const email = userEmail || sessionStorage.getItem('pending_verification_email') || ''
-            sessionStorage.removeItem('pending_verification_email')
-            const params = new URLSearchParams()
-            params.set('message', 'try_login')
-            if (email) params.set('email', email)
-            window.location.href = `/login?${params.toString()}`
-            return
+            if (email) {
+                const res = await fetch('/api/check-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                })
+                const { verified } = await res.json()
+
+                if (verified) {
+                    // ✅ Email is verified — redirect to login with email pre-filled
+                    sessionStorage.removeItem('pending_verification_email')
+                    setSuccess("Your email is verified! Redirecting to sign in...")
+                    setTimeout(() => {
+                        const params = new URLSearchParams()
+                        params.set('message', 'verified')
+                        params.set('email', email)
+                        window.location.href = `/login?${params.toString()}`
+                    }, 1500)
+                    return
+                }
+            }
+
+            // Not verified yet
+            setError("Your email isn't verified yet. Please click the link we sent to your inbox.")
+            setIsChecking(false)
 
         } catch {
             setError("Something went wrong. Please try again.")
@@ -92,8 +107,10 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
-            // Check if already verified via session
+            // Get the email from session, state, or sessionStorage fallback
             const { data: sessionData } = await supabase.auth.getSession()
+
+            // Check if already verified via session
             if (sessionData.session?.user?.email_confirmed_at) {
                 sessionStorage.removeItem('pending_verification_email')
                 setSuccess("Your email is already verified! Redirecting to dashboard...")
@@ -101,7 +118,6 @@ export default function VerifyEmailPage() {
                 return
             }
 
-            // Get the email from session, state, or sessionStorage fallback
             let email = userEmail
             if (!email) {
                 email = sessionData.session?.user?.email || null
@@ -115,6 +131,23 @@ export default function VerifyEmailPage() {
                 setError("No email found. Please go back to login and try again.")
                 setIsResending(false)
                 return
+            }
+
+            // No session — check database directly for verification status
+            if (!sessionData.session) {
+                const res = await fetch('/api/check-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                })
+                const { verified } = await res.json()
+
+                if (verified) {
+                    sessionStorage.removeItem('pending_verification_email')
+                    setSuccess("Your email is already verified! Please sign in to continue.")
+                    setIsResending(false)
+                    return
+                }
             }
 
             const { error: resendError } = await supabase.auth.resend({
@@ -133,7 +166,7 @@ export default function VerifyEmailPage() {
                     setError(resendError.message)
                 }
             } else {
-                setSuccess("If your email isn't verified yet, we've sent a new link. Please check your inbox and spam folder. If you've already verified, click \"I've verified my email\" above to sign in.")
+                setSuccess("Verification email sent! Please check your inbox (and spam folder).")
             }
         } catch {
             setError("Failed to resend email. Please try again.")
