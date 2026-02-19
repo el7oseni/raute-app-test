@@ -85,6 +85,7 @@ export default function LoginPage() {
         setIsLoading(true)
         setApiError(null)
         setRedirectError(null)
+        setMessage(null)
 
         const formData = new FormData(event.currentTarget)
         const email = formData.get("email") as string
@@ -118,7 +119,12 @@ export default function LoginPage() {
                 console.error('❌ Login Error:', authError)
 
                 // Check for specific error types
-                if (authError.message.includes('Invalid login credentials')) {
+                if (authError.message.includes('Email not confirmed')) {
+                    // Email exists but not verified — redirect to verify-email page
+                    sessionStorage.setItem('pending_verification_email', email)
+                    router.push('/verify-email')
+                    return
+                } else if (authError.message.includes('Invalid login credentials')) {
                     setApiError("Incorrect email or password")
                 } else if (authError.message.includes('string did not match') ||
                            authError.message.includes('pattern')) {

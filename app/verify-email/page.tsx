@@ -66,16 +66,10 @@ export default function VerifyEmailPage() {
                 }
             }
 
-            // No session — Supabase doesn't create a session until verification.
-            // The user may have verified in another browser/device.
-            // Redirect to login so they can sign in with their verified account.
-            const email = userEmail || sessionStorage.getItem('pending_verification_email') || ''
-            sessionStorage.removeItem('pending_verification_email')
-            const loginUrl = email
-                ? `/login?message=verified&email=${encodeURIComponent(email)}`
-                : '/login?message=verified'
-            window.location.href = loginUrl
-            return
+            // No session at all — Supabase doesn't create a session until email is verified.
+            // We can't check verification status without a session, so show helpful message.
+            setError("Please check your inbox and click the verification link first, then try again.")
+            setIsChecking(false)
 
         } catch {
             setError("Something went wrong. Please try again.")
