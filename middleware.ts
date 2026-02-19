@@ -69,23 +69,12 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // OAuth callback: exchange code for session server-side so cookies are set properly.
-    // Without this, the client-side exchangeCodeForSession sets the session in memory
-    // but cookies aren't written, causing auth-check to fail on the next page load.
-    const isAuthCallback = request.nextUrl.pathname === '/auth/callback' || request.nextUrl.pathname === '/auth/callback/'
-    if (isAuthCallback) {
-        const code = request.nextUrl.searchParams.get('code')
-        if (code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(code)
-            if (!error) {
-                // Cookies are set by the supabase client above — redirect to dashboard
-                const dashboardUrl = new URL('/dashboard', request.url)
-                return NextResponse.redirect(dashboardUrl)
-            }
-            // If exchange fails, let the client-side page.tsx handle it
-            console.error('Middleware code exchange failed:', error.message)
-        }
-    }
+    // NOTE: Do NOT exchange OAuth codes in middleware.
+    // The PKCE flow stores code_verifier in the browser (cookie/localStorage),
+    // which is NOT accessible in Edge Runtime middleware. Attempting to exchange
+    // the code here will fail AND invalidate the code, preventing the client-side
+    // auth/callback/page.tsx from exchanging it successfully.
+    // Let the client-side handle the full PKCE code exchange.
 
     const { data: { session } } = await supabase.auth.getSession()
 
