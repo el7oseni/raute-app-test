@@ -41,10 +41,10 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
-            // First: cheap session check — never throws
+            // Cheap session check first
             let { data: sessionData } = await supabase.auth.getSession()
 
-            // If no session, try refreshing once to pick up cross-tab verification
+            // If no session, try refreshing once — picks up cross-tab verification
             if (!sessionData.session) {
                 const { data: refreshed } = await supabase.auth.refreshSession()
                 if (refreshed.session) {
@@ -54,25 +54,22 @@ export default function VerifyEmailPage() {
 
             if (sessionData.session) {
                 if (sessionData.session.user.email_confirmed_at) {
-                    // ✅ Verified — go directly to dashboard
+                    // ✅ Verified + signed in — go to dashboard
                     sessionStorage.removeItem('pending_verification_email')
                     window.location.href = '/dashboard'
                     return
                 } else {
-                    // ❌ Session exists but email not yet verified
-                    setError("Your email isn't verified yet. Please click the link in the email we sent you.")
+                    // Session exists but email not yet verified
+                    setError("Your email isn't verified yet. Please click the link we sent to your inbox.")
                     setIsChecking(false)
                     return
                 }
             }
 
-            // No session at all — user may have verified in a different browser or the
-            // session expired. Redirect to login; pre-fill email from sessionStorage if available.
-            const savedEmail = sessionStorage.getItem('pending_verification_email')
-            const loginUrl = savedEmail
-                ? `/login?email=${encodeURIComponent(savedEmail)}&message=verified`
-                : '/login?message=verified'
-            router.push(loginUrl)
+            // No session at all — safest assumption is they haven't verified yet
+            // (we can't check without credentials)
+            setError("Please check your inbox and click the verification link first, then try again.")
+            setIsChecking(false)
 
         } catch {
             setError("Something went wrong. Please try again.")

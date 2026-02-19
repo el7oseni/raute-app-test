@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import { Capacitor } from '@capacitor/core'
+import { App } from '@capacitor/app'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -42,6 +43,27 @@ export default function AuthCallback() {
       window.location.href = '/dashboard'
     }
 
+    // Shared code-exchange helper used by both URL params and deep link listener
+    const exchangeCode = async (url: string) => {
+      if (hasRedirected.current) return
+      try {
+        const params = new URLSearchParams(url.includes('?') ? url.split('?')[1] : url.split('#')[1] || '')
+        const code = params.get('code')
+        if (!code) return false
+
+        setStatus('Verifying your email...')
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error && data.session) {
+          await syncRoleAndRedirect(data.session.user.id, data.session.user.email_confirmed_at)
+          return true
+        }
+        console.warn('Code exchange failed:', error?.message)
+        return false
+      } catch {
+        return false
+      }
+    }
+
     // === APPROACH 1: Listen for auth state changes ===
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
@@ -49,7 +71,25 @@ export default function AuthCallback() {
       }
     })
 
-    // === APPROACH 2: Check URL for tokens manually (fallback) ===
+    // === APPROACH 2: Native deep link listener (Capacitor) ===
+    // When a verification email link is clicked on mobile, iOS/Android opens the app
+    // via the custom URL scheme. The auth code arrives here — NOT in window.location.
+    let deepLinkListener: { remove: () => void } | null = null
+    if (isNative) {
+      App.addListener('appUrlOpen', async (event) => {
+        console.log('🔗 Deep link received:', event.url)
+        const handled = await exchangeCode(event.url)
+        if (!handled && !hasRedirected.current) {
+          // Couldn't exchange — check if already has session (e.g. magic link flow)
+          const { data } = await supabase.auth.getSession()
+          if (data.session) {
+            await syncRoleAndRedirect(data.session.user.id, data.session.user.email_confirmed_at)
+          }
+        }
+      }).then(handle => { deepLinkListener = handle })
+    }
+
+    // === APPROACH 3: Check URL for tokens manually (fallback for web) ===
     const handleUrlTokens = async () => {
       try {
         const searchParams = new URLSearchParams(window.location.search)
@@ -100,42 +140,30 @@ export default function AuthCallback() {
           }
         }
 
-        // Check query params for authorization code (PKCE flow)
+        // Check query params for authorization code (PKCE flow - web)
         const code = searchParams.get('code')
-
         if (code) {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          const handled = await exchangeCode(window.location.href)
+          if (handled) return
 
-          if (!error && data.session) {
-            await syncRoleAndRedirect(data.session.user.id, data.session.user.email_confirmed_at)
-            return
-          }
-
-          // Code exchange failed — this typically happens when:
-          // 1. User signed up in the mobile app (PKCE code_verifier in app storage)
-          // 2. Clicked email verification link which opened in system browser (Safari)
-          // 3. System browser doesn't have the code_verifier → exchange fails
-          //
-          // IMPORTANT: With PKCE flow, the email is NOT verified until the code exchange succeeds.
-          // So we cannot tell the user "Email Verified!" — instead, tell them to open the app
-          // where the code verifier exists and they can complete verification there.
+          // Code exchange failed on web — likely mobile-originated PKCE without verifier
           if (!isNative) {
-            console.warn('Code exchange failed (likely missing PKCE verifier from mobile signup):', error?.message)
+            console.warn('Code exchange failed (likely missing PKCE verifier from mobile signup):', code)
             setShowAppRedirect(true)
             hasRedirected.current = true
             return
           }
         }
 
-        // No tokens/code in URL — wait for auto-detection
-      } catch (err: any) {
-        console.error('URL token processing error:', err.message)
+        // No tokens/code in URL — wait for auto-detection or deep link
+      } catch (err: unknown) {
+        console.error('URL token processing error:', err instanceof Error ? err.message : err)
       }
     }
 
     handleUrlTokens()
 
-    // === APPROACH 3: Polling fallback ===
+    // === APPROACH 4: Polling fallback ===
     const pollInterval = setInterval(async () => {
       if (hasRedirected.current) return
 
@@ -164,8 +192,10 @@ export default function AuthCallback() {
       subscription.unsubscribe()
       clearInterval(pollInterval)
       clearTimeout(timeout)
+      deepLinkListener?.remove()
     }
   }, [router])
+
 
   // Show expired email link UI with resend option
   if (showExpiredLink) {
