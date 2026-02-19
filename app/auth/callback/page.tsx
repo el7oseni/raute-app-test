@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { authenticatedFetch } from '@/lib/authenticated-fetch'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -29,12 +28,12 @@ export default function AuthCallback() {
         return
       }
 
-      // Redirect to dashboard immediately — don't block on role sync.
+      // Redirect to dashboard immediately.
+      // NOTE: Do NOT call sync-user-role here. It uses admin.updateUserById()
+      // which updates auth.users metadata and can invalidate the current JWT,
+      // causing a SIGNED_OUT event that destroys the freshly-created session.
       addDebug('SUCCESS! Redirecting to dashboard...')
       setStatus('Redirecting to dashboard...')
-
-      // Fire role sync in background (don't await)
-      authenticatedFetch('/api/sync-user-role').catch(() => {})
 
       window.location.href = '/dashboard'
     }

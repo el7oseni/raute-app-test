@@ -258,20 +258,40 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             if (event === 'SIGNED_OUT') {
                 // Don't redirect immediately — verify session is actually gone.
                 // Supabase fires SIGNED_OUT when auto token refresh fails (e.g.
-                // AbortError on resume), but the session may still be valid.
+                // AbortError on resume, or race conditions with detectSessionInUrl).
+                // Wait a moment then check if user is still valid server-side.
                 sessionConfirmedRef.current = false
                 if (isMountedRef.current && !isPublicRoute) {
+                    // Small delay — let any in-flight token refresh settle
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    if (!isMountedRef.current) return
+
                     try {
+                        // First check local session
                         const { data } = await supabase.auth.getSession()
-                        if (!data.session) {
-                            console.log('⛔ SIGNED_OUT confirmed — no session, redirecting')
-                            router.push('/login')
-                        } else {
+                        if (data.session) {
                             console.log('⚠️ SIGNED_OUT event but session still exists — ignoring redirect')
                             sessionConfirmedRef.current = true
+                            return
                         }
+
+                        // No local session — verify server-side (maybe token was just refreshed)
+                        const { data: userData } = await supabase.auth.getUser()
+                        if (userData.user) {
+                            console.log('⚠️ SIGNED_OUT event but user still valid server-side — refreshing session')
+                            // Try to refresh the session
+                            const { data: refreshData } = await supabase.auth.refreshSession()
+                            if (refreshData.session) {
+                                console.log('✅ Session refreshed after false SIGNED_OUT')
+                                sessionConfirmedRef.current = true
+                                return
+                            }
+                        }
+
+                        console.log('⛔ SIGNED_OUT confirmed — no session, redirecting')
+                        router.push('/login')
                     } catch {
-                        // If getSession fails, redirect to be safe
+                        // If all checks fail, redirect to be safe
                         router.push('/login')
                     }
                 }
