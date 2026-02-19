@@ -23,7 +23,20 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [apiError, setApiError] = useState<string | null>(null)
-    const [redirectError, setRedirectError] = useState<string | null>(null)
+    const [redirectError, setRedirectError] = useState<string | null>(() => {
+        // Read error from URL query params (set by auth/callback redirects)
+        if (typeof window === 'undefined') return null
+        const params = new URLSearchParams(window.location.search)
+        const error = params.get('error')
+        if (!error) return null
+        // Map error codes to user-friendly messages
+        const errorMessages: Record<string, string> = {
+            'access_denied': 'Access was denied. Please try signing in again.',
+            'no_session': 'Session expired. Please sign in again.',
+            'verification_failed': 'Email verification failed. Please try again.',
+        }
+        return errorMessages[error] || 'Something went wrong. Please try signing in again.'
+    })
     const [message, setMessage] = useState<string | null>(null)
     const { toast } = useToast()
 
@@ -211,9 +224,7 @@ export default function LoginPage() {
                                         {redirectError && (
                                             <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
                                                 <AlertCircle className="h-4 w-4" />
-                                                {redirectError === 'verification_failed'
-                                                    ? "Authentication failed. Please try again."
-                                                    : "Unable to sign in. Please try again."}
+                                                {redirectError}
                                             </div>
                                         )}
                                         {message && (

@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Capacitor } from "@capacitor/core"
 import { restoreSessionFromBackup } from "@/components/auth-listener"
-import { useToast } from "@/components/toast-provider"
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
@@ -14,7 +13,6 @@ const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callbac
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const pathname = usePathname()
-    const { toast } = useToast()
     const isMarketingPage = pathname === '/' || pathname === '/privacy' || pathname === '/terms'
     // Don't show skeleton on public routes (login, signup, etc) — render immediately
     const isPublicPage = PUBLIC_ROUTES.some(route =>
@@ -53,8 +51,6 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const now = Date.now()
         if (now - lastRedirectRef.current > 3000) {
             console.log(`⛔ Redirecting to login: ${reason || 'no session'}`)
-            // DEBUG: Show why auth-check is redirecting
-            toast({ title: 'AuthCheck Redirect', description: `Reason: ${reason || 'no session'} | Path: ${pathname}`, type: 'error' })
             lastRedirectRef.current = now
             resolvedRef.current = true
             sessionConfirmedRef.current = false
@@ -151,11 +147,6 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         path: pathname,
                         userId: data.session.user.id.substring(0, 8)
                     })
-                    // DEBUG: Confirm auth-check found session
-                    if (!isPublicRoute) {
-                        toast({ title: 'AuthCheck OK', description: `Session found for ${pathname}`, type: 'success' })
-                    }
-
                     // Check email verification
                     if (!data.session.user.email_confirmed_at && pathname !== '/verify-email') {
                         const now = Date.now()
