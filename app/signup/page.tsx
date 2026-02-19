@@ -77,6 +77,14 @@ export default function SignupPage() {
             }
             if (!authData.user) throw new Error("No user returned from signup")
 
+            // Check for duplicate signup — Supabase returns user with empty identities
+            // when the email is already registered (security: no confirmation email sent)
+            if (authData.user.identities && authData.user.identities.length === 0) {
+                setError("An account with this email already exists. Please sign in instead.")
+                setIsLoading(false)
+                return
+            }
+
             // 2. Complete Signup via RPC (Safe & Atomic)
             try {
                 const { data: rpcData, error: rpcError } = await Promise.race([
