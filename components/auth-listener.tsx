@@ -284,14 +284,14 @@ export function AuthListener() {
                         return
                     }
 
-                    // All attempts failed
-                    console.log('🧹 PKCE exchange failed, clearing all auth data...')
-                    await supabase.auth.signOut({ scope: 'local' })
-                    await capacitorStorage.clearAllAuthData()
+                    // All attempts failed — only clear PKCE-related data, NOT the full session.
+                    // The user may have a valid existing session from a previous login.
+                    console.warn('⚠️ PKCE exchange failed after 3 attempts:', lastError)
+                    await clearCodeVerifierBackup()
 
                     toast({
-                        title: 'All 3 Attempts Failed',
-                        description: `Last error: ${lastError}`,
+                        title: 'Sign In Incomplete',
+                        description: 'Could not complete sign in. Please try again.',
                         type: 'error'
                     })
                     return
