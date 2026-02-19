@@ -67,9 +67,17 @@ export default function VerifyEmailPage() {
             }
 
             // No session at all — Supabase doesn't create a session until email is verified.
-            // We can't check verification status without a session, so show helpful message.
-            setError("Please check your inbox and click the verification link first, then try again.")
-            setIsChecking(false)
+            // We can't check verification status without a session.
+            // Best approach: redirect to login with the email pre-filled.
+            // If they DID verify, login will succeed → dashboard.
+            // If they didn't, login will show "Email not confirmed" → back to verify-email.
+            const email = userEmail || sessionStorage.getItem('pending_verification_email') || ''
+            sessionStorage.removeItem('pending_verification_email')
+            const params = new URLSearchParams()
+            params.set('message', 'try_login')
+            if (email) params.set('email', email)
+            window.location.href = `/login?${params.toString()}`
+            return
 
         } catch {
             setError("Something went wrong. Please try again.")
@@ -125,7 +133,7 @@ export default function VerifyEmailPage() {
                     setError(resendError.message)
                 }
             } else {
-                setSuccess("Verification email sent! Please check your inbox (and spam folder).")
+                setSuccess("If your email isn't verified yet, we've sent a new link. Please check your inbox and spam folder. If you've already verified, click \"I've verified my email\" above to sign in.")
             }
         } catch {
             setError("Failed to resend email. Please try again.")

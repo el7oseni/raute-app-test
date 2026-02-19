@@ -42,6 +42,7 @@ export default function LoginPage() {
         const params = new URLSearchParams(window.location.search)
         const msg = params.get('message')
         if (msg === 'verified') return '✅ Email verified! Please sign in to continue.'
+        if (msg === 'try_login') return 'Please sign in with your credentials to continue.'
         return null
     })
     // Pre-fill email from URL (e.g. when redirected from verify-email page)
