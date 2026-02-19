@@ -66,10 +66,16 @@ export default function VerifyEmailPage() {
                 }
             }
 
-            // No session at all — safest assumption is they haven't verified yet
-            // (we can't check without credentials)
-            setError("Please check your inbox and click the verification link first, then try again.")
-            setIsChecking(false)
+            // No session — Supabase doesn't create a session until verification.
+            // The user may have verified in another browser/device.
+            // Redirect to login so they can sign in with their verified account.
+            const email = userEmail || sessionStorage.getItem('pending_verification_email') || ''
+            sessionStorage.removeItem('pending_verification_email')
+            const loginUrl = email
+                ? `/login?message=verified&email=${encodeURIComponent(email)}`
+                : '/login?message=verified'
+            window.location.href = loginUrl
+            return
 
         } catch {
             setError("Something went wrong. Please try again.")
@@ -84,11 +90,19 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
+            // Check if already verified via session
+            const { data: sessionData } = await supabase.auth.getSession()
+            if (sessionData.session?.user?.email_confirmed_at) {
+                sessionStorage.removeItem('pending_verification_email')
+                setSuccess("Your email is already verified! Redirecting to dashboard...")
+                setTimeout(() => { window.location.href = '/dashboard' }, 1500)
+                return
+            }
+
             // Get the email from session, state, or sessionStorage fallback
             let email = userEmail
             if (!email) {
-                const { data } = await supabase.auth.getSession()
-                email = data.session?.user?.email || null
+                email = sessionData.session?.user?.email || null
                 if (!email) {
                     email = sessionStorage.getItem('pending_verification_email')
                 }

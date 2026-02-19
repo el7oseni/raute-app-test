@@ -31,11 +31,28 @@ export default function AuthCallback() {
 
       setStatus('Setting up your account...')
 
-      // Sync role from DB to session metadata
+      // Check if user has a complete profile (role + company)
+      // If signup happened on mobile app but verification was clicked on web,
+      // the user may have a profile but we're in a web browser without app context.
       try {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('role, company_id')
+          .eq('id', userId)
+          .single()
+
+        if (!userProfile || !userProfile.role || !userProfile.company_id) {
+          // No profile or incomplete — user signed up but RPC may have failed.
+          // Redirect to login so they can sign in properly (from the app if needed).
+          console.warn('⚠️ User has no complete profile, redirecting to login')
+          window.location.href = '/login?message=verified'
+          return
+        }
+
+        // Sync role from DB to session metadata
         await authenticatedFetch('/api/sync-user-role')
       } catch {
-        // non-critical
+        // If profile check fails, still try to go to dashboard
       }
 
       setStatus('Redirecting to dashboard...')
