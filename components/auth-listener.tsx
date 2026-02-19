@@ -156,13 +156,6 @@ export function AuthListener() {
         const listener = App.addListener('appUrlOpen', async ({ url }) => {
             console.log('🔗 Deep link received:', url)
 
-            // Debug: show that deep link was received (visible to user)
-            toast({
-                title: 'Deep Link Received',
-                description: url.substring(0, 80),
-                type: 'info'
-            })
-
             if (url.includes('auth/callback')) {
                 try {
                     await Browser.close()
@@ -199,93 +192,55 @@ export function AuthListener() {
                 // PKCE code exchange
                 if (code) {
                     console.log('🔐 Attempting PKCE code exchange...')
-                    toast({ title: 'Step 1/6', description: 'Starting PKCE exchange...', type: 'info' })
-
                     let lastError = ''
-
-                    // Debug: Check if code verifier exists
-                    try {
-                        const verifier = await capacitorStorage.getItem('sb-raute-auth-code-verifier')
-                        toast({ title: 'Step 2/6: Verifier', description: verifier ? 'EXISTS' : 'MISSING', type: verifier ? 'info' : 'error' })
-                    } catch {}
 
                     // Attempt 1: Direct code exchange
                     try {
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
                         if (!sessionError && data.session) {
-                            toast({ title: 'Step 3/6: Exchange', description: `OK - ${data.session.user.email || 'success'}`, type: 'success' })
-
-                            // Backup session
                             await backupSession(data.session.access_token, data.session.refresh_token)
                             await clearCodeVerifierBackup()
-
-                            // Wait for storage writes to complete
                             await new Promise(resolve => setTimeout(resolve, 800))
-
-                            // Verify session is readable from the same client
-                            const { data: verifyData } = await supabase.auth.getSession()
-                            toast({ title: 'Step 4/6: Verify', description: verifyData.session ? 'Session readable' : 'Session NOT readable!', type: verifyData.session ? 'success' : 'error' })
-
-                            // Check storage directly
-                            const stored = await capacitorStorage.getItem('sb-raute-auth')
-                            toast({ title: 'Step 5/6: Storage', description: stored ? `Stored (${stored.length} chars)` : 'EMPTY!', type: stored ? 'success' : 'error' })
-
-                            // Give user time to see the debug toasts before navigating
-                            await new Promise(resolve => setTimeout(resolve, 3000))
-
-                            toast({ title: 'Step 6/6: Navigate', description: 'Going to dashboard...', type: 'info' })
-                            await new Promise(resolve => setTimeout(resolve, 500))
                             window.location.href = '/dashboard'
                             return
                         }
                         lastError = sessionError?.message || 'Unknown error'
-                        toast({ title: 'Exchange FAILED', description: lastError, type: 'error' })
+                        console.warn('PKCE exchange failed:', lastError)
                     } catch (err: any) {
                         lastError = err?.message || 'Exception'
-                        toast({ title: 'Exchange ERROR', description: lastError, type: 'error' })
+                        console.warn('PKCE exchange error:', lastError)
                     }
 
                     // Attempt 2: Restore code verifier from backup, then retry
                     console.log('🔄 Restoring code verifier from backup...')
-                    toast({ title: 'Attempt 2', description: 'Restoring verifier from backup...', type: 'info' })
                     const restored = await restoreCodeVerifier()
                     if (restored) {
                         await new Promise(resolve => setTimeout(resolve, 300))
                         try {
                             const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
                             if (!sessionError && data.session) {
-                                toast({ title: 'Attempt 2 OK', description: 'Exchange succeeded with restored verifier', type: 'success' })
                                 await backupSession(data.session.access_token, data.session.refresh_token)
                                 await clearCodeVerifierBackup()
-                                await new Promise(resolve => setTimeout(resolve, 2000))
                                 window.location.href = '/dashboard'
                                 return
                             }
                             lastError = sessionError?.message || 'Unknown error'
-                            toast({ title: 'Attempt 2 Failed', description: lastError, type: 'error' })
                         } catch (err: any) {
                             lastError = err?.message || 'Exception'
-                            toast({ title: 'Attempt 2 Error', description: lastError, type: 'error' })
                         }
-                    } else {
-                        toast({ title: 'Attempt 2 Skip', description: 'No backup verifier found', type: 'info' })
                     }
 
                     // Attempt 3: Check if session was set by onAuthStateChange
-                    toast({ title: 'Attempt 3', description: 'Checking for existing session...', type: 'info' })
                     await new Promise(resolve => setTimeout(resolve, 1500))
                     const { data: sessionData } = await supabase.auth.getSession()
                     if (sessionData.session) {
-                        toast({ title: 'Attempt 3 OK', description: 'Found existing session', type: 'success' })
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await clearCodeVerifierBackup()
-                        await new Promise(resolve => setTimeout(resolve, 2000))
                         window.location.href = '/dashboard'
                         return
                     }
 
                     // All attempts failed — only clear PKCE-related data, NOT the full session.
-                    // The user may have a valid existing session from a previous login.
                     console.warn('⚠️ PKCE exchange failed after 3 attempts:', lastError)
                     await clearCodeVerifierBackup()
 

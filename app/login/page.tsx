@@ -499,9 +499,7 @@ export default function LoginPage() {
                                     {redirectError && (
                                         <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
                                             <AlertCircle className="h-4 w-4" />
-                                            {redirectError === 'verification_failed'
-                                                ? "Authentication failed. Please try again."
-                                                : "Unable to sign in. Please try again."}
+                                            {redirectError}
                                         </div>
                                     )}
                                     {message && (
