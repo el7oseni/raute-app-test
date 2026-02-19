@@ -72,7 +72,8 @@ export async function middleware(request: NextRequest) {
     // OAuth callback: exchange code for session server-side so cookies are set properly.
     // Without this, the client-side exchangeCodeForSession sets the session in memory
     // but cookies aren't written, causing auth-check to fail on the next page load.
-    if (request.nextUrl.pathname === '/auth/callback') {
+    const isAuthCallback = request.nextUrl.pathname === '/auth/callback' || request.nextUrl.pathname === '/auth/callback/'
+    if (isAuthCallback) {
         const code = request.nextUrl.searchParams.get('code')
         if (code) {
             const { error } = await supabase.auth.exchangeCodeForSession(code)
