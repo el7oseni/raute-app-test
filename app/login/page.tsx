@@ -44,6 +44,10 @@ export default function LoginPage() {
         if (msg === 'verified') return '✅ Email verified! Please sign in to continue.'
         return null
     })
+    // Pre-fill email from URL (e.g. when redirected from verify-email page)
+    const prefillEmail = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('email') || ''
+        : ''
     const { toast } = useToast()
 
     // Listen for browser close to reset loading state
@@ -254,6 +258,7 @@ export default function LoginPage() {
                                                     autoCapitalize="none"
                                                     autoComplete="email"
                                                     autoCorrect="off"
+                                                    defaultValue={prefillEmail}
                                                     className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                     disabled={isLoading}
                                                     required
@@ -520,6 +525,7 @@ export default function LoginPage() {
                                                 autoCapitalize="none"
                                                 autoComplete="email"
                                                 autoCorrect="off"
+                                                defaultValue={prefillEmail}
                                                 className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                 disabled={isLoading}
                                                 required

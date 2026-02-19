@@ -41,47 +41,45 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
-            // Step 1: Check if there's already a session (cheap, never throws)
-            const { data: sessionData } = await supabase.auth.getSession()
+            // First: cheap session check — never throws
+            let { data: sessionData } = await supabase.auth.getSession()
 
-            if (sessionData.session?.user?.email_confirmed_at) {
-                // Already verified and signed in — go to dashboard
-                sessionStorage.removeItem('pending_verification_email')
-                window.location.href = '/dashboard'
-                return
-            }
-
+            // If no session, try refreshing once to pick up cross-tab verification
             if (!sessionData.session) {
-                // No session at all. This happens when:
-                //   - Supabase hasn't verified the email yet (user hasn't clicked link)
-                //   - The email WAS verified in another tab/browser, which signs them in there,
-                //     but this tab still has no session → send to login
-                router.push('/login?message=verified')
-                return
+                const { data: refreshed } = await supabase.auth.refreshSession()
+                if (refreshed.session) {
+                    sessionData = refreshed
+                }
             }
 
-            // Step 2: Has a session but email_confirmed_at is null — try refreshing
-            // to pick up any verification that happened after the session was created
-            const { data, error: refreshError } = await supabase.auth.refreshSession()
-
-            if (refreshError || !data.session) {
-                setError("Could not check verification status. Please try again.")
-                setIsChecking(false)
-                return
+            if (sessionData.session) {
+                if (sessionData.session.user.email_confirmed_at) {
+                    // ✅ Verified — go directly to dashboard
+                    sessionStorage.removeItem('pending_verification_email')
+                    window.location.href = '/dashboard'
+                    return
+                } else {
+                    // ❌ Session exists but email not yet verified
+                    setError("Your email isn't verified yet. Please click the link in the email we sent you.")
+                    setIsChecking(false)
+                    return
+                }
             }
 
-            if (data.session.user.email_confirmed_at) {
-                sessionStorage.removeItem('pending_verification_email')
-                window.location.href = '/dashboard'
-            } else {
-                setError("Email not verified yet. Please check your inbox and click the verification link first.")
-                setIsChecking(false)
-            }
+            // No session at all — user may have verified in a different browser or the
+            // session expired. Redirect to login; pre-fill email from sessionStorage if available.
+            const savedEmail = sessionStorage.getItem('pending_verification_email')
+            const loginUrl = savedEmail
+                ? `/login?email=${encodeURIComponent(savedEmail)}&message=verified`
+                : '/login?message=verified'
+            router.push(loginUrl)
+
         } catch {
             setError("Something went wrong. Please try again.")
             setIsChecking(false)
         }
     }
+
 
     async function handleResendEmail() {
         setIsResending(true)
