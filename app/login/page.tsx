@@ -37,7 +37,13 @@ export default function LoginPage() {
         }
         return errorMessages[error] || 'Something went wrong. Please try signing in again.'
     })
-    const [message, setMessage] = useState<string | null>(null)
+    const [message, setMessage] = useState<string | null>(() => {
+        if (typeof window === 'undefined') return null
+        const params = new URLSearchParams(window.location.search)
+        const msg = params.get('message')
+        if (msg === 'verified') return '✅ Email verified! Please sign in to continue.'
+        return null
+    })
     const { toast } = useToast()
 
     // Listen for browser close to reset loading state

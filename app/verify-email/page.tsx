@@ -41,23 +41,37 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
-            // Refresh the session to get the latest user data from Supabase
+            // Step 1: Check if there's already a session (cheap, never throws)
+            const { data: sessionData } = await supabase.auth.getSession()
+
+            if (sessionData.session?.user?.email_confirmed_at) {
+                // Already verified and signed in — go to dashboard
+                sessionStorage.removeItem('pending_verification_email')
+                window.location.href = '/dashboard'
+                return
+            }
+
+            if (!sessionData.session) {
+                // No session at all. This happens when:
+                //   - Supabase hasn't verified the email yet (user hasn't clicked link)
+                //   - The email WAS verified in another tab/browser, which signs them in there,
+                //     but this tab still has no session → send to login
+                router.push('/login?message=verified')
+                return
+            }
+
+            // Step 2: Has a session but email_confirmed_at is null — try refreshing
+            // to pick up any verification that happened after the session was created
             const { data, error: refreshError } = await supabase.auth.refreshSession()
 
-            if (refreshError) {
+            if (refreshError || !data.session) {
                 setError("Could not check verification status. Please try again.")
                 setIsChecking(false)
                 return
             }
 
-            if (!data.session) {
-                // No session at all — send to login
-                router.push('/login')
-                return
-            }
-
             if (data.session.user.email_confirmed_at) {
-                // Email is verified! Proceed to dashboard
+                sessionStorage.removeItem('pending_verification_email')
                 window.location.href = '/dashboard'
             } else {
                 setError("Email not verified yet. Please check your inbox and click the verification link first.")
