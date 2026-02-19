@@ -21,6 +21,11 @@ export default function VerifyEmailPage() {
             const { data } = await supabase.auth.getSession()
             if (data.session?.user?.email) {
                 setUserEmail(data.session.user.email)
+            } else {
+                // Supabase doesn't create a session until email is verified,
+                // so fall back to the email saved in sessionStorage during signup
+                const saved = sessionStorage.getItem('pending_verification_email')
+                if (saved) setUserEmail(saved)
             }
             // If email is already verified, skip this page entirely
             if (data.session?.user?.email_confirmed_at) {
@@ -70,11 +75,14 @@ export default function VerifyEmailPage() {
         setSuccess(null)
 
         try {
-            // Get the email from session if we don't have it yet
+            // Get the email from session, state, or sessionStorage fallback
             let email = userEmail
             if (!email) {
                 const { data } = await supabase.auth.getSession()
                 email = data.session?.user?.email || null
+                if (!email) {
+                    email = sessionStorage.getItem('pending_verification_email')
+                }
                 if (email) setUserEmail(email)
             }
 

@@ -99,8 +99,9 @@ export default function SignupPage() {
                 // Continue anyway - user is created, trigger should handle profile
             }
 
-            // Success! Redirect to email verification page using router.push
-            // This maintains the session state and prevents race conditions
+            // Save email so verify-email page can resend without a session
+            // (Supabase doesn't create a session until email is verified)
+            sessionStorage.setItem('pending_verification_email', email)
             router.push("/verify-email")
 
         } catch (err: any) {
