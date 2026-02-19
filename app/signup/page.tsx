@@ -36,8 +36,15 @@ export default function SignupPage() {
         const email = formData.get("email") as string
         const phone = phoneValue || formData.get("phone") as string
         const password = formData.get("password") as string
+        const confirmPassword = formData.get("confirm_password") as string
 
         // Validation
+        if (password !== confirmPassword) {
+            setError("Passwords do not match.")
+            setIsLoading(false)
+            return
+        }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(email)) {
             setError("Invalid email format.")
@@ -266,6 +273,26 @@ export default function SignupPage() {
                                             </p>
                                         </div>
 
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium leading-none" htmlFor="confirm_password">
+                                                Confirm Password
+                                            </label>
+                                            <div className="relative">
+                                                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                                <Input
+                                                    id="confirm_password"
+                                                    name="confirm_password"
+                                                    placeholder="••••••••"
+                                                    type={showPassword ? "text" : "password"}
+                                                    autoCapitalize="none"
+                                                    autoComplete="new-password"
+                                                    className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
+                                                    required
+                                                    minLength={8}
+                                                />
+                                            </div>
+                                        </div>
+
                                         <Button className="w-full h-11 text-base font-semibold shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white" type="submit" disabled={isLoading}>
                                             {isLoading ? (
                                                 <div className="flex items-center gap-2">
@@ -402,7 +429,7 @@ export default function SignupPage() {
                     <Footer />
                 </div>
             }
-            // Mobile version: Clean interface without navbar/footer  
+            // Mobile version: Clean interface without navbar/footer
             mobileChildren={
                 <div className="flex min-h-screen items-center justify-center px-4 bg-slate-50 dark:bg-slate-950">
                     <div className="w-full max-w-md space-y-8">
@@ -539,6 +566,26 @@ export default function SignupPage() {
                                         <p className="text-xs text-slate-500">
                                             Must be at least 8 characters
                                         </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium leading-none" htmlFor="mobile_confirm_password">
+                                            Confirm Password
+                                        </label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                            <Input
+                                                id="mobile_confirm_password"
+                                                name="confirm_password"
+                                                placeholder="••••••••"
+                                                type={showPassword ? "text" : "password"}
+                                                autoCapitalize="none"
+                                                autoComplete="new-password"
+                                                className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
+                                                required
+                                                minLength={8}
+                                            />
+                                        </div>
                                     </div>
 
                                     <Button className="w-full h-11 text-base font-semibold shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white" type="submit" disabled={isLoading}>
