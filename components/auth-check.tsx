@@ -10,6 +10,14 @@ import { restoreSessionFromBackup } from "@/components/auth-listener"
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callback', '/pending-activation', '/privacy', '/terms']
 
+// Global flag: set to true when user explicitly clicks "Logout".
+// This tells the SIGNED_OUT handler to skip recovery attempts.
+// Exported so profile/login pages can set it before calling signOut().
+let _intentionalLogout = false
+export function markIntentionalLogout() {
+    _intentionalLogout = true
+}
+
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const pathname = usePathname()
@@ -256,11 +264,22 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
             if (event === 'SIGNED_OUT') {
-                // Don't redirect immediately — verify session is actually gone.
-                // Supabase fires SIGNED_OUT when auto token refresh fails (e.g.
-                // AbortError on resume, or race conditions with detectSessionInUrl).
-                // Wait a moment then check if user is still valid server-side.
                 sessionConfirmedRef.current = false
+
+                // If this was an intentional logout (user clicked Logout button),
+                // skip all recovery attempts and redirect immediately.
+                if (_intentionalLogout) {
+                    _intentionalLogout = false
+                    console.log('⛔ Intentional logout — redirecting to login')
+                    if (isMountedRef.current && !isPublicRoute) {
+                        router.push('/login')
+                    }
+                    return
+                }
+
+                // False SIGNED_OUT: Supabase fires this when auto token refresh fails
+                // (e.g. AbortError on resume, race conditions with detectSessionInUrl).
+                // Wait a moment then check if user is still valid server-side.
                 if (isMountedRef.current && !isPublicRoute) {
                     // Small delay — let any in-flight token refresh settle
                     await new Promise(resolve => setTimeout(resolve, 500))
