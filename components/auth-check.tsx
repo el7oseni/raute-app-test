@@ -69,24 +69,32 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             return
         }
 
+        // If session was already confirmed (navigating between protected routes),
+        // skip the loading state and full auth re-check. We still set up the
+        // onAuthStateChange listener below to catch SIGNED_OUT events.
+        const skipFullCheck = !isPublicRoute && sessionConfirmedRef.current
+
+        if (skipFullCheck) {
+            resolvedRef.current = true
+        }
+
         // When entering a protected route without a previously confirmed session,
         // show loading until we verify. This prevents rendering children before
         // auth is confirmed (e.g. navigating from /login to /dashboard after login).
-        // If session was already confirmed (navigating between protected routes), skip.
         if (!isPublicRoute && !sessionConfirmedRef.current) {
             setIsLoading(true)
         }
 
         // Prevent duplicate auth checks
-        if (authCheckRunningRef.current) {
+        if (authCheckRunningRef.current && !skipFullCheck) {
             return
         }
 
         const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
 
         // TIMEOUT: Force resolve after timeout
-        // Web: 5s (cookies are instant), Native: 6s (Preferences needs time)
-        const maxTimeoutMs = isNative ? 6000 : 5000
+        // Web: 8s (3 retries × 500ms + buffer), Native: 8s (4 retries × 500ms + buffer)
+        const maxTimeoutMs = 8000
         const maxTimeout = setTimeout(() => {
             if (resolvedRef.current) return
             console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing resolve`)
@@ -161,8 +169,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     return
                 }
 
-                // NO SESSION — retry on native (Preferences may be slow)
-                if (isNative && retries > 0) {
+                // NO SESSION — retry (session may not be persisted to cookies yet)
+                // On web: cookies from signInWithPassword may take a moment to be readable
+                // On native: Capacitor Preferences may be slow
+                if (retries > 0) {
                     console.log(`⏳ No session yet, retrying... (${retries} left)`)
                     setTimeout(() => {
                         if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
@@ -246,9 +256,24 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             console.log('🔔 Auth event:', event, 'hasSession:', !!session)
 
             if (event === 'SIGNED_OUT') {
+                // Don't redirect immediately — verify session is actually gone.
+                // Supabase fires SIGNED_OUT when auto token refresh fails (e.g.
+                // AbortError on resume), but the session may still be valid.
                 sessionConfirmedRef.current = false
                 if (isMountedRef.current && !isPublicRoute) {
-                    router.push('/login')
+                    try {
+                        const { data } = await supabase.auth.getSession()
+                        if (!data.session) {
+                            console.log('⛔ SIGNED_OUT confirmed — no session, redirecting')
+                            router.push('/login')
+                        } else {
+                            console.log('⚠️ SIGNED_OUT event but session still exists — ignoring redirect')
+                            sessionConfirmedRef.current = true
+                        }
+                    } catch {
+                        // If getSession fails, redirect to be safe
+                        router.push('/login')
+                    }
                 }
             } else if (event === 'INITIAL_SESSION') {
                 if (session && isMountedRef.current) {
@@ -269,15 +294,18 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             }
         })
 
-        // Start auth check
-        if (isNative) {
-            // Native: small delay for Preferences init, then retry up to 4 times
-            setTimeout(() => {
-                if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
-            }, 300)
-        } else {
-            // Web: check once immediately (cookies are instant, no retries needed)
-            checkAuth(0)
+        // Start auth check (skip if session already confirmed from previous route)
+        if (!skipFullCheck) {
+            if (isNative) {
+                // Native: small delay for Preferences init, then retry up to 4 times
+                setTimeout(() => {
+                    if (isMountedRef.current && !resolvedRef.current) checkAuth(4)
+                }, 300)
+            } else {
+                // Web: retry up to 3 times with 500ms delay between attempts.
+                // After login, cookies may not be immediately readable by getSession().
+                checkAuth(3)
+            }
         }
 
         return () => {

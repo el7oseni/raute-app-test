@@ -29,18 +29,14 @@ export default function AuthCallback() {
         return
       }
 
-      setStatus('Setting up your account...')
-
-      // Sync role from DB to session metadata
-      try {
-        await authenticatedFetch('/api/sync-user-role')
-        addDebug('Role synced')
-      } catch (syncErr) {
-        addDebug('Role sync failed (non-critical)')
-      }
-
+      // Redirect to dashboard immediately — don't block on role sync.
+      // The role sync is non-critical and can happen lazily after dashboard loads.
       addDebug('SUCCESS! Redirecting to dashboard...')
       setStatus('Redirecting to dashboard...')
+
+      // Fire role sync in background (don't await)
+      authenticatedFetch('/api/sync-user-role').catch(() => {})
+
       window.location.href = '/dashboard'
     }
 
