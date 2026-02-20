@@ -294,10 +294,25 @@ export default function SignupPage() {
                                                     type={showPassword ? "text" : "password"}
                                                     autoCapitalize="none"
                                                     autoComplete="new-password"
-                                                    className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
+                                                    className="pl-9 pr-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                     required
                                                     minLength={8}
                                                 />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="absolute right-0 top-0 h-11 w-11 px-3 py-2 text-slate-400 hover:text-slate-600"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    tabIndex={-1}
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="h-4 w-4" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4" />
+                                                    )}
+                                                    <span className="sr-only">Toggle password visibility</span>
+                                                </Button>
                                             </div>
                                         </div>
 
@@ -589,10 +604,25 @@ export default function SignupPage() {
                                                 type={showPassword ? "text" : "password"}
                                                 autoCapitalize="none"
                                                 autoComplete="new-password"
-                                                className="pl-9 h-11 bg-white/50 dark:bg-slate-950/50"
+                                                className="pl-9 pr-9 h-11 bg-white/50 dark:bg-slate-950/50"
                                                 required
                                                 minLength={8}
                                             />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="absolute right-0 top-0 h-11 w-11 px-3 py-2 text-slate-400 hover:text-slate-600"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                tabIndex={-1}
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
+                                                <span className="sr-only">Toggle password visibility</span>
+                                            </Button>
                                         </div>
                                     </div>
 
