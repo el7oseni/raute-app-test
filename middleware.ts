@@ -70,10 +70,9 @@ export async function middleware(request: NextRequest) {
     // auth/callback/page.tsx from exchanging it successfully.
     // Let the client-side handle the full PKCE code exchange.
 
-    // Debug: log cookies received in the request (helps diagnose persistence issues)
-    const allRequestCookies = request.cookies.getAll()
-    const authCookies = allRequestCookies.filter(c => c.name.startsWith('sb-'))
-    console.log(`[Middleware] ${request.nextUrl.pathname} — cookies: ${allRequestCookies.length} total, ${authCookies.length} auth (${authCookies.map(c => c.name).join(', ') || 'none'})`)
+    // Check for auth cookies in the request
+    const authCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-') && c.name.includes('auth-token'))
+    const hasAuthCookies = authCookies.length > 0
 
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -89,7 +88,15 @@ export async function middleware(request: NextRequest) {
 
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
-        console.log(`[Middleware] No session for ${request.nextUrl.pathname} — redirecting to /login (auth cookies: ${authCookies.map(c => c.name).join(', ') || 'none'})`)
+        // CRITICAL FIX: If auth cookies exist but getSession() returned null,
+        // the access token is expired and the server-side refresh failed or timed out.
+        // Don't redirect to login — let the page load and let the CLIENT-SIDE
+        // Supabase client handle the token refresh (it has autoRefreshToken: true).
+        // The client reads the same cookies, refreshes the token, and gets a valid session.
+        if (hasAuthCookies) {
+            console.log(`[Middleware] No session but auth cookies present for ${request.nextUrl.pathname} — allowing through for client-side refresh`)
+            return response
+        }
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
