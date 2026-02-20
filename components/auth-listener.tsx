@@ -125,6 +125,21 @@ export function AuthListener() {
             if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
                 // Backup session on every auth event
                 await backupSession(session.access_token, session.refresh_token)
+            } else if (event === 'INITIAL_SESSION' && !session && Capacitor.isNativePlatform()) {
+                // Cold start after force-stop: Supabase's _initialize() may have failed
+                // to read from Capacitor Preferences (bridge not ready yet).
+                // Try to restore from our redundant backup after a short delay.
+                console.log('📱 INITIAL_SESSION null on native — attempting backup restore...')
+                setTimeout(async () => {
+                    try {
+                        const restored = await restoreSessionFromBackup()
+                        if (restored) {
+                            console.log('✅ AuthListener: session restored from backup after cold start')
+                        }
+                    } catch (err) {
+                        console.warn('⚠️ AuthListener backup restore failed:', err)
+                    }
+                }, 500)
             } else if (event === 'SIGNED_OUT') {
                 await clearSessionBackup()
             }

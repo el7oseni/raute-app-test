@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SetupGuide } from '@/components/setup-guide'
 import Link from 'next/link'
 import { DriverDashboardView } from '@/components/dashboard/driver-dashboard-view'
@@ -26,9 +26,20 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [orders, setOrders] = useState<any[]>([])
     const [filteredOrders, setFilteredOrders] = useState<any[]>([])
+    const searchParams = useSearchParams()
 
-    // Filter State
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() })
+    // Filter State — restore from URL if available, otherwise default to today
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+        const from = searchParams.get('from')
+        const to = searchParams.get('to')
+        if (from) {
+            return {
+                from: new Date(from),
+                to: to ? new Date(to) : new Date(from)
+            }
+        }
+        return { from: new Date(), to: new Date() }
+    })
 
     const [userRole, setUserRole] = useState<string | null>(null)
     const [userId, setUserId] = useState<string | null>(null)
@@ -48,6 +59,20 @@ export default function DashboardPage() {
     const [hasHubs, setHasHubs] = useState(false)
     const [driversMap, setDriversMap] = useState<Record<string, any>>({})
     const [showSetup, setShowSetup] = useState(false) // Setup guide disabled - commented out for production
+
+    // Sync date range to URL so it persists on refresh
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (dateRange?.from) {
+            params.set('from', format(dateRange.from, 'yyyy-MM-dd'))
+            params.set('to', format(dateRange.to || dateRange.from, 'yyyy-MM-dd'))
+        } else {
+            params.delete('from')
+            params.delete('to')
+        }
+        const newUrl = `${window.location.pathname}?${params.toString()}`
+        window.history.replaceState({}, '', newUrl)
+    }, [dateRange])
     const { toast } = useToast()
     const isMountedRef = useRef(true)
 
@@ -566,7 +591,7 @@ export default function DashboardPage() {
                             </TabsContent>
 
                             <TabsContent value="activity" className="flex-1 overflow-y-auto max-h-[400px] p-4 m-0">
-                                <ManagerActivityFeed />
+                                <ManagerActivityFeed dateRange={dateRange} />
                             </TabsContent>
                         </Tabs>
                     </div>

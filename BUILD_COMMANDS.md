@@ -31,12 +31,14 @@ cd raute-app-test
 ## STEP 4: Create Environment File
 ```bash
 cat > .env.local << 'EOF'
-NEXT_PUBLIC_SUPABASE_URL=https://ysqcovxkqviufagguvue.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzcWNvdnhrcXZpdWZhZ2d1dnVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MTkxNzUsImV4cCI6MjA4MjA5NTE3NX0.k7luiMzzVHhNhayn-cn-ZX36CUVKXLLGTKheGz3em-U
-NEXT_PUBLIC_GEMINI_API_KEY=AIzaSyCQyL_T1PfsZIUO5To29MsiQmyzB_7xG74
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyA55OMkBi_Z2XjM7R5PQQCRsX4A40UBaHk
+NEXT_PUBLIC_SUPABASE_URL=<ask-project-owner>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<ask-project-owner>
+NEXT_PUBLIC_GEMINI_API_KEY=<ask-project-owner>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<ask-project-owner>
 EOF
 ```
+
+> **⚠️ Get the actual values from the project owner. Never commit real keys.**
 
 ## STEP 5: Install Dependencies
 ```bash
@@ -111,11 +113,12 @@ cd ~/Desktop
 git clone https://github.com/el7oseni/raute-app-test.git
 cd raute-app-test
 cat > .env.local << 'EOF'
-NEXT_PUBLIC_SUPABASE_URL=https://ysqcovxkqviufagguvue.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzcWNvdnhrcXZpdWZhZ2d1dnVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MTkxNzUsImV4cCI6MjA4MjA5NTE3NX0.k7luiMzzVHhNhayn-cn-ZX36CUVKXLLGTKheGz3em-U
-NEXT_PUBLIC_GEMINI_API_KEY=AIzaSyCQyL_T1PfsZIUO5To29MsiQmyzB_7xG74
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyA55OMkBi_Z2XjM7R5PQQCRsX4A40UBaHk
+NEXT_PUBLIC_SUPABASE_URL=<ask-project-owner>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<ask-project-owner>
+NEXT_PUBLIC_GEMINI_API_KEY=<ask-project-owner>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<ask-project-owner>
 EOF
+# ⚠️ Get actual values from the project owner. Never commit real keys.
 npm install
 npm run build:mobile
 npx cap sync ios
