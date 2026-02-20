@@ -7,6 +7,27 @@ import { useRouter } from "next/navigation"
 import { Mail, ArrowLeft, RefreshCw, AlertCircle, Send, CheckCircle2 } from "lucide-react"
 import { markIntentionalLogout } from "@/components/auth-check"
 
+/**
+ * Check email verification status via Supabase RPC.
+ * Calls the DB function directly — works on both web and Capacitor (no API route needed).
+ */
+async function checkEmailVerified(email: string): Promise<boolean> {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any).rpc(
+            'check_email_verification',
+            { check_email: email.trim().toLowerCase() }
+        )
+        if (error) {
+            console.warn('check_email_verification RPC error:', error.message)
+            return false
+        }
+        return !!data
+    } catch {
+        return false
+    }
+}
+
 export default function VerifyEmailPage() {
     const router = useRouter()
     const [isChecking, setIsChecking] = useState(false)
@@ -66,15 +87,10 @@ export default function VerifyEmailPage() {
                 }
             }
 
-            // No session — check the database directly via API
+            // No session — check the database directly via RPC
             const email = userEmail || sessionStorage.getItem('pending_verification_email') || ''
             if (email) {
-                const res = await fetch('/api/check-verification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                })
-                const { verified } = await res.json()
+                const verified = await checkEmailVerified(email)
 
                 if (verified) {
                     // ✅ Email is verified — redirect to login with email pre-filled
@@ -133,14 +149,9 @@ export default function VerifyEmailPage() {
                 return
             }
 
-            // No session — check database directly for verification status
+            // No session — check database directly via RPC
             if (!sessionData.session) {
-                const res = await fetch('/api/check-verification', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                })
-                const { verified } = await res.json()
+                const verified = await checkEmailVerified(email)
 
                 if (verified) {
                     sessionStorage.removeItem('pending_verification_email')

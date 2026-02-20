@@ -191,13 +191,25 @@ export function AuthListener() {
 
                 // PKCE code exchange
                 if (code) {
-                    console.log('🔐 Attempting PKCE code exchange...')
+                    console.log('🔐 [PKCE] Step 1: Got authorization code, starting exchange...')
+                    console.log('🔐 [PKCE] Code prefix:', code.substring(0, 12) + '...')
                     let lastError = ''
 
-                    // Attempt 1: Direct code exchange
+                    // Attempt 1: Direct code exchange (verifier should be in Supabase storage)
+                    console.log('🔐 [PKCE] Step 2: Attempting direct exchangeCodeForSession...')
                     try {
+                        const startTime = Date.now()
                         const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                        const elapsed = Date.now() - startTime
+                        console.log(`🔐 [PKCE] Step 2 result (${elapsed}ms):`, {
+                            success: !sessionError && !!data.session,
+                            error: sessionError?.message || null,
+                            errorStatus: sessionError?.status || null,
+                            hasSession: !!data?.session,
+                            userId: data?.session?.user?.id?.substring(0, 8) || null,
+                        })
                         if (!sessionError && data.session) {
+                            console.log('✅ [PKCE] Exchange succeeded on attempt 1!')
                             await backupSession(data.session.access_token, data.session.refresh_token)
                             await clearCodeVerifierBackup()
                             await new Promise(resolve => setTimeout(resolve, 800))
@@ -205,20 +217,29 @@ export function AuthListener() {
                             return
                         }
                         lastError = sessionError?.message || 'Unknown error'
-                        console.warn('PKCE exchange failed:', lastError)
                     } catch (err: any) {
                         lastError = err?.message || 'Exception'
-                        console.warn('PKCE exchange error:', lastError)
+                        console.error('🔐 [PKCE] Step 2 exception:', lastError)
                     }
 
                     // Attempt 2: Restore code verifier from backup, then retry
-                    console.log('🔄 Restoring code verifier from backup...')
+                    console.log('🔐 [PKCE] Step 3: Restoring code verifier from backup...')
                     const restored = await restoreCodeVerifier()
+                    console.log('🔐 [PKCE] Step 3: Restore result:', restored)
                     if (restored) {
                         await new Promise(resolve => setTimeout(resolve, 300))
+                        console.log('🔐 [PKCE] Step 4: Retrying exchange with restored verifier...')
                         try {
+                            const startTime = Date.now()
                             const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
+                            const elapsed = Date.now() - startTime
+                            console.log(`🔐 [PKCE] Step 4 result (${elapsed}ms):`, {
+                                success: !sessionError && !!data.session,
+                                error: sessionError?.message || null,
+                                errorStatus: sessionError?.status || null,
+                            })
                             if (!sessionError && data.session) {
+                                console.log('✅ [PKCE] Exchange succeeded on attempt 2 (restored verifier)!')
                                 await backupSession(data.session.access_token, data.session.refresh_token)
                                 await clearCodeVerifierBackup()
                                 window.location.href = '/dashboard'
@@ -227,13 +248,20 @@ export function AuthListener() {
                             lastError = sessionError?.message || 'Unknown error'
                         } catch (err: any) {
                             lastError = err?.message || 'Exception'
+                            console.error('🔐 [PKCE] Step 4 exception:', lastError)
                         }
                     }
 
                     // Attempt 3: Check if session was set by onAuthStateChange
+                    console.log('🔐 [PKCE] Step 5: Waiting 1.5s for onAuthStateChange...')
                     await new Promise(resolve => setTimeout(resolve, 1500))
                     const { data: sessionData } = await supabase.auth.getSession()
+                    console.log('🔐 [PKCE] Step 5: Session check result:', {
+                        hasSession: !!sessionData.session,
+                        userId: sessionData.session?.user?.id?.substring(0, 8) || null,
+                    })
                     if (sessionData.session) {
+                        console.log('✅ [PKCE] Session found via onAuthStateChange!')
                         await backupSession(sessionData.session.access_token, sessionData.session.refresh_token)
                         await clearCodeVerifierBackup()
                         window.location.href = '/dashboard'
@@ -241,12 +269,14 @@ export function AuthListener() {
                     }
 
                     // All attempts failed — only clear PKCE-related data, NOT the full session.
-                    console.warn('⚠️ PKCE exchange failed after 3 attempts:', lastError)
+                    console.error('❌ [PKCE] All 3 attempts failed. Last error:', lastError)
                     await clearCodeVerifierBackup()
 
                     toast({
                         title: 'Sign In Incomplete',
-                        description: 'Could not complete sign in. Please try again.',
+                        description: lastError.includes('invalid')
+                            ? 'Authentication code expired. Please try again.'
+                            : 'Could not complete sign in. Please try again.',
                         type: 'error'
                     })
                     return
