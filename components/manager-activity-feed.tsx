@@ -90,11 +90,13 @@ export function ManagerActivityFeed({ dateRange }: ManagerActivityFeedProps) {
                         </p>
                     </div>
 
-                    <div className="ml-auto text-[10px] text-slate-400 font-mono whitespace-nowrap">
-                        {isSameDay(new Date(log.timestamp), new Date())
-                            ? format(new Date(log.timestamp), 'HH:mm')
-                            : format(new Date(log.timestamp), 'MMM dd, HH:mm')
-                        }
+                    <div className="ml-auto text-right shrink-0">
+                        <p className="text-[11px] text-slate-500 font-medium">
+                            {format(new Date(log.timestamp), 'MMM dd')}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                            {format(new Date(log.timestamp), 'hh:mm a')}
+                        </p>
                     </div>
                 </div>
             ))}
