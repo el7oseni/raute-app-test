@@ -70,6 +70,11 @@ export async function middleware(request: NextRequest) {
     // auth/callback/page.tsx from exchanging it successfully.
     // Let the client-side handle the full PKCE code exchange.
 
+    // Debug: log cookies received in the request (helps diagnose persistence issues)
+    const allRequestCookies = request.cookies.getAll()
+    const authCookies = allRequestCookies.filter(c => c.name.startsWith('sb-'))
+    console.log(`[Middleware] ${request.nextUrl.pathname} — cookies: ${allRequestCookies.length} total, ${authCookies.length} auth (${authCookies.map(c => c.name).join(', ') || 'none'})`)
+
     const { data: { session } } = await supabase.auth.getSession()
 
     // 1. PUBLIC ROUTES (Allow access)
@@ -84,6 +89,7 @@ export async function middleware(request: NextRequest) {
 
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
+        console.log(`[Middleware] No session for ${request.nextUrl.pathname} — redirecting to /login (auth cookies: ${authCookies.map(c => c.name).join(', ') || 'none'})`)
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
