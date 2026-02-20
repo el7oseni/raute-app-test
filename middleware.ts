@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -23,56 +23,41 @@ export async function middleware(request: NextRequest) {
     })
 
     // Create a Supabase client configured to use cookies
+    // IMPORTANT: Use the modern getAll/setAll API (not deprecated get/set/remove).
+    // The old API had a critical bug: each set() call created a new NextResponse,
+    // which discarded Set-Cookie headers from previous set() calls.
+    // With chunked cookies (session split into .0, .1, .2 etc.), only the LAST
+    // chunk would survive — corrupting the session cookie in the browser.
+    // After the browser restarts and the access token expires, the middleware
+    // tries to refresh it and set new cookies, but the response lost all but
+    // the last chunk. The browser then had a broken session cookie, causing
+    // the client-side getSession() to return null and redirect to login.
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
-                get(name: string) {
-                    return request.cookies.get(name)?.value
+                getAll() {
+                    return request.cookies.getAll()
                 },
-                set(name: string, value: string, options: CookieOptions) {
-                    // Ensure cookies persist across browser restarts and app force-stops.
-                    // Without maxAge, cookies are "session cookies" that get cleared when
-                    // the browser/app closes. Let Supabase Auth control session validity
-                    // via refresh tokens instead.
-                    const persistentOptions = {
-                        ...options,
-                        maxAge: options.maxAge ?? 365 * 24 * 60 * 60, // 1 year
-                        sameSite: options.sameSite ?? ('lax' as const),
-                        path: options.path ?? '/',
-                    }
-                    request.cookies.set({
-                        name,
-                        value,
-                    })
+                setAll(cookiesToSet) {
+                    // First, update the request cookies so subsequent middleware
+                    // reads see the updated values
+                    cookiesToSet.forEach(({ name, value }) =>
+                        request.cookies.set(name, value)
+                    )
+
+                    // Recreate the response with the updated request headers
                     response = NextResponse.next({
                         request: {
                             headers: request.headers,
                         },
                     })
-                    response.cookies.set({
-                        name,
-                        value,
-                        ...persistentOptions,
-                    })
-                },
-                remove(name: string, options: CookieOptions) {
-                    request.cookies.set({
-                        name,
-                        value: '',
-                    })
-                    response = NextResponse.next({
-                        request: {
-                            headers: request.headers,
-                        },
-                    })
-                    response.cookies.set({
-                        name,
-                        value: '',
-                        ...options,
-                        maxAge: 0,
-                    })
+
+                    // Set ALL cookies on the response at once (no data loss)
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        response.cookies.set(name, value, options)
+                    )
                 },
             },
         }
