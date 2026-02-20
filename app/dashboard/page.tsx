@@ -566,7 +566,7 @@ export default function DashboardPage() {
                             </TabsContent>
 
                             <TabsContent value="activity" className="flex-1 overflow-y-auto max-h-[400px] p-4 m-0">
-                                <ManagerActivityFeed />
+                                <ManagerActivityFeed dateRange={dateRange} />
                             </TabsContent>
                         </Tabs>
                     </div>

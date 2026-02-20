@@ -47,7 +47,7 @@
 - [ ] **Check no Service Role Key in .env.local with NEXT_PUBLIC prefix**
 - [ ] **Test authentication flow**
 
-**Link:** https://supabase.com/dashboard/project/ysqcovxkqviufagguvue/settings/api
+**Link:** https://supabase.com/dashboard/project/<your-project-ref>/settings/api
 
 ---
 
@@ -70,7 +70,7 @@
   - [ ] Driver account
   - [ ] Try to access other company data (should fail ❌)
 
-**Link:** https://supabase.com/dashboard/project/ysqcovxkqviufagguvue/auth/policies
+**Link:** https://supabase.com/dashboard/project/<your-project-ref>/auth/policies
 
 ---
 
@@ -80,7 +80,7 @@
 - [ ] **Test restore process** (on staging if possible)
 - [ ] **Document backup procedure**
 
-**Link:** https://supabase.com/dashboard/project/ysqcovxkqviufagguvue/settings/database
+**Link:** https://supabase.com/dashboard/project/<your-project-ref>/settings/database
 
 ---
 
@@ -101,7 +101,7 @@
   - *.raute.io
   - (Remove localhost in production)
 
-**Link:** https://supabase.com/dashboard/project/ysqcovxkqviufagguvue/settings/api
+**Link:** https://supabase.com/dashboard/project/<your-project-ref>/settings/api
 
 ---
 
@@ -136,7 +136,7 @@
   - https://raute.io
   - raute://  (for deep linking)
 
-**Link:** https://supabase.com/dashboard/project/ysqcovxkqviufagguvue/auth/url-configuration
+**Link:** https://supabase.com/dashboard/project/<your-project-ref>/auth/url-configuration
 
 ---
 

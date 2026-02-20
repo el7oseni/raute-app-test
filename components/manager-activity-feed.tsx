@@ -1,9 +1,10 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { format } from 'date-fns'
+import { format, isSameDay, startOfDay, endOfDay } from 'date-fns'
 import { Clock, Truck } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DateRange } from "react-day-picker"
 
 type LogWithDriver = {
     id: string
@@ -14,23 +15,26 @@ type LogWithDriver = {
     }
 }
 
-export function ManagerActivityFeed() {
+interface ManagerActivityFeedProps {
+    dateRange?: DateRange
+}
+
+export function ManagerActivityFeed({ dateRange }: ManagerActivityFeedProps) {
     const [logs, setLogs] = useState<LogWithDriver[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         fetchLogs()
-    }, [])
+    }, [dateRange])
 
     async function fetchLogs() {
+        setIsLoading(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            // We need to fetch logs for all drivers in the company.
-            // RLS 'Managers can view all logs' policy handles the company filter implicitly basically.
-            // But we should join with drivers to get names.
-            const { data, error } = await supabase
+            // Build the query with optional date filter
+            let query = supabase
                 .from('driver_activity_logs')
                 .select(`
                     id,
@@ -39,7 +43,18 @@ export function ManagerActivityFeed() {
                     driver:drivers(name)
                 `)
                 .order('timestamp', { ascending: false })
-                .limit(20)
+                .limit(50)
+
+            // Apply date range filter (date only — same behavior as Orders)
+            if (dateRange?.from) {
+                const start = startOfDay(dateRange.from)
+                const end = endOfDay(dateRange.to || dateRange.from)
+                query = query
+                    .gte('timestamp', start.toISOString())
+                    .lte('timestamp', end.toISOString())
+            }
+
+            const { data, error } = await query
 
             if (error) throw error
             setLogs(data as any || [])
@@ -52,7 +67,7 @@ export function ManagerActivityFeed() {
 
     if (isLoading) return <div className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
 
-    if (logs.length === 0) return <div className="text-center text-sm text-slate-400 py-6">No recent driver activity.</div>
+    if (logs.length === 0) return <div className="text-center text-sm text-slate-400 py-6">No driver activity for this period.</div>
 
     return (
         <div className="space-y-4">
@@ -76,7 +91,10 @@ export function ManagerActivityFeed() {
                     </div>
 
                     <div className="ml-auto text-[10px] text-slate-400 font-mono whitespace-nowrap">
-                        {format(new Date(log.timestamp), 'HH:mm')}
+                        {isSameDay(new Date(log.timestamp), new Date())
+                            ? format(new Date(log.timestamp), 'HH:mm')
+                            : format(new Date(log.timestamp), 'MMM dd, HH:mm')
+                        }
                     </div>
                 </div>
             ))}

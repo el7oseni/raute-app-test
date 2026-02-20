@@ -36,6 +36,10 @@ yarn-error.log*
 # sensitive environment variable reference
 ENV_VARIABLES_REFERENCE.md
 
+# test scripts with credentials
+test_login.ps1
+*.ps1
+
 # archive and cleanup
 /archive
 temp_remote.txt
