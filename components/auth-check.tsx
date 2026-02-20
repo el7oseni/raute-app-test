@@ -177,20 +177,13 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     return
                 }
 
-                // NO SESSION — retry (session may not be persisted to cookies yet)
-                // On web: cookies from signInWithPassword may take a moment to be readable
-                // On native: Capacitor Preferences may be slow
-                if (retries > 0) {
-                    console.log(`⏳ No session yet, retrying... (${retries} left)`)
-                    setTimeout(() => {
-                        if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
-                    }, 500)
-                    return
-                }
-
-                // NO SESSION — last resort on native: try backup restore
-                if (isNative && retries === 0 && !isPublicRoute) {
-                    console.log('🔄 Final recovery: trying session backup...')
+                // NO SESSION — on native, try direct storage recovery early (after 2 retries)
+                // because getSession() only reads from Supabase's in-memory state.
+                // If _initialize() failed to read from Capacitor Preferences (bridge not ready),
+                // all subsequent getSession() calls return null — retrying is pointless.
+                // Instead, read directly from storage and use refreshSession() to restore.
+                if (isNative && retries <= 2 && !isPublicRoute) {
+                    console.log('🔄 Attempting direct storage recovery...')
 
                     // Try Supabase's internal storage key first
                     try {
@@ -199,12 +192,11 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         if (stored) {
                             const parsed = JSON.parse(stored)
                             if (parsed?.refresh_token) {
-                                // Use refreshSession instead of setSession for better reliability
                                 const { data: refreshData } = await supabase.auth.refreshSession({
                                     refresh_token: parsed.refresh_token
                                 })
                                 if (refreshData.session) {
-                                    console.log('✅ Session recovered via refreshSession!')
+                                    console.log('✅ Session recovered via direct storage + refreshSession!')
                                     clearTimeout(maxTimeout)
                                     finishLoading()
                                     return
@@ -215,7 +207,7 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                         console.warn('⚠️ Storage recovery failed:', err)
                     }
 
-                    // Try redundant backup
+                    // Try redundant session backup
                     try {
                         const restored = await restoreSessionFromBackup()
                         if (restored) {
@@ -227,6 +219,17 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                     } catch (err) {
                         console.warn('⚠️ Backup restore failed:', err)
                     }
+                }
+
+                // NO SESSION — retry (session may not be persisted to cookies yet)
+                // On web: cookies from signInWithPassword may take a moment to be readable
+                // On native: continue retrying in case Capacitor bridge becomes ready
+                if (retries > 0) {
+                    console.log(`⏳ No session yet, retrying... (${retries} left)`)
+                    setTimeout(() => {
+                        if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
+                    }, 500)
+                    return
                 }
 
                 // NO SESSION on web — no retries needed (cookies are instant)

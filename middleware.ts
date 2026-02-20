@@ -32,10 +32,19 @@ export async function middleware(request: NextRequest) {
                     return request.cookies.get(name)?.value
                 },
                 set(name: string, value: string, options: CookieOptions) {
+                    // Ensure cookies persist across browser restarts and app force-stops.
+                    // Without maxAge, cookies are "session cookies" that get cleared when
+                    // the browser/app closes. Let Supabase Auth control session validity
+                    // via refresh tokens instead.
+                    const persistentOptions = {
+                        ...options,
+                        maxAge: options.maxAge ?? 365 * 24 * 60 * 60, // 1 year
+                        sameSite: options.sameSite ?? ('lax' as const),
+                        path: options.path ?? '/',
+                    }
                     request.cookies.set({
                         name,
                         value,
-                        ...options,
                     })
                     response = NextResponse.next({
                         request: {
@@ -45,14 +54,13 @@ export async function middleware(request: NextRequest) {
                     response.cookies.set({
                         name,
                         value,
-                        ...options,
+                        ...persistentOptions,
                     })
                 },
                 remove(name: string, options: CookieOptions) {
                     request.cookies.set({
                         name,
                         value: '',
-                        ...options,
                     })
                     response = NextResponse.next({
                         request: {
@@ -63,6 +71,7 @@ export async function middleware(request: NextRequest) {
                         name,
                         value: '',
                         ...options,
+                        maxAge: 0,
                     })
                 },
             },
