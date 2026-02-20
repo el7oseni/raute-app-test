@@ -72,6 +72,18 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         isMountedRef.current = true
         resolvedRef.current = false
 
+        // Debug: log cookies present at mount time (helps diagnose persistence issues)
+        if (typeof document !== 'undefined') {
+            const allCookies = document.cookie.split(';').map(c => c.trim())
+            const authCookies = allCookies.filter(c => c.startsWith('sb-'))
+            console.log('🍪 Cookies at mount:', {
+                total: allCookies.length,
+                authCookies: authCookies.length,
+                authCookieNames: authCookies.map(c => c.split('=')[0]),
+                path: pathname,
+            })
+        }
+
         // For marketing pages, skip all auth checks
         if (isMarketingPage) {
             return
