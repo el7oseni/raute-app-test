@@ -70,7 +70,9 @@ export async function middleware(request: NextRequest) {
     // auth/callback/page.tsx from exchanging it successfully.
     // Let the client-side handle the full PKCE code exchange.
 
-    // Check for auth cookies in the request
+    // Check for auth cookies BEFORE getSession() modifies them.
+    // getSession() may call _removeSession() if refresh fails, which triggers
+    // setAll() with deletion cookies (maxAge: 0) — poisoning the response.
     const authCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-') && c.name.includes('auth-token'))
     const hasAuthCookies = authCookies.length > 0
 
@@ -83,19 +85,30 @@ export async function middleware(request: NextRequest) {
     })
 
     if (isPublicRoute) {
+        // For public routes, if we had auth cookies but refresh failed,
+        // return a clean response WITHOUT the deletion Set-Cookie headers.
+        // This preserves the cookies so the client-side can try refreshing.
+        if (hasAuthCookies && !session) {
+            return NextResponse.next({ request: { headers: request.headers } })
+        }
         return response
     }
 
     // 2. AUTHENTICATION REQUIRED
     if (!session) {
         // CRITICAL FIX: If auth cookies exist but getSession() returned null,
-        // the access token is expired and the server-side refresh failed or timed out.
-        // Don't redirect to login — let the page load and let the CLIENT-SIDE
-        // Supabase client handle the token refresh (it has autoRefreshToken: true).
-        // The client reads the same cookies, refreshes the token, and gets a valid session.
+        // the access token is expired and the server-side refresh failed.
+        //
+        // When refresh fails, Supabase calls _removeSession() → setAll() which
+        // writes Set-Cookie headers with maxAge:0 to DELETE the browser cookies.
+        // If we return that poisoned `response`, the browser loses its cookies
+        // and the client-side can never recover the session.
+        //
+        // Instead, return a CLEAN response (no Set-Cookie headers) so the
+        // browser keeps its cookies. The client-side Supabase client
+        // (with autoRefreshToken: true) will handle the refresh.
         if (hasAuthCookies) {
-            console.log(`[Middleware] No session but auth cookies present for ${request.nextUrl.pathname} — allowing through for client-side refresh`)
-            return response
+            return NextResponse.next({ request: { headers: request.headers } })
         }
         return NextResponse.redirect(new URL('/login', request.url))
     }
