@@ -101,13 +101,33 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
         const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
 
         // TIMEOUT: Force resolve after timeout
-        // Web: 8s (3 retries × 500ms + buffer), Native: 8s (4 retries × 500ms + buffer)
-        const maxTimeoutMs = 8000
-        const maxTimeout = setTimeout(() => {
+        // Generous timeout: getSession() blocks on _initialize() which may be
+        // refreshing an expired token. That network call can take several seconds.
+        const maxTimeoutMs = 15000
+        const maxTimeout = setTimeout(async () => {
             if (resolvedRef.current) return
             console.warn(`⏱️ Auth check timeout (${maxTimeoutMs / 1000}s) - forcing resolve`)
-            // On timeout, redirect to login if on protected route (don't just show empty page)
+
+            // CRITICAL: Don't blindly redirect to login on timeout!
+            // The timeout fires because getSession() is blocked waiting for
+            // _initialize() to finish a token refresh (expired access token after
+            // browser restart). The session cookies are likely valid — Supabase is
+            // just slow to refresh the token.
+            //
+            // Instead of calling getSession() again (which would also block on the
+            // same lock), check for auth cookies directly in document.cookie.
+            // If cookies exist, the session IS valid — just let the user through
+            // and let the token refresh complete in the background.
             if (!isPublicRoute) {
+                const hasAuthCookies = typeof document !== 'undefined' &&
+                    document.cookie.split(';').some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+
+                if (hasAuthCookies) {
+                    console.log('✅ Auth timeout but auth cookies found — allowing through (token refresh in progress)')
+                    finishLoading()
+                    return
+                }
+
                 redirectToLogin('timeout')
             } else {
                 finishLoading()
