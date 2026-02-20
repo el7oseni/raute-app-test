@@ -55,7 +55,17 @@ function createSupabaseClient() {
     // IMPORTANT: Do NOT use capacitorStorage here — createBrowserClient
     // uses cookies for session storage, which the middleware reads via createServerClient.
     // Using custom storage breaks the cookie-based SSR auth flow.
-    return createBrowserClient(supabaseUrl, supabaseAnonKey)
+    // CRITICAL: Set cookieOptions with maxAge so cookies persist across browser restarts.
+    // Without this, createBrowserClient sets session cookies (no maxAge) via document.cookie,
+    // which get cleared when the browser closes — even if the middleware sets maxAge on the
+    // server side, the client overwrites them without it.
+    return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+        cookieOptions: {
+            maxAge: 365 * 24 * 60 * 60, // 1 year — let Supabase Auth control session validity
+            path: '/',
+            sameSite: 'lax' as const,
+        }
+    })
 }
 
 export const supabase = createSupabaseClient()
