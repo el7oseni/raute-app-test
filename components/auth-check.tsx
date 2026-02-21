@@ -14,8 +14,17 @@ const PUBLIC_ROUTES = ['/login', '/signup', '/', '/verify-email', '/auth/callbac
 // This tells the SIGNED_OUT handler to skip recovery attempts.
 // Exported so profile/login pages can set it before calling signOut().
 let _intentionalLogout = false
+let _intentionalLogoutTimeout: ReturnType<typeof setTimeout> | null = null
 export function markIntentionalLogout() {
     _intentionalLogout = true
+    // Safety: auto-reset after 10s in case SIGNED_OUT event never fires
+    // (e.g., network error during signOut). Prevents flag from staying
+    // true forever, which would make all future sign-outs skip recovery.
+    if (_intentionalLogoutTimeout) clearTimeout(_intentionalLogoutTimeout)
+    _intentionalLogoutTimeout = setTimeout(() => {
+        _intentionalLogout = false
+        _intentionalLogoutTimeout = null
+    }, 10000)
 }
 
 export default function AuthCheck({ children }: { children: React.ReactNode }) {
@@ -308,6 +317,10 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
                 // skip all recovery attempts and redirect immediately.
                 if (_intentionalLogout) {
                     _intentionalLogout = false
+                    if (_intentionalLogoutTimeout) {
+                        clearTimeout(_intentionalLogoutTimeout)
+                        _intentionalLogoutTimeout = null
+                    }
                     console.log('⛔ Intentional logout — redirecting to login')
                     if (isMountedRef.current && !isPublicRoute) {
                         router.push('/login')

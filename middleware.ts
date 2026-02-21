@@ -1,4 +1,3 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -17,7 +16,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // PUBLIC ROUTES — always allow access
-    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation', '/']
+    const publicRoutes = ['/login', '/signup', '/verify-email', '/auth/callback', '/pending-activation']
     const isPublicRoute = publicRoutes.some(route => {
         return request.nextUrl.pathname === route || request.nextUrl.pathname === `${route}/`
     })
