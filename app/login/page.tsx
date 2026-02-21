@@ -22,6 +22,7 @@ export default function LoginPage() {
     const router = useRouter()
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [checkingSession, setCheckingSession] = useState(true)
     const [apiError, setApiError] = useState<string | null>(null)
     const [redirectError, setRedirectError] = useState<string | null>(() => {
         // Read error from URL query params (set by auth/callback redirects)
@@ -80,6 +81,68 @@ export default function LoginPage() {
         }, 20000)
         return () => clearTimeout(timeout)
     }, [isLoading])
+
+    // Check if user is already logged in — redirect to dashboard
+    // Uses cookie check first (instant), then verifies with getSession()
+    useEffect(() => {
+        // Skip if URL has error/message params (user was redirected here intentionally)
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('error') || params.get('message')) {
+            setCheckingSession(false)
+            return
+        }
+
+        // Quick check: do auth cookies exist?
+        const hasAuthCookies = document.cookie
+            .split(';')
+            .some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+
+        if (!hasAuthCookies) {
+            // No cookies = definitely not logged in
+            setCheckingSession(false)
+            return
+        }
+
+        // Cookies exist — verify session and redirect
+        console.log('🔐 Login page: auth cookies found, checking session...')
+
+        let cancelled = false
+        const timeout = setTimeout(() => {
+            // If getSession() takes too long (blocked on token refresh),
+            // just redirect to dashboard — the auth-check there will handle it
+            if (!cancelled) {
+                console.log('🔐 Login page: session check timeout, redirecting to dashboard (cookies exist)')
+                router.push('/dashboard')
+            }
+        }, 3000)
+
+        supabase.auth.getSession().then(({ data, error }) => {
+            if (cancelled) return
+            clearTimeout(timeout)
+
+            if (data?.session) {
+                console.log('🔐 Login page: valid session found, redirecting to dashboard')
+                router.push('/dashboard')
+            } else {
+                // Session couldn't be restored but cookies exist
+                // This means the token is being refreshed — redirect to dashboard
+                // and let auth-check handle the token refresh
+                console.log('🔐 Login page: cookies exist but no session yet, redirecting to dashboard')
+                router.push('/dashboard')
+            }
+        }).catch(() => {
+            if (cancelled) return
+            clearTimeout(timeout)
+            // Error getting session — still redirect if cookies exist
+            console.log('🔐 Login page: session check error, but cookies exist — redirecting to dashboard')
+            router.push('/dashboard')
+        })
+
+        return () => {
+            cancelled = true
+            clearTimeout(timeout)
+        }
+    }, [router])
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -194,8 +257,8 @@ export default function LoginPage() {
         }
     }
 
-    // Show skeleton during loading state
-    if (isLoading) {
+    // Show skeleton while checking for existing session or during login
+    if (checkingSession || isLoading) {
         return <AuthSkeleton />
     }
 

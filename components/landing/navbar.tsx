@@ -64,12 +64,44 @@ export function Navbar() {
         }
         window.addEventListener('scroll', handleScroll)
 
-        // Check auth state
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUser(user)
+        // Check auth state — use cookie check first for instant detection,
+        // then verify with getSession() in background.
+        // Do NOT use getUser() — it makes a server call that blocks on
+        // _initialize() and fails when the access token is expired after
+        // browser restart, causing the "Go to Dashboard" button to disappear.
+        const hasAuthCookies = document.cookie
+            .split(';')
+            .some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+
+        if (hasAuthCookies) {
+            // Show dashboard button immediately if cookies exist
+            setUser({ id: 'cookie-detected' })
+
+            // Verify session in background (non-blocking)
+            supabase.auth.getSession().then(({ data }) => {
+                if (!data.session) {
+                    // Cookies exist but session couldn't be restored — still show
+                    // dashboard button because the client-side auth will handle
+                    // token refresh when they navigate to dashboard
+                }
+            }).catch(() => {
+                // Ignore errors — cookies exist so user is likely valid
+            })
+        }
+
+        // Also listen for auth state changes (e.g., user logs in while on landing page)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                setUser(session?.user ?? null)
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null)
+            }
         })
 
-        return () => window.removeEventListener('scroll', handleScroll)
+        return () => {
+            window.removeEventListener('scroll', handleScroll)
+            subscription.unsubscribe()
+        }
     }, [activeSection, pathname])
 
     return (
