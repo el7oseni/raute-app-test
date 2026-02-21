@@ -83,7 +83,7 @@ export default function LoginPage() {
     }, [isLoading])
 
     // Check if user is already logged in — redirect to dashboard
-    // Uses cookie check first (instant), then verifies with getSession()
+    // On web: checks cookies (instant). On native: checks Capacitor Preferences.
     useEffect(() => {
         // Skip if URL has error/message params (user was redirected here intentionally)
         const params = new URLSearchParams(window.location.search)
@@ -92,55 +92,87 @@ export default function LoginPage() {
             return
         }
 
-        // Quick check: do auth cookies exist?
-        const hasAuthCookies = document.cookie
-            .split(';')
-            .some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+        let cancelled = false
 
-        if (!hasAuthCookies) {
-            // No cookies = definitely not logged in
-            setCheckingSession(false)
-            return
+        async function checkExistingSession() {
+            const isNative = Capacitor.isNativePlatform()
+            let hasStoredAuth = false
+
+            if (isNative) {
+                // On native, check Capacitor Preferences for stored session
+                try {
+                    const stored = await capacitorStorage.getItem('sb-raute-auth')
+                    hasStoredAuth = !!stored
+                    if (!hasStoredAuth) {
+                        // Also check the backup key
+                        const { Preferences } = await import('@capacitor/preferences')
+                        const { value } = await Preferences.get({ key: 'raute-session-backup' })
+                        hasStoredAuth = !!value
+                    }
+                } catch {
+                    hasStoredAuth = false
+                }
+            } else {
+                // On web, check cookies
+                hasStoredAuth = document.cookie
+                    .split(';')
+                    .some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+            }
+
+            if (!hasStoredAuth) {
+                // No stored auth = definitely not logged in
+                if (!cancelled) setCheckingSession(false)
+                return
+            }
+
+            // Auth data exists — verify session and redirect
+            console.log('🔐 Login page: stored auth found, checking session...')
+
+            const timeout = setTimeout(() => {
+                // If getSession() takes too long (blocked on token refresh),
+                // just redirect to dashboard — the auth-check there will handle it
+                if (!cancelled) {
+                    console.log('🔐 Login page: session check timeout, redirecting to dashboard')
+                    if (isNative) {
+                        window.location.href = '/dashboard'
+                    } else {
+                        router.push('/dashboard')
+                    }
+                }
+            }, 3000)
+
+            try {
+                const { data } = await supabase.auth.getSession()
+                if (cancelled) return
+                clearTimeout(timeout)
+
+                if (data?.session) {
+                    console.log('🔐 Login page: valid session found, redirecting to dashboard')
+                } else {
+                    console.log('🔐 Login page: stored auth exists but no session yet, redirecting to dashboard')
+                }
+                // Redirect regardless — auth-check on dashboard will handle token refresh
+                if (isNative) {
+                    window.location.href = '/dashboard'
+                } else {
+                    router.push('/dashboard')
+                }
+            } catch {
+                if (cancelled) return
+                clearTimeout(timeout)
+                console.log('🔐 Login page: session check error, but stored auth exists — redirecting')
+                if (isNative) {
+                    window.location.href = '/dashboard'
+                } else {
+                    router.push('/dashboard')
+                }
+            }
         }
 
-        // Cookies exist — verify session and redirect
-        console.log('🔐 Login page: auth cookies found, checking session...')
-
-        let cancelled = false
-        const timeout = setTimeout(() => {
-            // If getSession() takes too long (blocked on token refresh),
-            // just redirect to dashboard — the auth-check there will handle it
-            if (!cancelled) {
-                console.log('🔐 Login page: session check timeout, redirecting to dashboard (cookies exist)')
-                router.push('/dashboard')
-            }
-        }, 3000)
-
-        supabase.auth.getSession().then(({ data, error }) => {
-            if (cancelled) return
-            clearTimeout(timeout)
-
-            if (data?.session) {
-                console.log('🔐 Login page: valid session found, redirecting to dashboard')
-                router.push('/dashboard')
-            } else {
-                // Session couldn't be restored but cookies exist
-                // This means the token is being refreshed — redirect to dashboard
-                // and let auth-check handle the token refresh
-                console.log('🔐 Login page: cookies exist but no session yet, redirecting to dashboard')
-                router.push('/dashboard')
-            }
-        }).catch(() => {
-            if (cancelled) return
-            clearTimeout(timeout)
-            // Error getting session — still redirect if cookies exist
-            console.log('🔐 Login page: session check error, but cookies exist — redirecting to dashboard')
-            router.push('/dashboard')
-        })
+        checkExistingSession()
 
         return () => {
             cancelled = true
-            clearTimeout(timeout)
         }
     }, [router])
 
