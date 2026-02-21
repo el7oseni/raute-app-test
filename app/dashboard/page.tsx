@@ -605,7 +605,7 @@ function DriverProgressCard({ driver, index }: { driver: any, index: number }) {
     const percentage = Math.round((driver.completed / driver.total) * 100) || 0
 
     return (
-        <Link href={`/map?driverId=${driver.id}`}>
+        <Link href={`/map?driverId=${driver.id}`} prefetch={false}>
             <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all cursor-pointer group relative">
                 {/* Hover Indicator */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
