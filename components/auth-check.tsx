@@ -110,20 +110,35 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
 
             // CRITICAL: Don't blindly redirect to login on timeout!
             // The timeout fires because getSession() is blocked waiting for
-            // _initialize() to finish a token refresh (expired access token after
-            // browser restart). The session cookies are likely valid — Supabase is
-            // just slow to refresh the token.
+            // _initialize() to finish a token refresh. The stored session is
+            // likely valid — Supabase is just slow to refresh the token.
             //
-            // Instead of calling getSession() again (which would also block on the
-            // same lock), check for auth cookies directly in document.cookie.
-            // If cookies exist, the session IS valid — just let the user through
-            // and let the token refresh complete in the background.
+            // Check for stored auth data — cookies on web, Preferences on native.
             if (!isPublicRoute) {
-                const hasAuthCookies = typeof document !== 'undefined' &&
-                    document.cookie.split(';').some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+                let hasStoredAuth = false
 
-                if (hasAuthCookies) {
-                    console.log('✅ Auth timeout but auth cookies found — allowing through (token refresh in progress)')
+                if (isNative) {
+                    // On native, check Capacitor Preferences
+                    try {
+                        const { capacitorStorage } = await import('@/lib/capacitor-storage')
+                        const stored = await capacitorStorage.getItem('sb-raute-auth')
+                        hasStoredAuth = !!stored
+                        if (!hasStoredAuth) {
+                            const { Preferences } = await import('@capacitor/preferences')
+                            const { value } = await Preferences.get({ key: 'raute-session-backup' })
+                            hasStoredAuth = !!value
+                        }
+                    } catch {
+                        hasStoredAuth = false
+                    }
+                } else {
+                    // On web, check cookies
+                    hasStoredAuth = typeof document !== 'undefined' &&
+                        document.cookie.split(';').some(c => c.trim().startsWith('sb-') && c.includes('auth-token'))
+                }
+
+                if (hasStoredAuth) {
+                    console.log('✅ Auth timeout but stored auth found — allowing through (token refresh in progress)')
                     finishLoading()
                     return
                 }
