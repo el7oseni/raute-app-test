@@ -182,7 +182,10 @@ export default function AuthCallback() {
 
     // === APPROACH 4: Polling fallback ===
     const pollInterval = setInterval(async () => {
-      if (hasRedirected.current) return
+      if (hasRedirected.current) {
+        clearInterval(pollInterval)
+        return
+      }
 
       const { data } = await supabase.auth.getSession()
       if (data.session) {

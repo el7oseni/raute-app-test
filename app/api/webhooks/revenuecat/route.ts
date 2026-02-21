@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
         // ✅ IDEMPOTENCY CHECK
         const { data: existingEvent } = await supabaseAdmin
-            .from('revenuecat_webkit_log')
+            .from('revenuecat_webhook_log')
             .select('event_id')
             .eq('event_id', eventId)
             .single()

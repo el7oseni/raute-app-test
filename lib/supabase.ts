@@ -79,7 +79,13 @@ export const supabaseAdmin = supabaseServiceRoleKey
             persistSession: false
         }
     })
-    : supabase // Fallback to regular client if Service Role Key is not set
+    : (() => {
+        // Warn loudly if service role key is missing — admin operations will fail with RLS
+        if (typeof window === 'undefined') {
+            console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY is not set! Admin operations will use anon client and may fail due to RLS.')
+        }
+        return supabase
+    })()
 
 // Database Types (for TypeScript)
 export type Company = {
