@@ -21,7 +21,14 @@ export async function waitForSession(
 ): Promise<Session | null> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const { data, error } = await supabase.auth.getSession()
+            // Add a timeout to getSession() — it can hang indefinitely when
+            // _initialize() is blocked on a slow token refresh
+            const { data, error } = await Promise.race([
+                supabase.auth.getSession(),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('getSession timeout')), 5000)
+                ),
+            ])
 
             if (error) {
                 console.error('⚠️ waitForSession error:', error.message)
