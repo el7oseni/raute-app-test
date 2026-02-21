@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
 import { MobileNav } from "@/components/mobile-nav";
 import AuthCheck from "@/components/auth-check";
 import { ThemeProvider } from "@/components/theme-provider";

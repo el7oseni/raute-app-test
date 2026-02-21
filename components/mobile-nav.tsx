@@ -235,6 +235,7 @@ function NavItem({ href, icon: Icon, label, active }: { href: string, icon: any,
     return (
         <Link
             href={href}
+            prefetch={false}
             className={cn(
                 "flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-200 select-none touch-manipulation",
                 active
