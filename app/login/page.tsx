@@ -133,11 +133,7 @@ export default function LoginPage() {
                 // just redirect to dashboard — the auth-check there will handle it
                 if (!cancelled) {
                     console.log('🔐 Login page: session check timeout, redirecting to dashboard')
-                    if (isNative) {
-                        window.location.href = '/dashboard'
-                    } else {
-                        router.push('/dashboard')
-                    }
+                    router.push('/dashboard')
                 }
             }, 3000)
 
@@ -152,20 +148,13 @@ export default function LoginPage() {
                     console.log('🔐 Login page: stored auth exists but no session yet, redirecting to dashboard')
                 }
                 // Redirect regardless — auth-check on dashboard will handle token refresh
-                if (isNative) {
-                    window.location.href = '/dashboard'
-                } else {
-                    router.push('/dashboard')
-                }
+                // Use router.push (not window.location.href) to preserve Supabase session in memory
+                router.push('/dashboard')
             } catch {
                 if (cancelled) return
                 clearTimeout(timeout)
                 console.log('🔐 Login page: session check error, but stored auth exists — redirecting')
-                if (isNative) {
-                    window.location.href = '/dashboard'
-                } else {
-                    router.push('/dashboard')
-                }
+                router.push('/dashboard')
             }
         }
 
