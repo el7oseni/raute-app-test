@@ -30,7 +30,7 @@ function createSupabaseClient() {
         console.log('🔧 Creating Supabase client for NATIVE platform')
         // Native platform (iOS/Android) — use standard client with Capacitor storage
         // This avoids the cookie-based auth flow that createBrowserClient uses
-        return createClient(supabaseUrl, supabaseAnonKey, {
+        const client = createClient(supabaseUrl, supabaseAnonKey, {
             auth: {
                 storage: capacitorStorage,
                 autoRefreshToken: true,
@@ -40,17 +40,6 @@ function createSupabaseClient() {
                 debug: false, // Set to true for debugging
                 // Add storage key to avoid conflicts
                 storageKey: 'sb-raute-auth',
-                // CRITICAL: Disable navigator.locks on native (Capacitor).
-                // Supabase uses Web Locks API to coordinate between browser tabs.
-                // On Capacitor there's only ONE WebView — no tab coordination needed.
-                // The lock causes a deadlock when exchangeCodeForSession() promise hangs
-                // on iOS: the session IS set internally, but the promise never resolves,
-                // holding the lock forever and blocking ALL subsequent auth operations
-                // (getSession, setSession, refreshSession, onAuthStateChange initial).
-                // This no-op lock bypasses the issue entirely.
-                lock: async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
-                    return await fn()
-                },
             },
             // Add global error handler
             global: {
@@ -59,6 +48,31 @@ function createSupabaseClient() {
                 }
             }
         })
+
+        // CRITICAL: Monkey-patch _acquireLock on native (Capacitor).
+        //
+        // Supabase's _acquireLock has TWO locking mechanisms:
+        // 1. navigator.locks (Web Locks API) — for cross-tab coordination
+        // 2. pendingInLock queue — for serializing operations within a tab
+        //
+        // On Capacitor there's only ONE WebView (no tabs), so #1 is unnecessary.
+        // More critically, exchangeCodeForSession() hangs on Capacitor iOS:
+        // the HTTP call succeeds, session is saved internally, SIGNED_IN fires,
+        // but the promise NEVER resolves. This leaves a hanging promise in the
+        // pendingInLock queue. All subsequent auth operations (getSession,
+        // setSession, refreshSession) queue behind it and hang forever.
+        //
+        // Even a no-op lock function doesn't fix this because _acquireLock's
+        // internal queue (pendingInLock) still serializes behind the hung promise.
+        //
+        // Solution: Replace _acquireLock entirely with a simple pass-through
+        // that just calls fn() without any queuing or lock coordination.
+        const auth = client.auth as any
+        auth._acquireLock = async function (_acquireTimeout: number, fn: () => Promise<any>) {
+            return await fn()
+        }
+
+        return client
     }
 
     console.log('🔧 Creating Supabase client for WEB platform')
