@@ -1193,7 +1193,7 @@ export default function OrdersPage() {
                     <Sheet open={isAddOrderOpen} onOpenChange={setIsAddOrderOpen}>
                         <SheetTrigger asChild><Button size="sm" className="gap-2 shadow-lg shadow-blue-200"><Plus size={16} /> Add Order</Button></SheetTrigger>
 
-                        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto safe-area-pt sm:max-w-lg mx-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
+                        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto safe-area-pt sm:max-w-2xl sm:mx-auto sm:rounded-t-2xl" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
                             <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
 
                             <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
