@@ -138,7 +138,13 @@ export default function LoginPage() {
             }, 3000)
 
             try {
-                const { data } = await supabase.auth.getSession()
+                // Use timeout on getSession itself to avoid hanging on navigator.locks
+                const { data } = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise<{ data: { session: null } }>((resolve) =>
+                        setTimeout(() => resolve({ data: { session: null } }), 2500)
+                    ),
+                ])
                 if (cancelled) return
                 clearTimeout(timeout)
 

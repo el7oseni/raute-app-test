@@ -106,6 +106,28 @@ export default function DriversPage() {
         }
     }, [])
 
+    // Helper: get current user ID with timeout + getUser() fallback
+    // to avoid hanging when navigator.locks blocks getSession() on web
+    const getCurrentUserId = async (): Promise<string | null> => {
+        try {
+            const { data: { session } } = await Promise.race([
+                supabase.auth.getSession(),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('getSession timeout')), 3000)
+                ),
+            ])
+            return session?.user?.id ?? null
+        } catch {
+            // Fallback to getUser()
+            try {
+                const { data: userData } = await supabase.auth.getUser()
+                return userData.user?.id ?? null
+            } catch {
+                return null
+            }
+        }
+    }
+
     const checkUserAndFetch = async () => {
         // Wrapper to avoid calling fetchDrivers directly multiple times if not needed, 
         // but for now, simple is better.
@@ -151,8 +173,7 @@ export default function DriversPage() {
 
     async function fetchCustomFields() {
         try {
-            // Pure Session Auth (Post-Purge)
-            const userId = (await supabase.auth.getSession()).data.session?.user?.id
+            const userId = await getCurrentUserId()
             if (!userId) return
 
             const { data: userProfile } = await supabase
@@ -179,13 +200,7 @@ export default function DriversPage() {
     async function fetchDrivers() {
         setIsLoading(true)
         try {
-            let userId = null
-            const { data: { session } } = await supabase.auth.getSession()
-
-            if (session?.user) {
-                userId = session.user.id
-            }
-
+            const userId = await getCurrentUserId()
             if (!userId) {
                 return
             }
@@ -326,8 +341,7 @@ export default function DriversPage() {
                 if (value) customValues[field.id] = value
             })
 
-            // Pure Session Auth (Post-Purge)
-            const userId = (await supabase.auth.getSession()).data.session?.user?.id
+            const userId = await getCurrentUserId()
             if (!userId) {
                 console.error('❌ No user session found')
                 toast({ title: 'Authentication required', description: 'Please log in again', type: 'error' })
@@ -659,7 +673,7 @@ export default function DriversPage() {
                                             try {
                                                 toast({ title: "Restoring...", description: "Checking for existing subscriptions...", type: "info" })
 
-                                                const userId = (await supabase.auth.getSession()).data.session?.user?.id
+                                                const userId = await getCurrentUserId()
                                                 if (!userId) return
 
                                                 const { data: userProfile } = await supabase
