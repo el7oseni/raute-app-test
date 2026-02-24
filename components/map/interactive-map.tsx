@@ -37,6 +37,11 @@ const MapController = dynamic<MapControllerProps>(
     { ssr: false }
 )
 
+const AnimatedMarker = dynamic(
+    () => import("@/components/map/animated-marker"),
+    { ssr: false }
+)
+
 // -- Icon Generators --
 const createOrderIcon = (status: string, index?: number) => {
     const colors = {
@@ -304,11 +309,12 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
 
             {displayedDrivers.map((driver) => (
                 driver.current_lat && driver.current_lng && (
-                    <Marker
+                    <AnimatedMarker
                         key={driver.id}
                         position={[driver.current_lat, driver.current_lng]}
                         icon={createDriverIcon(isDriverOnline(driver))}
                         zIndexOffset={1000}
+                        duration={1000}
                     >
                         <Popup>
                             <div className="p-2 min-w-[200px]">
@@ -345,7 +351,7 @@ export default function InteractiveMap({ orders, drivers, selectedDriverId, user
                                 </div>
                             </div>
                         </Popup>
-                    </Marker>
+                    </AnimatedMarker>
                 )
             ))}
         </MapContainer>
