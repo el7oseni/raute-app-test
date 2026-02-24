@@ -173,8 +173,17 @@ export default function AuthCallback() {
           const handled = await exchangeCode(window.location.href)
           if (handled) return
 
-          // Code exchange failed on web — likely mobile-originated PKCE without verifier
-          if (!isNative) {
+          // Code exchange failed — but onAuthStateChange (APPROACH 1) may have
+          // already consumed the code and established a session. Check first.
+          if (!isNative && !hasRedirected.current) {
+            const { data: sessionData } = await supabase.auth.getSession()
+            if (sessionData.session) {
+              console.log('✅ Code exchange failed but session exists (handled by onAuthStateChange)')
+              await syncRoleAndRedirect(sessionData.session.user.id, sessionData.session.user.email_confirmed_at)
+              return
+            }
+
+            // No session — likely mobile-originated PKCE without verifier
             console.warn('Code exchange failed (likely missing PKCE verifier from mobile signup):', code)
             setShowAppRedirect(true)
             hasRedirected.current = true
