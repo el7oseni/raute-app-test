@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { Session } from '@supabase/supabase-js'
+import { Capacitor } from '@capacitor/core'
 
 /**
  * Wait for a Supabase session with retries.
@@ -8,8 +9,9 @@ import type { Session } from '@supabase/supabase-js'
  * After login, router.push fires immediately but getSession() may return null
  * because the session hasn't been persisted/read from native storage yet.
  *
- * This utility retries getSession() with a delay, giving Capacitor time
- * to restore the session from disk.
+ * On web, getSession() can hang due to navigator.locks contention (token refresh
+ * holding the lock). After 2 timeouts, we fall back to getUser() which bypasses
+ * locks and makes a direct API call.
  *
  * @param maxRetries - Number of retries (default: 8 for better mobile support)
  * @param delayMs - Delay between retries in ms (default: 500)
@@ -19,8 +21,51 @@ export async function waitForSession(
     maxRetries = 8,
     delayMs = 500
 ): Promise<Session | null> {
+    const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
+    let timeoutCount = 0
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
+            // After 2 getSession timeouts on web, try getUser() as fallback.
+            // getUser() makes a direct API call to Supabase (bypasses navigator.locks)
+            // and if successful, proves the user is authenticated.
+            if (!isNative && timeoutCount >= 2) {
+                console.log('⏳ waitForSession: getSession blocked by locks, trying getUser() fallback...')
+                try {
+                    const { data: userData, error: userError } = await Promise.race([
+                        supabase.auth.getUser(),
+                        new Promise<never>((_, reject) =>
+                            setTimeout(() => reject(new Error('getUser timeout')), 5000)
+                        ),
+                    ])
+
+                    if (!userError && userData.user) {
+                        console.log('✅ waitForSession: user verified via getUser()', {
+                            userId: userData.user.id.substring(0, 8)
+                        })
+                        // Build a minimal session-like object from the user data.
+                        // The actual session tokens are in cookies — Supabase middleware
+                        // handles them. We just need to confirm the user is authenticated.
+                        // Try one more getSession with longer timeout now that _initialize may have finished
+                        const { data } = await Promise.race([
+                            supabase.auth.getSession(),
+                            new Promise<{ data: { session: null } }>((resolve) =>
+                                setTimeout(() => resolve({ data: { session: null } }), 2000)
+                            ),
+                        ])
+                        if (data.session) {
+                            return data.session
+                        }
+                        // getSession still blocked — return null but the caller should
+                        // still proceed since we confirmed the user is authenticated.
+                        // Auth-check will allow through via stored auth cookie fallback.
+                        return null
+                    }
+                } catch {
+                    // getUser also failed — continue with normal retry
+                }
+            }
+
             // Add a timeout to getSession() — it can hang indefinitely when
             // _initialize() is blocked on a slow token refresh
             const { data, error } = await Promise.race([
@@ -78,18 +123,18 @@ export async function waitForSession(
         } catch (err: any) {
             console.error('❌ waitForSession exception:', err.message)
 
-            // AbortError = navigator.locks timeout — lock is held by a token refresh.
-            // This is transient on web; retry after a delay.
-            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-                console.log('⏳ Lock busy (token refresh in progress), retrying...')
+            const isLockTimeout = err.name === 'AbortError' ||
+                err.message?.includes('aborted') ||
+                err.message?.includes('getSession timeout')
+
+            if (isLockTimeout) {
+                timeoutCount++
+                console.log(`⏳ Lock busy / getSession timeout (count: ${timeoutCount}), retrying...`)
             }
 
             // On exception, wait a bit and try again (unless it's the last attempt)
             if (attempt < maxRetries) {
-                // Use longer delay for AbortError (lock contention needs more time to resolve)
-                const retryDelay = (err.name === 'AbortError' || err.message?.includes('aborted'))
-                    ? Math.max(delayMs, 1000)
-                    : delayMs
+                const retryDelay = isLockTimeout ? Math.max(delayMs, 1000) : delayMs
                 await new Promise(resolve => setTimeout(resolve, retryDelay))
             }
         }
