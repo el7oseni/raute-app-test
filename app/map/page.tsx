@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams } from "next/navigation"
 import { Menu, Navigation } from "lucide-react"
@@ -65,6 +65,9 @@ export default function MapPage() {
         })
     }, [])
 
+    // Track last Realtime event for fallback polling
+    const lastRealtimeEventRef = useRef<number>(Date.now())
+
     // Separate effect for Realtime subscriptions (company-scoped for scalability)
     useEffect(() => {
         if (!companyId) return // Wait for company_id
@@ -79,7 +82,10 @@ export default function MapPage() {
                 schema: 'public',
                 table: 'orders',
                 filter: companyFilter // ✅ Scalability: Only this company
-            }, () => fetchData())
+            }, () => {
+                lastRealtimeEventRef.current = Date.now()
+                fetchData()
+            })
             .subscribe()
 
         const driverSub = supabase
@@ -90,6 +96,7 @@ export default function MapPage() {
                 table: 'drivers',
                 filter: companyFilter // ✅ Scalability: Only this company
             }, (payload) => {
+                lastRealtimeEventRef.current = Date.now()
                 if (payload.new && (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT')) {
                     const newDriver = payload.new as Driver
                     setDrivers(prev => {
@@ -102,9 +109,28 @@ export default function MapPage() {
             })
             .subscribe()
 
+        // Fallback polling: if Realtime goes silent for 30s+, poll every 20s
+        const FALLBACK_POLL_INTERVAL = 20_000
+        const REALTIME_STALE_THRESHOLD = 30_000
+
+        const pollIntervalId = setInterval(async () => {
+            const timeSinceLastEvent = Date.now() - lastRealtimeEventRef.current
+            if (timeSinceLastEvent > REALTIME_STALE_THRESHOLD) {
+                console.log('⏳ Realtime stale, fallback polling drivers...')
+                const { data } = await supabase
+                    .from('drivers')
+                    .select('*')
+                    .eq('company_id', companyId)
+                if (data) {
+                    setDrivers(data.map(d => ({ ...d, is_online: isDriverOnline(d) })))
+                }
+            }
+        }, FALLBACK_POLL_INTERVAL)
+
         return () => {
             orderSub.unsubscribe()
             driverSub.unsubscribe()
+            clearInterval(pollIntervalId)
         }
     }, [companyId]) // Re-subscribe when company changes
 
