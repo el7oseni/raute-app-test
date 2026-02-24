@@ -367,6 +367,14 @@ export default function PlannerPage() {
                 userId = session.user.id
             }
 
+            // On web, getSession() may time out due to navigator.locks — fallback to getUser()
+            if (!userId) {
+                try {
+                    const { data: userData } = await supabase.auth.getUser()
+                    if (userData.user) userId = userData.user.id
+                } catch {}
+            }
+
             if (!userId) {
                 router.push('/login')
                 return

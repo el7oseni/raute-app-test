@@ -59,11 +59,19 @@ export default function DispatchersPage() {
     async function fetchDispatchers() {
         setIsLoading(true)
         try {
-            let currentUserId = null
+            let currentUserId: string | null = null
             const session = await waitForSession()
 
             if (session?.user) {
                 currentUserId = session.user.id
+            }
+
+            // On web, getSession() may time out due to navigator.locks — fallback to getUser()
+            if (!currentUserId) {
+                try {
+                    const { data: userData } = await supabase.auth.getUser()
+                    if (userData.user) currentUserId = userData.user.id
+                } catch {}
             }
 
             if (!currentUserId) {
