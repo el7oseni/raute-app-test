@@ -85,7 +85,8 @@ export default function OrdersPage() {
     const [isParsing, setIsParsing] = useState(false)
     const [processingStage, setProcessingStage] = useState<string>("")
     const [aiOrders, setAiOrders] = useState<ParsedOrder[]>([])
-    const [activeTab, setActiveTab] = useState("ai")
+    const [formTab, setFormTab] = useState("ai")
+    const [viewMode, setViewMode] = useState("list")
     const formRef = React.useRef<HTMLFormElement>(null)
     const { toast } = useToast()
     const [aiInputText, setAiInputText] = useState("")
@@ -114,7 +115,7 @@ export default function OrdersPage() {
     // Real-time Address Verification
     useEffect(() => {
         const timer = setTimeout(async () => {
-            if (activeTab === 'manual' && address.length > 5) {
+            if (formTab === 'manual' && address.length > 5) {
                 const res = await geocodeAddress(address, city, state)
                 if (res) {
                     setVerificationResult({
@@ -134,7 +135,7 @@ export default function OrdersPage() {
         }, 1000) // 1s debounce
 
         return () => clearTimeout(timer)
-    }, [address, city, state, zipCode, activeTab])
+    }, [address, city, state, zipCode, formTab])
 
     // 🔔 REAL-TIME NOTIFICATIONS FOR DRIVER
     useEffect(() => {
@@ -187,7 +188,7 @@ export default function OrdersPage() {
             const lat = pickedLocation?.lat || verificationResult?.lat
             const lng = pickedLocation?.lng || verificationResult?.lng
 
-            if (activeTab === 'manual' && lat && lng) {
+            if (formTab === 'manual' && lat && lng) {
                 const count = await checkForDuplicateGPS(lat, lng)
                 if (count > 0) {
                     toast({
@@ -200,7 +201,7 @@ export default function OrdersPage() {
         }
         const timer = setTimeout(checkDupes, 1500)
         return () => clearTimeout(timer)
-    }, [pickedLocation, verificationResult, activeTab])
+    }, [pickedLocation, verificationResult, formTab])
 
     async function fetchData() {
         setIsLoading(true)
@@ -892,10 +893,10 @@ export default function OrdersPage() {
 
                     {/* View Toggle (List vs Map) */}
                     <div className="flex bg-muted p-1 rounded-xl shadow-inner mb-4">
-                        <button onClick={() => setActiveTab('list')} className={cn("flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2", activeTab === 'list' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
+                        <button onClick={() => setViewMode('list')} className={cn("flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2", viewMode === 'list' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
                             <List size={14} /> List
                         </button>
-                        <button onClick={() => setActiveTab('map')} className={cn("flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2", activeTab === 'map' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
+                        <button onClick={() => setViewMode('map')} className={cn("flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2", viewMode === 'map' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
                             <MapPin size={14} /> Route Map
                         </button>
                     </div>
@@ -987,7 +988,7 @@ export default function OrdersPage() {
                         </div>
                     )}
 
-                    {activeTab === 'list' ? (
+                    {viewMode === 'list' ? (
                         // LIST VIEW
                         <div className="space-y-4" id="orders-list">
                             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest pl-1">
@@ -1120,7 +1121,7 @@ export default function OrdersPage() {
                     ) : (
                         // MAP VIEW
                         <div className="h-[600px] rounded-2xl overflow-hidden border border-border shadow-md">
-                            <DriverRouteMap orders={filteredOrders.filter(o => o.latitude && o.longitude)} />
+                            <DriverRouteMap orders={filteredOrders.filter(o => o.latitude != null && o.longitude != null)} />
                         </div>
                     )}
                 </div>
@@ -1183,7 +1184,7 @@ export default function OrdersPage() {
                         <SheetContent side="bottom" className="h-[90vh] overflow-y-auto safe-area-pt sm:max-w-lg mx-auto" onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
                             <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
 
-                            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
                                 <TabsList className="grid w-full grid-cols-2 mb-6">
                                     <TabsTrigger value="ai" className="gap-2"><Sparkles size={14} /> AI Smart Import</TabsTrigger>
                                     <TabsTrigger value="manual" className="gap-2"><Edit size={14} /> Manual Entry</TabsTrigger>

@@ -38,7 +38,7 @@ function MapBounds({ orders }: { orders: Order[] }) {
 
 export default function DriverRouteMap({ orders }: { orders: Order[] }) {
     // Filter valid coordinates
-    const validOrders = orders.filter(o => o.latitude && o.longitude)
+    const validOrders = orders.filter(o => o.latitude != null && o.longitude != null)
 
     if (validOrders.length === 0) {
         return (
