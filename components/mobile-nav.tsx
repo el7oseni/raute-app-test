@@ -83,19 +83,44 @@ export function MobileNav() {
             }
         }, 5000) // Increased to 5 seconds to give RLS queries more time
 
-        // Auth Logic
+        // Auth Logic — with timeout to avoid hanging on navigator.locks
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+            let userId: string | null = null
+            let userMeta: Record<string, any> = {}
 
-            if (session?.user) {
+            try {
+                // getSession() can hang on web due to navigator.locks
+                const { data: { session } } = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('getSession timeout')), 3000)
+                    ),
+                ])
+                if (session?.user) {
+                    userId = session.user.id
+                    userMeta = session.user.user_metadata ?? {}
+                }
+            } catch {
+                // getSession timed out or threw — try getUser() as fallback
+                console.log('⏳ MobileNav: getSession blocked, trying getUser() fallback...')
+                try {
+                    const { data: userData } = await supabase.auth.getUser()
+                    if (userData.user) {
+                        userId = userData.user.id
+                        userMeta = userData.user.user_metadata ?? {}
+                    }
+                } catch {
+                    // Both failed
+                }
+            }
 
+            if (userId) {
                 // OPTIMIZATION 1: Check metadata first
-                if (session.user.user_metadata?.role) {
-                    setUserRole(session.user.user_metadata.role)
+                if (userMeta?.role) {
+                    setUserRole(userMeta.role)
                     setLoading(false)
-                    // Clear timeout since we already have the role
                     clearTimeout(timeoutId)
-                    return // ← Skip DB query - we have the role!
+                    return
                 }
 
                 // OPTIMIZATION 2: Check localStorage cache
@@ -106,12 +131,12 @@ export function MobileNav() {
                     setLoading(false)
                     clearTimeout(timeoutId)
                     // Refresh role from DB in background (non-blocking)
-                    fetchRole(session.user.id)
+                    fetchRole(userId)
                     return
                 }
 
                 // OPTIMIZATION 3: Only fetch from DB if no cached role
-                fetchRole(session.user.id)
+                fetchRole(userId)
             } else {
                 // FALLBACK: Check for custom session (Driver Login)
                 const customUserId = typeof window !== 'undefined' ? localStorage.getItem('raute_user_id') : null

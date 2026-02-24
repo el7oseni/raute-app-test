@@ -158,12 +158,50 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             }
         }, maxTimeoutMs)
 
+        let getSessionTimeoutCount = 0
+
         const checkAuth = async (retries: number) => {
             if (resolvedRef.current) return
             authCheckRunningRef.current = true
 
             try {
-                const { data, error } = await supabase.auth.getSession()
+                // On web, after 2 getSession timeouts, try getUser() as fallback.
+                // getUser() bypasses navigator.locks and makes a direct API call.
+                if (!isNative && getSessionTimeoutCount >= 2) {
+                    console.log('⏳ AuthCheck: getSession blocked by locks, trying getUser() fallback...')
+                    try {
+                        const { data: userData, error: userError } = await Promise.race([
+                            supabase.auth.getUser(),
+                            new Promise<never>((_, reject) =>
+                                setTimeout(() => reject(new Error('getUser timeout')), 5000)
+                            ),
+                        ])
+                        if (!userError && userData.user) {
+                            console.log('✅ AuthCheck: user verified via getUser()', {
+                                userId: userData.user.id.substring(0, 8)
+                            })
+                            if (!userData.user.email_confirmed_at && pathname !== '/verify-email') {
+                                const now = Date.now()
+                                if (now - lastRedirectRef.current > 3000) {
+                                    lastRedirectRef.current = now
+                                    router.push('/verify-email')
+                                }
+                            }
+                            clearTimeout(maxTimeout)
+                            finishLoading()
+                            return
+                        }
+                    } catch {
+                        // getUser also failed — continue with normal flow
+                    }
+                }
+
+                const { data, error } = await Promise.race([
+                    supabase.auth.getSession(),
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('getSession timeout')), 5000)
+                    ),
+                ])
 
                 if (error) {
                     console.error("❌ Auth error:", error.message)
@@ -289,10 +327,15 @@ export default function AuthCheck({ children }: { children: React.ReactNode }) {
             } catch (error: any) {
                 console.error("❌ Auth check failed:", error)
 
-                // AbortError from navigator.locks — lock held by token refresh, retry
-                if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+                // AbortError or getSession timeout from navigator.locks — lock held by token refresh
+                const isLockTimeout = error?.name === 'AbortError' ||
+                    error?.message?.includes('aborted') ||
+                    error?.message?.includes('getSession timeout')
+
+                if (isLockTimeout) {
+                    getSessionTimeoutCount++
                     if (retries > 0) {
-                        console.log('⏳ Lock busy (token refresh), retrying auth check...')
+                        console.log(`⏳ Lock busy / getSession timeout (count: ${getSessionTimeoutCount}), retrying auth check...`)
                         setTimeout(() => {
                             if (isMountedRef.current && !resolvedRef.current) checkAuth(retries - 1)
                         }, 1000)
