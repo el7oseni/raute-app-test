@@ -83,22 +83,40 @@ export default function DashboardPage() {
         // Session-aware init with retry for Capacitor async storage
         const initDashboard = async (): Promise<void> => {
             try {
-                const session = await waitForSession()
-                if (!session) {
-                    // No session after retries — AuthCheck handles redirect
+                let session = await waitForSession()
+
+                // On web, getSession() may time out due to navigator.locks but the user
+                // IS authenticated (auth-check allows through via stored auth cookie).
+                // Fall back to getUser() to get the user ID and proceed.
+                let currentUserId: string | null = session?.user?.id ?? null
+                let userMeta = session?.user?.user_metadata ?? {}
+
+                if (!session && !currentUserId) {
+                    try {
+                        const { data: userData } = await supabase.auth.getUser()
+                        if (userData.user) {
+                            console.log('✅ Dashboard: session null but getUser() succeeded')
+                            currentUserId = userData.user.id
+                            userMeta = userData.user.user_metadata ?? {}
+                        }
+                    } catch {}
+                }
+
+                if (!currentUserId) {
+                    // No session and no user — AuthCheck handles redirect
                     if (isMountedRef.current) setIsLoading(false)
                     return
                 }
 
                 // Get user role and full_name from database
-                let role = session.user.user_metadata?.role
-                let fullName = session.user.user_metadata?.full_name
+                let role = userMeta?.role as string | undefined
+                let fullName = userMeta?.full_name as string | undefined
 
                 // Always fetch from DB to ensure we have the latest role
                 const { data: dbUser, error: dbError } = await supabase
                     .from('users')
                     .select('role, full_name, company_id')
-                    .eq('id', session.user.id)
+                    .eq('id', currentUserId)
                     .single()
 
                 if (dbUser) {
@@ -124,10 +142,10 @@ export default function DashboardPage() {
 
                 // Final Fallback - default to manager (NOT driver)
                 if (!role) role = 'manager'
-                if (!fullName) fullName = session.user.email?.split('@')[0] || 'User'
+                if (!fullName) fullName = session?.user?.email?.split('@')[0] || 'User'
 
                 if (isMountedRef.current) {
-                    setUserId(session.user.id)
+                    setUserId(currentUserId)
                     setUserRole(role)
                     setUserName(fullName)
                 }
@@ -135,7 +153,7 @@ export default function DashboardPage() {
                 // 🔥 FETCH DASHBOARD DATA (For all management roles)
                 if (['manager', 'dispatcher', 'admin', 'company_admin'].includes(role)) {
                     // Get company_id — try direct query first, then fallback API
-                    let companyId = dbUser?.company_id || session.user.user_metadata?.company_id
+                    let companyId = dbUser?.company_id || userMeta?.company_id
 
                     if (!companyId) {
                         // Fallback: use server-side API
