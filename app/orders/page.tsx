@@ -208,7 +208,19 @@ export default function OrdersPage() {
         try {
             // Use waitForSession to handle Capacitor async storage lag
             const session = await waitForSession()
-            const currentUserId = session?.user?.id
+            let currentUserId = session?.user?.id
+
+            // On web, getSession() may time out due to navigator.locks but user IS
+            // authenticated. Fall back to getUser() which bypasses locks.
+            if (!currentUserId) {
+                try {
+                    const { data: userData } = await supabase.auth.getUser()
+                    if (userData.user) {
+                        console.log('✅ Orders: session null but getUser() succeeded')
+                        currentUserId = userData.user.id
+                    }
+                } catch {}
+            }
 
             if (!currentUserId) return
 
