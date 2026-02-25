@@ -129,11 +129,11 @@ export default function LoginPage() {
             console.log('🔐 Login page: stored auth found, checking session...')
 
             const timeout = setTimeout(() => {
-                // If getSession() takes too long (blocked on token refresh),
-                // just redirect to dashboard — the auth-check there will handle it
+                // If getSession() takes too long, show login form instead of
+                // blindly redirecting to dashboard (which causes infinite loading)
                 if (!cancelled) {
-                    console.log('🔐 Login page: session check timeout, redirecting to dashboard')
-                    router.push('/dashboard')
+                    console.log('🔐 Login page: session check timeout — showing login form')
+                    setCheckingSession(false)
                 }
             }, 3000)
 
@@ -150,17 +150,18 @@ export default function LoginPage() {
 
                 if (data?.session) {
                     console.log('🔐 Login page: valid session found, redirecting to dashboard')
+                    router.push('/dashboard')
                 } else {
-                    console.log('🔐 Login page: stored auth exists but no session yet, redirecting to dashboard')
+                    // No valid session despite cookies existing — show login form
+                    // Cookies may be stale/expired fragments
+                    console.log('🔐 Login page: stored auth cookies found but no valid session — showing login form')
+                    if (!cancelled) setCheckingSession(false)
                 }
-                // Redirect regardless — auth-check on dashboard will handle token refresh
-                // Use router.push (not window.location.href) to preserve Supabase session in memory
-                router.push('/dashboard')
             } catch {
                 if (cancelled) return
                 clearTimeout(timeout)
-                console.log('🔐 Login page: session check error, but stored auth exists — redirecting')
-                router.push('/dashboard')
+                console.log('🔐 Login page: session check failed — showing login form')
+                if (!cancelled) setCheckingSession(false)
             }
         }
 
