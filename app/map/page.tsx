@@ -263,7 +263,7 @@ export default function MapPage() {
         .filter(Boolean)
 
     return (
-        <div className="flex overflow-hidden bg-background relative" style={{ height: 'calc(100vh - 4rem - 4rem - var(--safe-area-inset-top, 0px))', minHeight: 0 }} >
+        <div className="flex overflow-hidden bg-background relative -mb-16" style={{ height: 'calc(100dvh - env(safe-area-inset-bottom, 0px))', minHeight: 0 }} >
             {/* Desktop Sidebar - Only for Managers */}
             {userRole === 'manager' && (
                 <div className="hidden md:block w-80 shrink-0 h-full z-20 shadow-xl border-t">
