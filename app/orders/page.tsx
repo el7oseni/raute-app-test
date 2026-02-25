@@ -619,6 +619,7 @@ export default function OrdersPage() {
                 setPickedLocation(null)
                 setAiInputText("")
                 setSelectedFiles([])
+                setDateRange(undefined) // Clear date filter so imported orders are visible
                 fetchData()
                 toast({
                     title: `🚀 Imported ${newOrders.length} orders!`,
