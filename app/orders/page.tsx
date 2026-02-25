@@ -1090,6 +1090,11 @@ export default function OrdersPage() {
                                                                 {order.status.replace('_', ' ')}
                                                             </span>
                                                         )}
+                                                        {order.was_out_of_range && (
+                                                            <span className="flex items-center gap-1 text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold">
+                                                                <AlertCircle size={10} /> Out of Range
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     <div className="pl-3 mb-4">
@@ -1662,6 +1667,11 @@ export default function OrdersPage() {
                                                 )}>
                                                     {order.status === 'in_progress' ? 'In Progress' : order.status}
                                                 </span>
+                                                {order.was_out_of_range && (
+                                                    <span className="flex items-center gap-1 text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold">
+                                                        <AlertCircle size={9} /> Out of Range
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 font-medium truncate">
                                                 <UserIcon size={13} className="text-primary/70 shrink-0" />

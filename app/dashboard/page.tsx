@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { waitForSession } from '@/lib/wait-for-session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X } from 'lucide-react'
+import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, AlertTriangle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -59,6 +59,7 @@ export default function DashboardPage() {
     const [hasHubs, setHasHubs] = useState(false)
     const [driversMap, setDriversMap] = useState<Record<string, any>>({})
     const [showSetup, setShowSetup] = useState(false) // Setup guide disabled - commented out for production
+    const companyIdRef = useRef<string | null>(null)
 
     // Sync date range to URL so it persists on refresh
     useEffect(() => {
@@ -169,6 +170,7 @@ export default function DashboardPage() {
                     }
 
                     if (companyId) {
+                        companyIdRef.current = companyId
                         // Fetch ALL orders for this company
                         const { data: ordersData, error: ordersError } = await supabase
                             .from('orders')
@@ -310,6 +312,36 @@ export default function DashboardPage() {
 
         window.addEventListener('focus', handleFocus)
         return () => window.removeEventListener('focus', handleFocus)
+    }, [userId, userRole])
+
+    // 🔔 REALTIME: Alert manager on suspicious deliveries
+    useEffect(() => {
+        if (!companyIdRef.current || !['manager', 'dispatcher', 'admin', 'company_admin'].includes(userRole || '')) return
+
+        const channel = supabase
+            .channel(`dashboard-suspicious-${companyIdRef.current}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'orders',
+                filter: `company_id=eq.${companyIdRef.current}`
+            }, (payload) => {
+                const newOrder = payload.new as any
+                const oldOrder = payload.old as any
+                // Alert when an order just got flagged as out of range
+                if (newOrder.was_out_of_range && !oldOrder?.was_out_of_range) {
+                    toast({
+                        title: "⚠️ Suspicious Delivery",
+                        description: `Order #${newOrder.order_number || newOrder.id?.slice(0, 8)} was delivered ${newOrder.delivery_distance_meters ? Math.round(newOrder.delivery_distance_meters) + 'm' : 'far'} from destination`,
+                        type: "error"
+                    })
+                    // Refresh orders to update the alert banner
+                    setOrders(prev => prev.map(o => o.id === newOrder.id ? { ...o, ...newOrder } : o))
+                }
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
     }, [userId, userRole])
 
     // ✅ QUICK SETUP COMPLETION CHECK - Auto-hide when all steps are complete
@@ -481,6 +513,24 @@ export default function DashboardPage() {
                     <ArrowRight className="text-amber-500 group-hover:translate-x-1 transition-transform" />
                 </div>
             )}
+
+            {/* 2b. SUSPICIOUS DELIVERY ALERT */}
+            {(() => {
+                const suspiciousCount = orders.filter((o: any) => o.was_out_of_range && o.status === 'delivered').length
+                return suspiciousCount > 0 ? (
+                    <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center shadow-inner">
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-red-900 dark:text-red-100">{suspiciousCount} Suspicious Deliver{suspiciousCount === 1 ? 'y' : 'ies'}</h3>
+                                <p className="text-red-700 dark:text-red-300 text-xs sm:text-sm">Orders delivered outside the expected zone (&gt;500m away)</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : null
+            })()}
 
             {/* 3. METRICS GRID */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

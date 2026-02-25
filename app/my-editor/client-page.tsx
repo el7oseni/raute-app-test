@@ -243,7 +243,7 @@ export default function ClientOrderDetails() {
                     // Flag if > 500 meters (approx 0.3 miles)
                     if (dist > 500) {
                         isOutOfRange = true
-                        // toast({ title: "Location Warning", description: "You are far from the destination, but delivery is saved.", type: "info" })
+                        toast({ title: "⚠️ Out of Range", description: `You are ${Math.round(dist)}m away from the delivery location. This delivery has been flagged.`, type: "error" })
                     }
                 }
             }
