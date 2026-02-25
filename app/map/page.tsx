@@ -103,6 +103,7 @@ export default function MapPage() {
                 lastRealtimeEventRef.current = Date.now()
                 if (payload.new && (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT')) {
                     const newDriver = payload.new as Driver
+                    newDriver.is_online = isDriverOnline(newDriver)
                     setDrivers(prev => {
                         const exists = prev.find(d => d.id === newDriver.id)
                         if (exists) return prev.map(d => d.id === newDriver.id ? newDriver : d)
