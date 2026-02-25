@@ -421,7 +421,7 @@ export default function ClientOrderDetails() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 pb-20">
+            <div className="min-h-screen bg-slate-50 pb-20 safe-area-p">
                 {/* Header Skeleton */}
                 <div className="bg-white p-4 shadow-sm space-y-2">
                     <div className="flex justify-between items-start">
@@ -462,12 +462,12 @@ export default function ClientOrderDetails() {
             </div>
         )
     }
-    if (!order) return <div className="p-4 flex flex-col items-center justify-center h-screen"><Package className="h-12 w-12 text-slate-300 mb-3" /><p className="text-slate-500">Order not found</p><Button onClick={() => router.push('/orders')} className="mt-4">Back to Orders</Button></div>
+    if (!order) return <div className="p-4 flex flex-col items-center justify-center h-screen safe-area-p"><Package className="h-12 w-12 text-slate-300 mb-3" /><p className="text-slate-500">Order not found</p><Button onClick={() => router.push('/orders')} className="mt-4">Back to Orders</Button></div>
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
+        <div className="min-h-screen bg-slate-50 pb-20 safe-area-pl safe-area-pr">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+            <div className="bg-white border-b border-slate-200 sticky top-0 z-10 safe-area-pt">
                 <div className="p-4 flex items-center gap-3">
                     <Button variant="ghost" size="sm" onClick={() => router.back()} className="h-9 w-9 p-0 rounded-full hover:bg-slate-100"><ArrowLeft size={20} /></Button>
                     <div className="flex-1"><h1 className="text-base font-bold text-slate-900 leading-tight">#{order.order_number}</h1><p className="text-xs text-slate-500">{order.customer_name}</p></div>
@@ -476,12 +476,19 @@ export default function ClientOrderDetails() {
             </div>
 
             {/* Map Section */}
-            {order.latitude && order.longitude && (
-                <div className="h-56 w-full relative border-b border-slate-200">
+            {order.latitude && order.longitude ? (
+                <div className="h-64 w-full relative border-b border-slate-200">
                     <MapContainer center={[order.latitude, order.longitude]} zoom={15} style={{ height: '100%', width: '100%' }} className="z-0">
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                        <Marker position={[order.latitude, order.longitude]} icon={createColoredIcon(order.status)}><Popup>{order.customer_name}</Popup></Marker>
+                        <Marker position={[order.latitude, order.longitude]} icon={createColoredIcon(order.status)}><Popup>{order.customer_name}<br />{order.address}</Popup></Marker>
                     </MapContainer>
+                </div>
+            ) : (
+                <div className="h-32 w-full bg-slate-100 border-b border-slate-200 flex items-center justify-center">
+                    <div className="text-center text-slate-400">
+                        <MapPin className="h-8 w-8 mx-auto mb-1 opacity-50" />
+                        <p className="text-xs font-medium">No GPS coordinates available</p>
+                    </div>
                 </div>
             )}
 
