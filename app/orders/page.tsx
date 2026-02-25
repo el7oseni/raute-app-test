@@ -368,21 +368,28 @@ export default function OrdersPage() {
         let filtered = orders
         const todayStart = startOfDay(new Date())
 
-        // Compute incomplete orders (from previous days, still active) — for ALL roles
-        const incomplete = orders.filter(o => {
-            if (!['assigned', 'in_progress', 'pending'].includes(o.status)) return false
-            const d = new Date(o.delivery_date || o.created_at)
-            return d < todayStart
-        })
-        setIncompleteOrders(incomplete)
+        // When a specific status tab is active, show ALL matching orders (no incomplete separation)
+        const showingSpecificStatus = statusFilter !== 'all'
+
+        // Compute incomplete orders (from previous days, still active) — only when showing ALL
+        if (showingSpecificStatus) {
+            setIncompleteOrders([]) // Hide incomplete section when a status tab is active
+        } else {
+            const incomplete = orders.filter(o => {
+                if (!['assigned', 'in_progress', 'pending'].includes(o.status)) return false
+                const d = new Date(o.delivery_date || o.created_at)
+                return d < todayStart
+            })
+            setIncompleteOrders(incomplete)
+        }
 
         // Date range filter
         if (dateRange?.from) {
             const start = startOfDay(dateRange.from)
             const end = endOfDay(dateRange.to || dateRange.from)
             filtered = filtered.filter(o => {
-                // Active incomplete orders always pass through (shown in separate section)
-                if (['assigned', 'in_progress', 'pending'].includes(o.status)) {
+                // Only separate incomplete orders when showing ALL statuses
+                if (!showingSpecificStatus && ['assigned', 'in_progress', 'pending'].includes(o.status)) {
                     const d = new Date(o.delivery_date || o.created_at)
                     if (d < todayStart) return false // exclude from main list, shown in incomplete section
                 }
@@ -403,13 +410,14 @@ export default function OrdersPage() {
         }
 
         if (statusFilter !== "all") {
-            // ASSIGNED tab should show both 'assigned' and 'in_progress' orders (active tasks)
+            // When a specific status tab is active, ignore date range for matching statuses
+            // so ALL orders with that status are visible
             if (statusFilter === "assigned") {
-                filtered = filtered.filter(order =>
+                filtered = orders.filter(order =>
                     order.status === "assigned" || order.status === "in_progress"
                 )
             } else {
-                filtered = filtered.filter(order => order.status === statusFilter)
+                filtered = orders.filter(order => order.status === statusFilter)
             }
         }
         if (searchQuery) {
@@ -696,9 +704,13 @@ export default function OrdersPage() {
 
             if (error) throw error
 
-            setSelectedOrders([])
-            fetchData()
+            // Optimistic update: remove from UI immediately
+            const deletedIds = new Set(selectedOrders)
+            setOrders(prev => prev.filter(o => !deletedIds.has(o.id)))
             toast({ title: `Deleted ${selectedOrders.length} orders`, type: "success" })
+            setSelectedOrders([])
+            setIsSelectionMode(false)
+            fetchData() // background sync
         } catch (error: any) {
             toast({ title: 'Delete error', description: error.message, type: 'error' })
         }
@@ -1020,9 +1032,18 @@ export default function OrdersPage() {
                             </button>
                             {showIncomplete && (
                                 <div className="px-3 pb-3 space-y-2">
-                                    {incompleteOrders.map(order => (
-                                        <Link key={order.id} href={`/my-editor?id=${order.id}`} className="block">
+                                    {incompleteOrders.map(order => {
+                                        const content = (
                                             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-amber-200/50 dark:border-amber-800/30 flex items-center gap-3">
+                                                {isSelectionMode && (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedOrders.includes(order.id)}
+                                                        onChange={(e) => { e.preventDefault(); toggleOrderSelection(order.id) }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-4 h-4 rounded border-amber-300 text-amber-600 shrink-0"
+                                                    />
+                                                )}
                                                 <div className={cn("w-2 h-2 rounded-full shrink-0",
                                                     order.status === 'in_progress' ? 'bg-purple-500' : order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
                                                 )} />
@@ -1039,8 +1060,17 @@ export default function OrdersPage() {
                                                     </p>
                                                 </div>
                                             </div>
-                                        </Link>
-                                    ))}
+                                        )
+                                        return isSelectionMode ? (
+                                            <div key={order.id} className="block cursor-pointer" onClick={() => toggleOrderSelection(order.id)}>
+                                                {content}
+                                            </div>
+                                        ) : (
+                                            <Link key={order.id} href={`/my-editor?id=${order.id}`} className="block">
+                                                {content}
+                                            </Link>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -1601,9 +1631,18 @@ export default function OrdersPage() {
                     {showIncomplete && (
                         <div className="px-3 pb-3 space-y-2">
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 px-1 mb-2">Orders from previous days that haven't been completed yet.</p>
-                            {incompleteOrders.map(order => (
-                                <Link key={order.id} href={userRole === 'driver' ? `/my-editor?id=${order.id}` : `/orders`} className="block">
+                            {incompleteOrders.map(order => {
+                                const content = (
                                     <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-amber-200/50 dark:border-amber-800/30 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                                        {isSelectionMode && (
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedOrders.includes(order.id)}
+                                                onChange={(e) => { e.preventDefault(); toggleOrderSelection(order.id) }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="w-4 h-4 rounded border-amber-300 text-amber-600 shrink-0"
+                                            />
+                                        )}
                                         <div className={cn("w-2 h-2 rounded-full shrink-0",
                                             order.status === 'in_progress' ? 'bg-purple-500' : order.status === 'assigned' ? 'bg-blue-500' : 'bg-yellow-500'
                                         )} />
@@ -1628,8 +1667,17 @@ export default function OrdersPage() {
                                             )}
                                         </div>
                                     </div>
-                                </Link>
-                            ))}
+                                )
+                                return isSelectionMode ? (
+                                    <div key={order.id} className="block cursor-pointer" onClick={() => toggleOrderSelection(order.id)}>
+                                        {content}
+                                    </div>
+                                ) : (
+                                    <Link key={order.id} href={userRole === 'driver' ? `/my-editor?id=${order.id}` : `/orders`} className="block">
+                                        {content}
+                                    </Link>
+                                )
+                            })}
                         </div>
                     )}
                 </div>
