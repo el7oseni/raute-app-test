@@ -259,6 +259,7 @@ export default function OrdersPage() {
             setUserId(currentUserId) // Save userId for DriverTracker
 
             // Fetch Data based on Role
+            let fetchedOrders: Order[] = []
             if (userProfile.role === 'driver') {
                 const { data: driverData } = await supabase
                     .from('drivers')
@@ -293,7 +294,8 @@ export default function OrdersPage() {
                 if (error) throw error
 
                 // ✅ SUCCESS: Update State & Cache
-                setOrders(data || [])
+                fetchedOrders = data || []
+                setOrders(fetchedOrders)
                 if (data) {
                     localStorage.setItem('cached_orders', JSON.stringify(data))
                     localStorage.setItem('cached_orders_ts', new Date().toISOString())
@@ -312,10 +314,25 @@ export default function OrdersPage() {
                 setHasMore((data?.length || 0) === PAGE_SIZE)
 
                 // ✅ SUCCESS: Update State & Cache (Managers too)
-                setOrders(data || [])
+                fetchedOrders = data || []
+                setOrders(fetchedOrders)
                 if (data) {
                     localStorage.setItem('cached_orders', JSON.stringify(data))
                     localStorage.setItem('cached_orders_ts', new Date().toISOString())
+                }
+            }
+            // Auto-expand date range if no orders match today but there are orders
+            // This prevents "No orders found" when all orders have non-today delivery dates
+            // (e.g., after importing orders with past/future delivery dates)
+            if (fetchedOrders.length > 0 && userProfile.role !== 'driver') {
+                const todayStart = startOfDay(new Date())
+                const todayEnd = endOfDay(new Date())
+                const hasOrdersToday = fetchedOrders.some(o => {
+                    const d = new Date(o.delivery_date || o.created_at)
+                    return d >= todayStart && d <= todayEnd
+                })
+                if (!hasOrdersToday) {
+                    setDateRange(undefined) // Show all orders if none match today
                 }
             }
         } catch (error: any) {
@@ -564,26 +581,11 @@ export default function OrdersPage() {
                 if (!targetCompanyId) throw new Error("Company ID Not Found")
                 console.log('🏢 Using company_id:', targetCompanyId)
 
-                // Map all results to database objects with geocoding
-                // We process sequentially to be nice to the free Geocoding API (Rate Limits)
-                const newOrders: any[] = []
-                for (let i = 0; i < results.length; i++) {
-                    setProcessingStage(`Geocoding address ${i + 1} of ${results.length}...`)
-                    const result = results[i]
-                    // Generate unique ID if missing: ORD-Timestamp-Index
+                // Map all results to database objects
+                // First, build order objects without geocoding (instant)
+                const newOrders: any[] = results.map((result, i) => {
                     const generatedId = `ORD-${Date.now().toString().slice(-6)}-${i + 1}`
-
-                    // Try to geocode the address
-                    const coords = await geocodeAddress(
-                        result.address || '',
-                        result.city,
-                        result.state
-                    )
-
-                    // Add small delay between requests (1s)
-                    if (i < results.length - 1) await new Promise(r => setTimeout(r, 1000))
-
-                    newOrders.push({
+                    return {
                         company_id: targetCompanyId,
                         order_number: result.order_number || generatedId,
                         customer_name: result.customer_name || 'Unknown Customer',
@@ -599,11 +601,31 @@ export default function OrdersPage() {
                         priority_level: result.priority_level || 'normal',
                         time_window_start: result.time_window_start || null,
                         time_window_end: result.time_window_end || null,
-                        latitude: coords?.lat || null,
-                        longitude: coords?.lng || null,
-                        geocoding_confidence: coords?.confidence || null,
-                        geocoded_address: coords?.foundAddress || null
-                    })
+                        latitude: null as number | null,
+                        longitude: null as number | null,
+                        geocoding_confidence: null as string | null,
+                        geocoded_address: null as string | null
+                    }
+                })
+
+                // Geocode addresses sequentially (Nominatim has its own 1s rate limiter)
+                setProcessingStage(`Geocoding ${results.length} addresses...`)
+                for (let i = 0; i < results.length; i++) {
+                    setProcessingStage(`Geocoding address ${i + 1} of ${results.length}...`)
+                    const result = results[i]
+                    try {
+                        const coords = await geocodeAddress(
+                            [result.address, result.city, result.state].filter(Boolean).join(', ')
+                        )
+                        if (coords) {
+                            newOrders[i].latitude = coords.lat
+                            newOrders[i].longitude = coords.lng
+                            newOrders[i].geocoding_confidence = coords.confidence
+                            newOrders[i].geocoded_address = coords.foundAddress
+                        }
+                    } catch {
+                        // Skip geocoding errors — orders still save without coordinates
+                    }
                 }
 
                 // Batch Insert
