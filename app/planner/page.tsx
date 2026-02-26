@@ -1316,13 +1316,13 @@ export default function PlannerPage() {
 
                 {/* QUICK VIEW SHEET */}
                 <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-                    <SheetContent>
+                    <SheetContent className="safe-area-pt">
                         <SheetHeader>
                             <SheetTitle>Order Details</SheetTitle>
                             <SheetDescription>#{selectedOrder?.order_number}</SheetDescription>
                         </SheetHeader>
                         {selectedOrder && (
-                            <div className="space-y-4 mt-6">
+                            <div className="space-y-4 mt-6 px-4">
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-medium text-muted-foreground">Customer</h3>
                                     <p className="font-semibold">{selectedOrder.customer_name}</p>
@@ -1372,7 +1372,7 @@ export default function PlannerPage() {
                         </SheetHeader>
 
                         {optimizationReport && (
-                            <div className="space-y-6 mt-6">
+                            <div className="space-y-6 mt-6 px-4">
                                 {/* Summary Cards */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
@@ -1517,7 +1517,7 @@ export default function PlannerPage() {
 
                 {/* ORDER DETAILS SHEET (QUICK VIEW) */}
                 <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-                    <SheetContent>
+                    <SheetContent className="safe-area-pt">
                         {selectedOrder && (
                             <>
                                 <SheetHeader>
@@ -1532,7 +1532,7 @@ export default function PlannerPage() {
                                     </SheetDescription>
                                 </SheetHeader>
 
-                                <div className="mt-6 space-y-6">
+                                <div className="mt-6 space-y-6 px-4">
                                     {/* PRIORITY & STATUS */}
                                     <div className="flex gap-4">
                                         {/* Priority Badge */}

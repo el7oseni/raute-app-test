@@ -1099,7 +1099,7 @@ export default function ClientOrderDetails() {
                         <SheetTitle>Edit Order</SheetTitle>
                         <SheetDescription>Update order details and location.</SheetDescription>
                     </SheetHeader>
-                    <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
+                    <form onSubmit={handleEditSubmit} className="space-y-4 mt-4 px-4">
                         <Input value={formData.order_number || ''} onChange={e => setFormData(prev => ({ ...prev, order_number: e.target.value }))} placeholder="Order #" />
                         <Input value={formData.customer_name || ''} onChange={e => setFormData(prev => ({ ...prev, customer_name: e.target.value }))} placeholder="Customer Name" />
 

@@ -362,7 +362,7 @@ export default function DispatchersPage() {
                         <SheetHeader>
                             <SheetTitle>{editingDispatcher ? 'Edit Dispatcher' : 'Add New Dispatcher'}</SheetTitle>
                         </SheetHeader>
-                        <div className="space-y-4 mt-6">
+                        <div className="space-y-4 mt-6 px-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Full Name</label>
                                 <Input
