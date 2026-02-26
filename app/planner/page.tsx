@@ -987,9 +987,9 @@ export default function PlannerPage() {
                         </div>
                     </div>
                     {/* MAP AREA — DESKTOP ONLY */}
-                    <div className="hidden md:block flex-1 relative z-10">
+                    <div className="hidden md:block flex-1 z-10">
                         {/* Map Theme Toggle */}
-                        <div className="absolute top-4 right-4 z-[500]">
+                        <div className="absolute top-4 right-4 z-[500]" style={{ position: 'fixed' }}>
                             <Button
                                 variant="secondary"
                                 size="icon"
@@ -1001,8 +1001,8 @@ export default function PlannerPage() {
                             </Button>
                         </div>
 
-                        <div className="absolute inset-0">
-                            <MapContainer key={`${mapCenter[0]} -${mapCenter[1]} `} center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                        <div>
+                            <MapContainer key={`${mapCenter[0]} -${mapCenter[1]} `} center={mapCenter} zoom={13} style={{ height: '100vh', width: '100%' }}>
                                 <MapResizer />
                                 <TileLayer
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
