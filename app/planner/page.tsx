@@ -41,21 +41,7 @@ const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), 
 const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false })
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false })
 const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { ssr: false })
-// Map invalidateSize helper — fixes tiles not rendering properly in flex layouts
-const MapResizer = dynamic(() => Promise.resolve(function MapResizerInner() {
-    const { useMap } = require('react-leaflet')
-    const map = useMap()
-    React.useEffect(() => {
-        if (!map) return
-        // Delay to ensure container has its final size
-        const timer = setTimeout(() => map.invalidateSize(), 200)
-        // Also listen for resize events
-        const observer = new ResizeObserver(() => map.invalidateSize())
-        if (map.getContainer()) observer.observe(map.getContainer())
-        return () => { clearTimeout(timer); observer.disconnect() }
-    }, [map])
-    return null
-}), { ssr: false })
+const MapResizer = dynamic(() => import('@/components/map/map-resizer'), { ssr: false })
 
 
 
