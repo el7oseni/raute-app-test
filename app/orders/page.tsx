@@ -937,7 +937,7 @@ export default function OrdersPage() {
                                         <SheetTitle>Activity History</SheetTitle>
                                         <SheetDescription>Your recent online/offline activity logs.</SheetDescription>
                                     </SheetHeader>
-                                    <div className="mt-6 space-y-4">
+                                    <div className="mt-6 space-y-4 px-4">
                                         <DriverActivityHistory driverId={driverId} />
                                     </div>
                                 </SheetContent>
@@ -1294,7 +1294,7 @@ export default function OrdersPage() {
                                 <SheetTitle>Settings</SheetTitle>
                                 <SheetDescription>Manage your orders settings and preferences</SheetDescription>
                             </SheetHeader>
-                            <div className="mt-6 space-y-6">
+                            <div className="mt-6 space-y-6 px-4">
                                 {/* Custom Fields Section */}
                                 <div className="pb-6">
                                     <CustomFieldsManager entityType="order" />
@@ -1316,7 +1316,7 @@ export default function OrdersPage() {
                         <SheetContent side={isDesktop ? "right" : "bottom"} className={cn("overflow-y-auto safe-area-pt", isDesktop ? "w-full sm:max-w-xl" : "h-[90vh] sm:max-w-2xl sm:mx-auto sm:rounded-t-2xl")} onInteractOutside={(e) => { if (isLocationPickerOpen) e.preventDefault() }}>
                             <SheetHeader className="mb-4"><SheetTitle>Add New Order</SheetTitle><SheetDescription>Choose how you want to add orders</SheetDescription></SheetHeader>
 
-                            <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
+                            <Tabs value={formTab} onValueChange={setFormTab} className="w-full px-4">
                                 <TabsList className="grid w-full grid-cols-2 mb-6">
                                     <TabsTrigger value="ai" className="gap-2"><Sparkles size={14} /> AI Smart Import</TabsTrigger>
                                     <TabsTrigger value="manual" className="gap-2"><Edit size={14} /> Manual Entry</TabsTrigger>

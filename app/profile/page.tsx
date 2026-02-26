@@ -492,7 +492,7 @@ export default function ProfilePage() {
                                 <SheetHeader className="mb-6">
                                     <SheetTitle>Edit Profile</SheetTitle>
                                 </SheetHeader>
-                                <div className="space-y-5">
+                                <div className="space-y-5 px-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-foreground">Full Name</label>
                                         <Input
@@ -584,7 +584,7 @@ export default function ProfilePage() {
                                 <SheetHeader className="mb-6">
                                     <SheetTitle>Change Password</SheetTitle>
                                 </SheetHeader>
-                                <div className="space-y-5">
+                                <div className="space-y-5 px-4">
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-foreground">New Password</label>
                                         <Input
