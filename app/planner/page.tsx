@@ -1275,33 +1275,38 @@ export default function PlannerPage() {
                         {/* Divider */}
                         <div className="border-t border-border mx-4 mb-3" />
 
-                        {/* Unassigned Orders */}
-                        <div className="px-4 mb-4">
-                            <UnassignedArea count={unassignedOrders.length}>
-                                {unassignedOrders.map(order => (
-                                    <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
-                                ))}
-                            </UnassignedArea>
-                        </div>
-
-                        {/* Assigned — By Driver */}
-                        <div className="px-4 pb-4">
-                            <h2 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-2 mb-3">
-                                <Truck size={12} /> Drivers ({drivers.length})
-                            </h2>
-                            <div className="space-y-3">
-                                {drivers.map((driver, index) => (
-                                    <DroppableDriverContainer
-                                        key={driver.id}
-                                        driver={driver}
-                                        orders={orders.filter(o => o.driver_id === driver.id)}
-                                        isLocked={index >= driverLimit}
-                                    >
-                                        {orders.filter(o => o.driver_id === driver.id).map(order => (
+                        {/* Split view: Unassigned Orders + Drivers side by side for easy drag-and-drop */}
+                        <div className="px-4 pb-4 flex flex-col gap-3" style={{ minHeight: '60vh' }}>
+                            {/* Unassigned Orders - scrollable */}
+                            <div className="flex-1 min-h-0">
+                                <div className="h-full max-h-[35vh] overflow-y-auto rounded-lg border border-dashed border-border bg-muted/20 p-2">
+                                    <UnassignedArea count={unassignedOrders.length}>
+                                        {unassignedOrders.map(order => (
                                             <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
                                         ))}
-                                    </DroppableDriverContainer>
-                                ))}
+                                    </UnassignedArea>
+                                </div>
+                            </div>
+
+                            {/* Drivers - scrollable, always visible below */}
+                            <div className="flex-1 min-h-0">
+                                <h2 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-2 mb-2">
+                                    <Truck size={12} /> Drivers ({drivers.length})
+                                </h2>
+                                <div className="max-h-[35vh] overflow-y-auto space-y-3 rounded-lg border border-border bg-card p-2">
+                                    {drivers.map((driver, index) => (
+                                        <DroppableDriverContainer
+                                            key={driver.id}
+                                            driver={driver}
+                                            orders={orders.filter(o => o.driver_id === driver.id)}
+                                            isLocked={index >= driverLimit}
+                                        >
+                                            {orders.filter(o => o.driver_id === driver.id).map(order => (
+                                                <DraggableOrderCard key={order.id} order={order} onViewDetails={setSelectedOrder} />
+                                            ))}
+                                        </DroppableDriverContainer>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
