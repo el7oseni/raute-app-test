@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
 import { waitForSession } from "@/lib/wait-for-session"
 import { parseOrderAI, type ParsedOrder } from "@/lib/grok"
+import { cleanAddressesWithAI } from "@/lib/address-cleaner"
 import { reverseGeocode } from "@/lib/geocoding"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import LocationPicker from "@/components/location-picker"
@@ -634,29 +635,58 @@ export default function OrdersPage() {
                 }
                 console.log(`✅ Successfully inserted ${insertedData.length} orders`)
 
-                // Geocode in background — don't block the user
+                // Geocode in background with AI address cleaning — don't block the user
                 const orderIds = insertedData.map(d => d.id)
                 setTimeout(async () => {
-                    for (let i = 0; i < results.length; i++) {
-                        const result = results[i]
+                    // Step 1: AI-clean all addresses in one batch call
+                    const addressInputs = results.map(r => ({
+                        address: r.address || '', city: r.city || '', state: r.state || '', zip_code: r.zip_code || ''
+                    }))
+                    let cleanedAddresses = await cleanAddressesWithAI(addressInputs)
+
+                    // Step 2: Geocode using cleaned addresses
+                    let geocodedCount = 0
+                    for (let i = 0; i < cleanedAddresses.length; i++) {
+                        const cleaned = cleanedAddresses[i]
                         try {
                             const coords = await geocodeAddress(
-                                [result.address, result.city, result.state].filter(Boolean).join(', ')
+                                [cleaned.address, cleaned.city, cleaned.state].filter(Boolean).join(', ')
                             )
                             if (coords && orderIds[i]) {
-                                await supabase.from('orders').update({
+                                const updates: Record<string, any> = {
                                     latitude: coords.lat,
                                     longitude: coords.lng,
                                     geocoding_confidence: coords.confidence,
-                                    geocoded_address: coords.foundAddress
+                                    geocoded_address: coords.foundAddress,
+                                    geocoding_attempted_at: new Date().toISOString()
+                                }
+                                // If AI corrected the address, update stored address too
+                                if (cleaned.was_corrected) {
+                                    updates.address = cleaned.address
+                                    if (cleaned.city) updates.city = cleaned.city
+                                    if (cleaned.state) updates.state = cleaned.state
+                                    if (cleaned.zip_code) updates.zip_code = cleaned.zip_code
+                                }
+                                await supabase.from('orders').update(updates).eq('id', orderIds[i])
+                                geocodedCount++
+                            } else if (orderIds[i]) {
+                                // Geocoding failed — store the failure
+                                await supabase.from('orders').update({
+                                    geocoding_confidence: 'failed',
+                                    geocoding_attempted_at: new Date().toISOString(),
+                                    geocoded_address: cleaned.correction_notes || 'Address could not be geocoded'
                                 }).eq('id', orderIds[i])
                             }
                         } catch {
-                            // Skip geocoding errors silently
+                            if (orderIds[i]) {
+                                await supabase.from('orders').update({
+                                    geocoding_confidence: 'failed',
+                                    geocoding_attempted_at: new Date().toISOString()
+                                }).eq('id', orderIds[i])
+                            }
                         }
                     }
-                    console.log('✅ Background geocoding complete for', orderIds.length, 'orders')
-                    // Refresh to show geocoded coordinates
+                    console.log(`✅ Background geocoding complete: ${geocodedCount}/${orderIds.length} orders geocoded`)
                     fetchData()
                 }, 100)
 
@@ -764,6 +794,80 @@ export default function OrdersPage() {
             .neq('status', 'cancelled')
 
         return count || 0
+    }
+
+    const [isRetryingGeocode, setIsRetryingGeocode] = useState(false)
+
+    async function retryFailedGeocoding() {
+        if (!companyId) return
+        setIsRetryingGeocode(true)
+        try {
+            const { data: failedOrders } = await supabase
+                .from('orders')
+                .select('id, address, city, state, zip_code')
+                .eq('company_id', companyId)
+                .is('latitude', null)
+                .not('status', 'in', '("delivered","cancelled")')
+
+            if (!failedOrders?.length) {
+                toast({ title: "No orders need geocoding", type: "info" })
+                return
+            }
+
+            // AI-clean the batch
+            const cleaned = await cleanAddressesWithAI(
+                failedOrders.map(o => ({
+                    address: o.address || '', city: o.city || '', state: o.state || '', zip_code: o.zip_code || ''
+                }))
+            )
+
+            let fixed = 0
+            for (let i = 0; i < cleaned.length; i++) {
+                try {
+                    const coords = await geocodeAddress(
+                        [cleaned[i].address, cleaned[i].city, cleaned[i].state].filter(Boolean).join(', ')
+                    )
+                    if (coords) {
+                        const updates: Record<string, any> = {
+                            latitude: coords.lat, longitude: coords.lng,
+                            geocoding_confidence: coords.confidence,
+                            geocoded_address: coords.foundAddress,
+                            geocoding_attempted_at: new Date().toISOString()
+                        }
+                        if (cleaned[i].was_corrected) {
+                            updates.address = cleaned[i].address
+                            if (cleaned[i].city) updates.city = cleaned[i].city
+                            if (cleaned[i].state) updates.state = cleaned[i].state
+                            if (cleaned[i].zip_code) updates.zip_code = cleaned[i].zip_code
+                        }
+                        await supabase.from('orders').update(updates).eq('id', failedOrders[i].id)
+                        fixed++
+                    } else {
+                        await supabase.from('orders').update({
+                            geocoding_confidence: 'failed',
+                            geocoding_attempted_at: new Date().toISOString(),
+                            geocoded_address: cleaned[i].correction_notes || 'Address could not be geocoded'
+                        }).eq('id', failedOrders[i].id)
+                    }
+                } catch {
+                    await supabase.from('orders').update({
+                        geocoding_confidence: 'failed',
+                        geocoding_attempted_at: new Date().toISOString()
+                    }).eq('id', failedOrders[i].id)
+                }
+            }
+
+            toast({
+                title: fixed > 0 ? `Fixed ${fixed}/${failedOrders.length} orders` : "Could not fix addresses",
+                description: fixed > 0 ? "GPS coordinates updated successfully" : "Addresses may need manual correction",
+                type: fixed > 0 ? "success" : "error"
+            })
+            fetchData()
+        } catch (error: any) {
+            toast({ title: "Retry failed", description: error.message, type: "error" })
+        } finally {
+            setIsRetryingGeocode(false)
+        }
     }
 
     async function handleAddOrder(formData: FormData) {
@@ -1872,6 +1976,30 @@ export default function OrdersPage() {
                     </div>
                 )
             }
+
+            {/* --- Missing GPS Banner with AI Fix --- */}
+            {userRole !== 'driver' && orders.filter(o => !o.latitude || !o.longitude).length > 0 && (
+                <div className="mx-1 md:mx-0 mb-4 p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <AlertCircle className="text-rose-600 dark:text-rose-400 shrink-0" size={18} />
+                        <div>
+                            <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
+                                {orders.filter(o => !o.latitude || !o.longitude).length} Orders Missing GPS
+                            </p>
+                            <p className="text-xs text-rose-600/80 dark:text-rose-400/80">Hidden from map view</p>
+                        </div>
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={retryFailedGeocoding}
+                        disabled={isRetryingGeocode}
+                        className="shrink-0 border-rose-300 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
+                    >
+                        {isRetryingGeocode ? <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Fixing...</> : <><Sparkles size={14} className="mr-1.5" /> Fix with AI</>}
+                    </Button>
+                </div>
+            )}
 
             {/* --- MOBILE VIEW: CARDS --- */}
             <div className="md:hidden space-y-4">
