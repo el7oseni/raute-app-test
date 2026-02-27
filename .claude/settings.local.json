@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(npx next build)",
+      "Bash(export LANG=en_US.UTF-8)",
+      "Bash(export LC_ALL=en_US.UTF-8)",
+      "Bash(npx cap sync ios)",
+      "Bash(NEXT_PUBLIC_CAPACITOR_BUILD=true npx next build)",
+      "Bash(gh repo clone berkaycatak/adaptive_platform_ui /tmp/adaptive_platform_ui)",
+      "Bash(git clone https://github.com/berkaycatak/adaptive_platform_ui.git /tmp/adaptive_platform_ui)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.framer.com)",
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:dev.to)",
+      "Bash(git clone https://github.com/berkaycatak/adaptive_platform_ui.git /tmp/adaptive_ui)",
+      "WebFetch(domain:css-tricks.com)",
+      "WebFetch(domain:motion.dev)",
+      "WebFetch(domain:medium.com)"
+    ]
+  }
+}
