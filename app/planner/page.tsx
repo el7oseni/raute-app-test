@@ -12,7 +12,7 @@ import { calculateEvenSplit, type SplitSuggestion } from '@/lib/split-calculator
 import { WorkloadDashboard } from '@/components/WorkloadDashboard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { MapPin, Truck, Sparkles, AlertCircle, AlertTriangle, Lock, Unlock, Clock, ExternalLink, CheckCircle2, User as UserIcon, Edit } from 'lucide-react'
+import { MapPin, Truck, Sparkles, AlertCircle, AlertTriangle, Lock, Unlock, Clock, ExternalLink, CheckCircle2, User as UserIcon, Edit, Route, Timer, RotateCcw, MapPinOff } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from "@/components/toast-provider"
 import { useTheme } from 'next-themes'
@@ -257,8 +257,15 @@ export default function PlannerPage() {
         assigned: number
         unassigned: number
         problematic: number
-        driverBreakdown: { driverId: string, driverName: string, orderCount: number }[]
+        totalDistanceKm: number
+        driverBreakdown: { driverId: string, driverName: string, orderCount: number, totalDistanceKm?: number, estimatedDurationMin?: number }[]
         issues: { reason: string, count: number, orders: string[] }[]
+        warnings: {
+            timeWindowViolations: { orderId: string, orderNumber: string, windowEnd: string, estimatedArrival: string, driverName: string }[]
+            staleGpsDrivers: { driverName: string, lastUpdate: string, minutesAgo: number }[]
+            overloadedDrivers: { driverName: string, orderCount: number, estimatedHours: number }[]
+            depotReloadSuggestions: { driverName: string, splitAfterOrderNumber: string, ordersBefore: number, ordersAfter: number }[]
+        }
         driverDiagnostics?: { name: string, valid: boolean, lat: number, lng: number, address?: string }[]
     } | null>(null)
 
@@ -595,12 +602,17 @@ export default function PlannerPage() {
             const assignedOrders = result.orders.filter(o => o.driver_id)
             const unassignedOrders = result.orders.filter(o => !o.driver_id)
 
-            // Driver Breakdown
-            const driverBreakdown = drivers.map(driver => ({
-                driverId: driver.id,
-                driverName: driver.name,
-                orderCount: assignedOrders.filter(o => o.driver_id === driver.id).length
-            })).filter(d => d.orderCount > 0)
+            // Driver Breakdown (enriched with distance/duration from optimizer)
+            const driverBreakdown = drivers.map(driver => {
+                const stats = result.driverStats?.find(s => s.driverId === driver.id)
+                return {
+                    driverId: driver.id,
+                    driverName: driver.name,
+                    orderCount: assignedOrders.filter(o => o.driver_id === driver.id).length,
+                    totalDistanceKm: stats?.totalDistanceKm,
+                    estimatedDurationMin: stats?.estimatedDurationMin
+                }
+            }).filter(d => d.orderCount > 0)
 
             // Issues Analysis
             const issues: { reason: string, count: number, orders: string[] }[] = []
@@ -645,8 +657,10 @@ export default function PlannerPage() {
                 assigned: assignedOrders.length,
                 unassigned: unassignedOrders.length,
                 problematic: noGpsOrders.length + lockedOrders.length,
+                totalDistanceKm: result.summary?.totalDistance || 0,
                 driverBreakdown,
                 issues,
+                warnings: result.warnings || { timeWindowViolations: [], staleGpsDrivers: [], overloadedDrivers: [], depotReloadSuggestions: [] },
                 driverDiagnostics: (result as any).debug?.drivers
             })
 
@@ -1374,7 +1388,7 @@ export default function PlannerPage() {
                         {optimizationReport && (
                             <div className="space-y-6 mt-6">
                                 {/* Summary Cards */}
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-3">
                                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
                                         <CardContent className="p-4 text-center">
                                             <div className="text-3xl font-bold text-green-700 dark:text-green-400">{optimizationReport.assigned}</div>
@@ -1385,6 +1399,12 @@ export default function PlannerPage() {
                                         <CardContent className="p-4 text-center">
                                             <div className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">{optimizationReport.unassigned}</div>
                                             <div className="text-xs text-yellow-600 dark:text-yellow-500 font-medium mt-1">Unassigned</div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+                                        <CardContent className="p-4 text-center">
+                                            <div className="text-3xl font-bold text-blue-700 dark:text-blue-400">{optimizationReport.totalDistanceKm > 0 ? `${optimizationReport.totalDistanceKm}` : '—'}</div>
+                                            <div className="text-xs text-blue-600 dark:text-blue-500 font-medium mt-1">Total km</div>
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -1400,19 +1420,148 @@ export default function PlannerPage() {
                                             {optimizationReport.driverBreakdown.map((driver) => (
                                                 <div
                                                     key={driver.driverId}
-                                                    className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg"
+                                                    className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-2 w-2 rounded-full bg-blue-600" />
-                                                        <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{driver.driverName}</span>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-2 w-2 rounded-full bg-blue-600" />
+                                                            <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{driver.driverName}</span>
+                                                        </div>
+                                                        <span className="text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded-full">
+                                                            {driver.orderCount} orders
+                                                        </span>
                                                     </div>
-                                                    <span className="text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded-full">
-                                                        {driver.orderCount} orders
-                                                    </span>
+                                                    {(driver.totalDistanceKm || driver.estimatedDurationMin) && (
+                                                        <div className="flex items-center gap-3 mt-2 pl-4 text-[11px] text-slate-500 dark:text-slate-400">
+                                                            {driver.totalDistanceKm != null && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Route size={11} /> {driver.totalDistanceKm} km
+                                                                </span>
+                                                            )}
+                                                            {driver.estimatedDurationMin != null && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Timer size={11} /> ~{driver.estimatedDurationMin >= 60 ? `${(driver.estimatedDurationMin / 60).toFixed(1)} hrs` : `${driver.estimatedDurationMin} min`}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
+                                )}
+
+                                {/* Smart Warnings */}
+                                {optimizationReport.warnings && (
+                                    (() => {
+                                        const w = optimizationReport.warnings
+                                        const hasWarnings = w.timeWindowViolations.length > 0 || w.staleGpsDrivers.length > 0 || w.overloadedDrivers.length > 0 || w.depotReloadSuggestions.length > 0
+                                        if (!hasWarnings) return null
+                                        return (
+                                            <div className="space-y-3">
+                                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                    <AlertTriangle size={16} className="text-amber-600" />
+                                                    Smart Alerts
+                                                </h3>
+
+                                                {/* Time Window Violations */}
+                                                {w.timeWindowViolations.length > 0 && (
+                                                    <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/50">
+                                                        <CardContent className="p-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <Clock size={14} className="text-red-600 dark:text-red-400" />
+                                                                <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                                                                    {w.timeWindowViolations.length} order{w.timeWindowViolations.length > 1 ? 's' : ''} may miss delivery window
+                                                                </p>
+                                                            </div>
+                                                            <div className="space-y-1.5 mt-2">
+                                                                {w.timeWindowViolations.slice(0, 5).map((v, i) => (
+                                                                    <div key={i} className="flex items-center justify-between text-xs bg-red-100 dark:bg-red-900/40 px-2 py-1.5 rounded">
+                                                                        <span className="font-mono text-red-800 dark:text-red-300">#{v.orderNumber}</span>
+                                                                        <span className="text-red-600 dark:text-red-400">
+                                                                            Window: {v.windowEnd} | ETA: {v.estimatedArrival}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                                {w.timeWindowViolations.length > 5 && (
+                                                                    <p className="text-[10px] text-red-500 pl-2">+{w.timeWindowViolations.length - 5} more</p>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+
+                                                {/* Stale GPS Warning */}
+                                                {w.staleGpsDrivers.length > 0 && (
+                                                    <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/50">
+                                                        <CardContent className="p-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <MapPinOff size={14} className="text-amber-600 dark:text-amber-400" />
+                                                                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                                                    {w.staleGpsDrivers.length} driver{w.staleGpsDrivers.length > 1 ? 's' : ''} with stale GPS ({'>'}30 min old)
+                                                                </p>
+                                                            </div>
+                                                            <div className="space-y-1.5 mt-2">
+                                                                {w.staleGpsDrivers.map((d, i) => (
+                                                                    <div key={i} className="flex items-center justify-between text-xs bg-amber-100 dark:bg-amber-900/40 px-2 py-1.5 rounded">
+                                                                        <span className="font-medium text-amber-800 dark:text-amber-300">{d.driverName}</span>
+                                                                        <span className="text-amber-600 dark:text-amber-400">Last seen {d.minutesAgo} min ago</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-2">Routes may start from incorrect location. Depot location used as fallback when available.</p>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+
+                                                {/* Driver Overload */}
+                                                {w.overloadedDrivers.length > 0 && (
+                                                    <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50">
+                                                        <CardContent className="p-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <AlertCircle size={14} className="text-orange-600 dark:text-orange-400" />
+                                                                <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+                                                                    {w.overloadedDrivers.length} driver{w.overloadedDrivers.length > 1 ? 's' : ''} may be overloaded
+                                                                </p>
+                                                            </div>
+                                                            <div className="space-y-1.5 mt-2">
+                                                                {w.overloadedDrivers.map((d, i) => (
+                                                                    <div key={i} className="flex items-center justify-between text-xs bg-orange-100 dark:bg-orange-900/40 px-2 py-1.5 rounded">
+                                                                        <span className="font-medium text-orange-800 dark:text-orange-300">{d.driverName}</span>
+                                                                        <span className="text-orange-600 dark:text-orange-400">{d.orderCount} orders · ~{d.estimatedHours} hrs</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-[10px] text-orange-600 dark:text-orange-500 mt-2">Consider using Balanced mode or adding more drivers to distribute the load.</p>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+
+                                                {/* Depot Reload Suggestions */}
+                                                {w.depotReloadSuggestions.length > 0 && (
+                                                    <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/50">
+                                                        <CardContent className="p-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <RotateCcw size={14} className="text-purple-600 dark:text-purple-400" />
+                                                                <p className="text-sm font-semibold text-purple-800 dark:text-purple-300">
+                                                                    Depot Reload Suggestions
+                                                                </p>
+                                                            </div>
+                                                            <div className="space-y-1.5 mt-2">
+                                                                {w.depotReloadSuggestions.map((s, i) => (
+                                                                    <div key={i} className="text-xs bg-purple-100 dark:bg-purple-900/40 px-2 py-1.5 rounded">
+                                                                        <span className="font-medium text-purple-800 dark:text-purple-300">{s.driverName}</span>
+                                                                        <span className="text-purple-600 dark:text-purple-400"> could reload at depot after #{s.splitAfterOrderNumber}</span>
+                                                                        <span className="text-purple-500 dark:text-purple-500 block mt-0.5">{s.ordersBefore} orders before · {s.ordersAfter} orders after reload</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+                                            </div>
+                                        )
+                                    })()
                                 )}
 
                                 {/* Issues / Warnings */}
