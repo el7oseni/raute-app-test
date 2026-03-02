@@ -2,14 +2,12 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle, WifiOff, CloudOff, Database } from "lucide-react"
+import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle, WifiOff, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase, type Order } from "@/lib/supabase"
-import { cacheData, getCachedData, getLastSyncTime } from "@/lib/offline-cache"
 import { waitForSession } from "@/lib/wait-for-session"
 import { parseOrderAI, type ParsedOrder } from "@/lib/grok"
-import { smartGeocode, batchSmartGeocode } from "@/lib/smart-geocoder"
 import { reverseGeocode } from "@/lib/geocoding"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import LocationPicker from "@/components/location-picker"
@@ -241,15 +239,17 @@ export default function OrdersPage() {
 
             if (!currentUserId) return
 
-            // ⚡ QUICK LOAD: Try to load from IDB cache immediately for instant UI
-            if (orders.length === 0) {
-                try {
-                    const cached = await getCachedData<Order>('orders')
-                    if (cached.length > 0) {
-                        setOrders(cached)
-                        console.log("Loaded cached orders from IDB:", cached.length)
-                    }
-                } catch (e) { console.error("IDB cache read error", e) }
+            // ⚡ QUICK LOAD: Try to load from cache immediately for instant UI
+            if (typeof window !== 'undefined') {
+                const cachedOrders = localStorage.getItem('cached_orders')
+                if (cachedOrders && orders.length === 0) {
+                    try {
+                        const parsed = JSON.parse(cachedOrders)
+                        setOrders(parsed)
+                        // Don't verify integrity too strictly here, just show something
+                        console.log("Loaded cached orders:", parsed.length)
+                    } catch (e) { console.error("Cache parse error", e) }
+                }
             }
 
             const { data: userProfile } = await supabase
@@ -305,7 +305,8 @@ export default function OrdersPage() {
                 fetchedOrders = data || []
                 setOrders(fetchedOrders)
                 if (data) {
-                    cacheData('orders', data).catch(() => {})
+                    localStorage.setItem('cached_orders', JSON.stringify(data))
+                    localStorage.setItem('cached_orders_ts', new Date().toISOString())
                 }
 
             } else {
@@ -324,7 +325,8 @@ export default function OrdersPage() {
                 fetchedOrders = data || []
                 setOrders(fetchedOrders)
                 if (data) {
-                    cacheData('orders', data).catch(() => {})
+                    localStorage.setItem('cached_orders', JSON.stringify(data))
+                    localStorage.setItem('cached_orders_ts', new Date().toISOString())
                 }
             }
             // Auto-expand date range if no orders match today but there are orders
@@ -343,26 +345,21 @@ export default function OrdersPage() {
             }
         } catch (error: any) {
             console.error("Fetch error:", error)
-            // 🛑 ERROR: Fallback to IDB Cache if empty
-            if (orders.length === 0) {
+            // 🛑 ERROR: Fallback to Cache if empty
+            const cachedOrders = localStorage.getItem('cached_orders')
+            if (orders.length === 0 && cachedOrders) {
                 try {
-                    const cached = await getCachedData<Order>('orders')
-                    if (cached.length > 0) {
-                        setOrders(cached)
-                        const lastSync = await getLastSyncTime('orders')
-                        toast({
-                            title: 'Offline Mode',
-                            description: `Showing data from ${lastSync ? new Date(lastSync).toLocaleTimeString() : 'cache'}`,
-                            type: 'info'
-                        })
-                    } else {
-                        toast({ title: 'Failed to load orders', description: error.message, type: 'error' })
-                    }
-                } catch (e) {
-                    toast({ title: 'Failed to load orders', description: error.message, type: 'error' })
-                }
+                    const parsed = JSON.parse(cachedOrders)
+                    setOrders(parsed)
+                    const ts = localStorage.getItem('cached_orders_ts')
+                    toast({
+                        title: 'Offline Mode',
+                        description: `Showing data from ${ts ? new Date(ts).toLocaleTimeString() : 'cache'}`,
+                        type: 'info'
+                    })
+                } catch (e) { }
             } else {
-                toast({ title: 'Failed to update orders', description: error.message, type: 'error' })
+                toast({ title: 'Failed to update order', description: error.message, type: 'error' })
             }
         } finally {
             setIsLoading(false)
@@ -637,38 +634,29 @@ export default function OrdersPage() {
                 }
                 console.log(`✅ Successfully inserted ${insertedData.length} orders`)
 
-                // Smart geocode in background — tries fast/free strategies first, AI only as last resort
+                // Geocode in background — don't block the user
                 const orderIds = insertedData.map(d => d.id)
                 setTimeout(async () => {
-                    const addressInputs = results.map(r => ({
-                        address: r.address || '', city: r.city || '', state: r.state || '', zip_code: r.zip_code || ''
-                    }))
-                    const geoResults = await batchSmartGeocode(addressInputs)
-
-                    let geocodedCount = 0
-                    for (let i = 0; i < geoResults.length; i++) {
-                        const geo = geoResults[i]
-                        if (geo && orderIds[i]) {
-                            const updates: Record<string, any> = {
-                                latitude: geo.lat,
-                                longitude: geo.lng,
-                                geocoding_confidence: geo.confidence,
-                                geocoded_address: geo.foundAddress,
-                                geocoding_attempted_at: new Date().toISOString()
+                    for (let i = 0; i < results.length; i++) {
+                        const result = results[i]
+                        try {
+                            const coords = await geocodeAddress(
+                                [result.address, result.city, result.state].filter(Boolean).join(', ')
+                            )
+                            if (coords && orderIds[i]) {
+                                await supabase.from('orders').update({
+                                    latitude: coords.lat,
+                                    longitude: coords.lng,
+                                    geocoding_confidence: coords.confidence,
+                                    geocoded_address: coords.foundAddress
+                                }).eq('id', orderIds[i])
                             }
-                            if (geo.correctedAddress) {
-                                updates.address = geo.correctedAddress
-                            }
-                            await supabase.from('orders').update(updates).eq('id', orderIds[i])
-                            geocodedCount++
-                        } else if (orderIds[i]) {
-                            await supabase.from('orders').update({
-                                geocoding_confidence: 'failed',
-                                geocoding_attempted_at: new Date().toISOString()
-                            }).eq('id', orderIds[i])
+                        } catch {
+                            // Skip geocoding errors silently
                         }
                     }
-                    console.log(`✅ Background geocoding complete: ${geocodedCount}/${orderIds.length} orders geocoded`)
+                    console.log('✅ Background geocoding complete for', orderIds.length, 'orders')
+                    // Refresh to show geocoded coordinates
                     fetchData()
                 }, 100)
 
@@ -776,66 +764,6 @@ export default function OrdersPage() {
             .neq('status', 'cancelled')
 
         return count || 0
-    }
-
-    const [isRetryingGeocode, setIsRetryingGeocode] = useState(false)
-
-    async function retryFailedGeocoding() {
-        if (!companyId) return
-        setIsRetryingGeocode(true)
-        try {
-            const { data: failedOrders } = await supabase
-                .from('orders')
-                .select('id, address, city, state, zip_code')
-                .eq('company_id', companyId)
-                .is('latitude', null)
-                .not('status', 'in', '("delivered","cancelled")')
-
-            if (!failedOrders?.length) {
-                toast({ title: "No orders need geocoding", type: "info" })
-                return
-            }
-
-            // Smart geocode — tries fast/free strategies first, AI only as last resort
-            const addressInputs = failedOrders.map(o => ({
-                address: o.address || '', city: o.city || '', state: o.state || '', zip_code: o.zip_code || ''
-            }))
-            const geoResults = await batchSmartGeocode(addressInputs)
-
-            let fixed = 0
-            for (let i = 0; i < geoResults.length; i++) {
-                const geo = geoResults[i]
-                if (geo) {
-                    const updates: Record<string, any> = {
-                        latitude: geo.lat, longitude: geo.lng,
-                        geocoding_confidence: geo.confidence,
-                        geocoded_address: geo.foundAddress,
-                        geocoding_attempted_at: new Date().toISOString()
-                    }
-                    if (geo.correctedAddress) {
-                        updates.address = geo.correctedAddress
-                    }
-                    await supabase.from('orders').update(updates).eq('id', failedOrders[i].id)
-                    fixed++
-                } else {
-                    await supabase.from('orders').update({
-                        geocoding_confidence: 'failed',
-                        geocoding_attempted_at: new Date().toISOString()
-                    }).eq('id', failedOrders[i].id)
-                }
-            }
-
-            toast({
-                title: fixed > 0 ? `Fixed ${fixed}/${failedOrders.length} orders` : "Could not fix addresses",
-                description: fixed > 0 ? "GPS coordinates updated successfully" : "Addresses may need manual correction",
-                type: fixed > 0 ? "success" : "error"
-            })
-            fetchData()
-        } catch (error: any) {
-            toast({ title: "Retry failed", description: error.message, type: "error" })
-        } finally {
-            setIsRetryingGeocode(false)
-        }
     }
 
     async function handleAddOrder(formData: FormData) {
@@ -1165,11 +1093,6 @@ export default function OrdersPage() {
                                                     <span className={cn("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border", statusColors[order.status as keyof typeof statusColors])}>
                                                         {order.status.replace('_', ' ')}
                                                     </span>
-                                                    {(order as any)._pendingSync && (
-                                                        <span className="flex items-center gap-0.5 text-[9px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-1.5 py-0.5 rounded border border-orange-200 dark:border-orange-800">
-                                                            <CloudOff size={9} /> Pending Sync
-                                                        </span>
-                                                    )}
                                                     <p className="text-[10px] text-muted-foreground mt-1">
                                                         {format(new Date(order.delivery_date || order.created_at), "MMM dd")}
                                                     </p>
@@ -1260,11 +1183,6 @@ export default function OrdersPage() {
                                                             {order.priority_level === 'high' && (
                                                                 <span className="text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded uppercase tracking-wider">
                                                                     HIGH
-                                                                </span>
-                                                            )}
-                                                            {(order as any)._pendingSync && (
-                                                                <span className="flex items-center gap-1 text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-1.5 py-0.5 rounded border border-orange-200 dark:border-orange-800 uppercase tracking-wider">
-                                                                    <CloudOff size={10} /> Pending Sync
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1955,30 +1873,6 @@ export default function OrdersPage() {
                 )
             }
 
-            {/* --- Missing GPS Banner with AI Fix --- */}
-            {userRole !== 'driver' && orders.filter(o => !o.latitude || !o.longitude).length > 0 && (
-                <div className="mx-1 md:mx-0 mb-4 p-4 bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 rounded-2xl flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <AlertCircle className="text-rose-600 dark:text-rose-400 shrink-0" size={18} />
-                        <div>
-                            <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
-                                {orders.filter(o => !o.latitude || !o.longitude).length} Orders Missing GPS
-                            </p>
-                            <p className="text-xs text-rose-600/80 dark:text-rose-400/80">Hidden from map view</p>
-                        </div>
-                    </div>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={retryFailedGeocoding}
-                        disabled={isRetryingGeocode}
-                        className="shrink-0 border-rose-300 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
-                    >
-                        {isRetryingGeocode ? <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Fixing...</> : <><Sparkles size={14} className="mr-1.5" /> Fix with AI</>}
-                    </Button>
-                </div>
-            )}
-
             {/* --- MOBILE VIEW: CARDS --- */}
             <div className="md:hidden space-y-4">
                 {filteredOrders.length > 0 && (
@@ -2129,11 +2023,6 @@ export default function OrdersPage() {
                                                 {order.was_out_of_range && (
                                                     <span className="inline-flex items-center gap-1.5 text-[10px] bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-md font-bold w-fit mt-1 border border-red-100 dark:border-red-900/50">
                                                         <AlertCircle size={10} strokeWidth={3} /> Out of Range
-                                                    </span>
-                                                )}
-                                                {(order as any)._pendingSync && (
-                                                    <span className="flex items-center gap-1 text-[9px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-1.5 py-0.5 rounded border border-orange-200 dark:border-orange-800">
-                                                        <CloudOff size={9} /> Pending Sync
                                                     </span>
                                                 )}
                                             </div>
