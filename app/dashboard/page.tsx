@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { cacheData, getCachedData } from '@/lib/offline-cache'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity, CheckCircle2, Clock, Package, Truck, AlertCircle, AlertTriangle, TrendingUp, MapPin, ArrowRight, Calendar as CalendarIcon, Filter, X, Sparkles, User } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -93,12 +92,10 @@ export default function DashboardPage() {
             }
         }, 10000)
 
-        // Session-aware init with retry for Capacitor async storage
+        // Session-aware init — run getSession() and getUser() in parallel for speed.
+        // getSession() may hang due to navigator.locks, but getUser() bypasses locks.
         const initDashboard = async (): Promise<void> => {
             try {
-                // Try getSession() and getUser() in parallel for faster auth resolution.
-                // getSession() may hang due to navigator.locks, but getUser() bypasses
-                // locks entirely (direct API call). Whichever resolves first wins.
                 let currentUserId: string | null = null
                 let userMeta: Record<string, any> = {}
                 let session: any = null
@@ -119,7 +116,6 @@ export default function DashboardPage() {
                         ]),
                     ])
 
-                    // Extract session if available
                     if (sessionResult.status === 'fulfilled') {
                         const s = (sessionResult.value as any)?.data?.session
                         if (s?.user?.id) {
@@ -129,7 +125,6 @@ export default function DashboardPage() {
                         }
                     }
 
-                    // Extract user if session didn't provide one
                     if (!currentUserId && userResult.status === 'fulfilled') {
                         const u = (userResult.value as any)?.data?.user
                         if (u?.id) {
@@ -139,19 +134,16 @@ export default function DashboardPage() {
                         }
                     }
                 } catch {
-                    // Both failed — continue to fallback below
+                    // Both failed
                 }
 
                 if (!currentUserId) {
-                    // No session and no user — check cached role before giving up
                     const cachedRole = typeof window !== 'undefined' ? localStorage.getItem('raute_user_role') : null
                     if (cachedRole) {
-                        // User was logged in before — temporary lock issue, don't redirect
                         console.warn('⚠️ Dashboard: Session locked but cached role exists. Showing timeout UI.')
                         if (isMountedRef.current) setIsLoading(false)
                         return
                     }
-                    // No cached role — user is genuinely not logged in
                     console.error('⛔ Dashboard: No session, no cache. Redirecting to login.')
                     router.replace('/login?error=no_session')
                     return
@@ -206,7 +198,7 @@ export default function DashboardPage() {
 
                 // Final Fallback - default to manager (NOT driver)
                 if (!role) role = 'manager'
-                if (!fullName) fullName = session?.user?.email?.split('@')[0] ?? 'User'
+                if (!fullName) fullName = session?.user?.email?.split('@')[0] || 'User'
 
                 if (isMountedRef.current) {
                     setUserId(currentUserId)
@@ -244,7 +236,6 @@ export default function DashboardPage() {
 
                         if (ordersData && !ordersError) {
                             setOrders(ordersData)
-                            cacheData('orders', ordersData).catch(() => {})
 
                             // Calculate stats
                             const statsCalc = {
@@ -256,23 +247,6 @@ export default function DashboardPage() {
                                 cancelled: ordersData.filter(o => o.status === 'cancelled').length
                             }
                             setStats(statsCalc)
-                        } else if (ordersError) {
-                            // Offline fallback: load from IDB
-                            const cached = await getCachedData('orders', {
-                                filter: (o: any) => o.company_id === companyId
-                            })
-                            if (cached.length > 0) {
-                                setOrders(cached as any)
-                                const statsCalc = {
-                                    total: cached.length,
-                                    pending: cached.filter((o: any) => o.status === 'pending').length,
-                                    assigned: cached.filter((o: any) => o.status === 'assigned').length,
-                                    inProgress: cached.filter((o: any) => o.status === 'in_progress').length,
-                                    delivered: cached.filter((o: any) => o.status === 'delivered').length,
-                                    cancelled: cached.filter((o: any) => o.status === 'cancelled').length
-                                }
-                                setStats(statsCalc)
-                            }
                         }
 
                         // Fetch Drivers
@@ -283,7 +257,6 @@ export default function DashboardPage() {
 
                         if (driversData) {
                             setTotalDriversCount(driversData.length)
-                            cacheData('drivers', driversData).catch(() => {})
                             // Build drivers map for quick lookup
                             const dMap: Record<string, any> = {}
                             driversData.forEach(d => {
@@ -300,7 +273,6 @@ export default function DashboardPage() {
 
                         if (hubsData) {
                             setHasHubs(hubsData.length > 0)
-                            cacheData('hubs', hubsData).catch(() => {})
                         }
                     }
                 }
