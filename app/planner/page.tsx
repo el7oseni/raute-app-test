@@ -19,10 +19,11 @@ import { useToast } from "@/components/toast-provider"
 import { useTheme } from 'next-themes'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { PullToRefresh } from '@/components/pull-to-refresh'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import {
     DndContext,
     DragOverlay,
-    closestCorners,
+    closestCenter,
     KeyboardSensor,
     MouseSensor,
     TouchSensor,
@@ -68,13 +69,14 @@ const fixLeafletIcons = () => {
  */
 function DraggableOrderCard({ order, isOverlay = false, onViewDetails }: { order: Order, isOverlay?: boolean, onViewDetails?: (o: Order) => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: order.id,
-        data: { order }
+        id: isOverlay ? `overlay-${order.id}` : order.id,
+        data: { order },
+        disabled: isOverlay, // Overlay is visual only — don't register as draggable
     })
 
     const style: React.CSSProperties = isDragging
         ? { opacity: 0.4, willChange: 'transform', touchAction: 'none', zIndex: 9999 }
-        : { touchAction: 'manipulation' } // Allow browser to know this is interactive so it handles touches better
+        : {} // TouchSensor uses delay-based activation — no touchAction needed when not dragging
 
     return (
         <Card
@@ -245,6 +247,7 @@ export default function PlannerPage() {
     const router = useRouter()
     const { toast } = useToast()
     const { theme } = useTheme()
+    const isDesktop = useMediaQuery('(min-width: 768px)')
 
     // Data State
     const [orders, setOrders] = useState<Order[]>([])
@@ -319,7 +322,7 @@ export default function PlannerPage() {
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 100, // Faster touch hold response
+                delay: 200, // Hold-to-drag — allows normal scroll on touch devices
                 tolerance: 8 // Forgiveness for finger wiggle
             }
         }),
@@ -772,14 +775,14 @@ export default function PlannerPage() {
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
         >
             <div className="flex w-full bg-slate-50 dark:bg-slate-950 overflow-hidden" style={{ height: '100dvh' }}>
-                {/* SIDEBAR - Desktop Only */}
-                <div className="hidden md:flex md:w-[420px] border-r border-slate-200/60 dark:border-slate-800 flex-col bg-slate-50/50 dark:bg-slate-950 z-20 shadow-[8px_0_30px_rgba(0,0,0,0.04)] transition-colors">
+                {/* SIDEBAR - Desktop Only (conditional render to avoid dnd-kit duplicate IDs) */}
+                {isDesktop && <div className="flex w-[420px] border-r border-slate-200/60 dark:border-slate-800 flex-col bg-slate-50/50 dark:bg-slate-950 z-20 shadow-[8px_0_30px_rgba(0,0,0,0.04)] transition-colors">
                     <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl flex-shrink-0 safe-area-pt">
                         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Route Planner</h1>
                         <p className="text-[14px] font-semibold text-slate-500 dark:text-slate-400 mt-1">Drag orders to assign manually.</p>
@@ -985,9 +988,9 @@ export default function PlannerPage() {
                             </div>
                         </div>
                     </div>
-                </div>
-                {/* MAP AREA — DESKTOP ONLY (same pattern as map page) */}
-                <div className="hidden md:flex flex-1 relative h-full z-10">
+                </div>}
+                {/* MAP AREA — DESKTOP ONLY (conditional render) */}
+                {isDesktop && <div className="flex flex-1 relative h-full z-10">
                     {/* Map Theme Toggle */}
                     <div className="absolute top-6 right-6 z-[500]">
                         <button
@@ -1099,12 +1102,13 @@ export default function PlannerPage() {
                             )
                         })}
                     </MapContainer>
-                </div>
+                </div>}
 
                 {/* ============================================= */}
                 {/* MOBILE PLANNER UI — Card/List layout           */}
+                {/* Conditional render to avoid dnd-kit duplicate IDs */}
                 {/* ============================================= */}
-                <div className="md:hidden flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 overflow-y-auto overscroll-y-contain pb-36" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 0.5rem)` }}>
+                {!isDesktop && <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 overflow-y-auto overscroll-y-contain pb-36" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 0.5rem)` }}>
                     {/* Header */}
                     <div className="px-5 pt-3 pb-4 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl sticky top-0 z-30 shadow-sm">
                         <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Route Planner</h1>
@@ -1313,14 +1317,18 @@ export default function PlannerPage() {
 
                     {/* SPACER FOR MOBILE BOTTOM NAV - Ensures scroll clears the bottom bar */}
                     <div className="h-48 flex-shrink-0 w-full" />
-                </div>
+                </div>}
 
                 {/* DRAG OVERLAY (Visual Feedback) */}
                 <DragOverlay dropAnimation={{
                     duration: 250,
                     easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)' // Smooth ease-out, no overshoot
                 }}>
-                    {activeDragOrder ? <DraggableOrderCard order={activeDragOrder} isOverlay /> : null}
+                    {activeDragOrder ? (
+                        <div className="w-[340px] max-w-[80vw]">
+                            <DraggableOrderCard order={activeDragOrder} isOverlay />
+                        </div>
+                    ) : null}
                 </DragOverlay>
 
                 {/* QUICK VIEW SHEET */}
