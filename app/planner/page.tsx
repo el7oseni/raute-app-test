@@ -773,8 +773,10 @@ export default function PlannerPage() {
             toast({ title: 'Failed to update order', description: error.message, type: 'error' })
             fetchData() // Revert
         } else {
-            // Notify driver about assignment/unassignment
             const order = orders.find(o => o.id === orderId)
+            const previousDriverId = order?.driver_id
+
+            // Notify NEW driver about assignment
             if (newDriverId && order) {
                 NotificationService.notifyDriver(
                     newDriverId,
@@ -782,6 +784,17 @@ export default function PlannerPage() {
                     'New Order Assigned',
                     `Order #${order.order_number} has been assigned to you`,
                     { order_id: orderId, route: `/my-editor?id=${orderId}` }
+                )
+            }
+
+            // Notify PREVIOUS driver about unassignment (if order was taken from them)
+            if (previousDriverId && previousDriverId !== newDriverId && order) {
+                NotificationService.notifyDriver(
+                    previousDriverId,
+                    'order_unassigned',
+                    'Order Removed',
+                    `Order #${order.order_number} has been removed from your route`,
+                    { order_id: orderId, route: '/my-editor' }
                 )
             }
         }
