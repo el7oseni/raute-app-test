@@ -377,7 +377,7 @@ export default function DashboardPage() {
                 if (newOrder.was_out_of_range && !oldOrder?.was_out_of_range) {
                     toast({
                         title: "⚠️ Suspicious Delivery",
-                        description: `Order #${newOrder.order_number || newOrder.id?.slice(0, 8)} was delivered ${newOrder.delivery_distance_meters ? Math.round(newOrder.delivery_distance_meters) + 'm' : 'far'} from destination`,
+                        description: `Order #${newOrder.order_number || newOrder.id?.slice(0, 8)} was delivered ${newOrder.delivery_distance_meters ? Math.round(newOrder.delivery_distance_meters * 3.281) + ' ft' : 'far'} from destination`,
                         type: "error"
                     })
                     // Refresh orders to update the alert banner

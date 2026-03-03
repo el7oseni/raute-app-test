@@ -270,7 +270,7 @@ export default function ClientOrderDetails() {
                 if (order.latitude && order.longitude) {
                     dist = getDistanceMeters(loc.lat, loc.lng, order.latitude, order.longitude)
 
-                    // Flag if > 500 meters (approx 0.3 miles)
+                    // Flag if > 500 meters (~1640 ft / 0.3 miles)
                     if (dist > 500) {
                         isOutOfRange = true
                         // Show confirmation dialog unless user already confirmed
@@ -609,7 +609,7 @@ export default function ClientOrderDetails() {
                         <div className="mx-5 mt-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 rounded-xl px-4 py-2.5 flex items-center gap-2">
                             <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
                             <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                                Delivered out of range{order.delivery_distance_meters ? ` — ${Math.round(order.delivery_distance_meters)}m from destination` : ''}
+                                Delivered out of range{order.delivery_distance_meters ? ` — ${Math.round(order.delivery_distance_meters * 3.281)} ft from destination` : ''}
                             </p>
                         </div>
                     )}
@@ -793,7 +793,7 @@ export default function ClientOrderDetails() {
                                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 rounded-xl px-4 py-2.5 flex items-center gap-2">
                                         <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />
                                         <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                                            Delivered out of range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters)}m away)` : ''}
+                                            Delivered out of range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters * 3.281)} ft away)` : ''}
                                         </p>
                                     </div>
                                 )}
@@ -1191,7 +1191,7 @@ export default function ClientOrderDetails() {
                             <AlertCircle size={20} /> Outside Delivery Zone
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-sm leading-relaxed">
-                            You are <span className="font-bold text-amber-600 dark:text-amber-400">{outOfRangeConfirm.distance}m</span> away from the delivery address.
+                            You are <span className="font-bold text-amber-600 dark:text-amber-400">{Math.round(outOfRangeConfirm.distance * 3.281)} ft</span> away from the delivery address.
                             This delivery will be flagged as out of range. Are you sure you want to proceed?
                         </AlertDialogDescription>
                     </AlertDialogHeader>

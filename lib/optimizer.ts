@@ -1,24 +1,21 @@
 import { Driver, Order } from './supabase'
 
 /**
- * OPTIMIZER CONFIGURATION
+ * OPTIMIZER CONFIGURATION (US — miles & mph)
  */
 
-// Maximum allowed distance for auto-assignment (in km)
-// Prevents cross-continent assignments (e.g. US driver -> Egypt Order)
-const MAX_ASSIGNMENT_DISTANCE_KM = 2500
+// Maximum allowed distance for auto-assignment (in miles)
+// Prevents cross-continent assignments
+const MAX_ASSIGNMENT_DISTANCE = 1500
 
-// Default average delivery speed in city (km/h) — used for ETA estimation
-const DEFAULT_SPEED_KMH = 30
-
-// Speed profiles for different distance ranges (km/h)
-// Short hops (<3km) are slower due to parking, traffic lights, etc.
+// Speed profiles for different distance ranges (mph)
+// Short hops (<2mi) are slower due to parking, traffic lights, etc.
 // Medium range uses city average, highway segments are faster
 const SPEED_PROFILE = {
-    shortHop: 15,       // < 3 km (parking, walking, urban crawl)
-    urban: 30,          // 3-15 km (city driving)
-    suburban: 50,       // 15-40 km (suburban/arterial roads)
-    highway: 80,        // > 40 km (highway/interstate)
+    shortHop: 10,       // < 2 mi (parking, walking, urban crawl)
+    urban: 20,          // 2-10 mi (city driving)
+    suburban: 35,       // 10-25 mi (suburban/arterial roads)
+    highway: 55,        // > 25 mi (highway/interstate)
 }
 
 // Average time spent at each delivery stop (minutes)
@@ -43,7 +40,7 @@ interface DriverStats {
     driverId: string
     driverName: string
     orderCount: number
-    totalDistanceKm: number
+    totalDistanceMi: number
     estimatedDurationMin: number
 }
 
@@ -93,10 +90,10 @@ interface OptimizationResult {
 }
 
 /**
- * Calculates straight-line distance between two points (Haversine)
+ * Calculates straight-line distance between two points (Haversine) in miles
  */
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371 // Radius of the earth in km
+    const R = 3959 // Radius of the earth in miles
     const dLat = deg2rad(lat2 - lat1)
     const dLon = deg2rad(lon2 - lon1)
     const a =
@@ -104,11 +101,11 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): nu
         Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2)
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c // Distance in km
+    return R * c // Distance in miles
 }
 
 /**
- * Estimates real road distance from straight-line distance
+ * Estimates real road distance from straight-line distance (in miles)
  * Uses ROAD_DISTANCE_FACTOR to approximate turns, detours, and road geometry
  */
 function getRoadDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -116,21 +113,21 @@ function getRoadDistance(lat1: number, lon1: number, lat2: number, lon2: number)
 }
 
 /**
- * Estimates travel time in minutes based on distance-dependent speed profile
+ * Estimates travel time in minutes based on distance-dependent speed profile (mph)
  */
-function estimateTravelTimeMin(distanceKm: number): number {
-    if (distanceKm <= 0) return 0
+function estimateTravelTimeMin(distanceMi: number): number {
+    if (distanceMi <= 0) return 0
 
     // Use road distance for time estimation
-    const roadKm = distanceKm * ROAD_DISTANCE_FACTOR
+    const roadMi = distanceMi * ROAD_DISTANCE_FACTOR
 
     let speed: number
-    if (roadKm < 3) speed = SPEED_PROFILE.shortHop
-    else if (roadKm < 15) speed = SPEED_PROFILE.urban
-    else if (roadKm < 40) speed = SPEED_PROFILE.suburban
+    if (roadMi < 2) speed = SPEED_PROFILE.shortHop
+    else if (roadMi < 10) speed = SPEED_PROFILE.urban
+    else if (roadMi < 25) speed = SPEED_PROFILE.suburban
     else speed = SPEED_PROFILE.highway
 
-    return (roadKm / speed) * 60
+    return (roadMi / speed) * 60
 }
 
 function deg2rad(deg: number): number {
@@ -348,7 +345,7 @@ function insertionCost(
  * MAIN OPTIMIZATION FUNCTION
  *
  * Improved Logic:
- * 1. Filtering: Max Distance Constraint (No assignments > 2500km).
+ * 1. Filtering: Max Distance Constraint (No assignments > 1500 miles).
  * 2. Scoring: Distance + Load Penalty.
  * 3. Time-Window-Aware Sequencing: Orders reordered to meet delivery windows.
  * 4. 2-Opt + Cheapest Insertion: Better than pure greedy nearest-neighbor.
@@ -517,7 +514,7 @@ export async function optimizeRoute(
 
             const distance = getRoadDistance(driver.lat, driver.lng, order.latitude, order.longitude)
 
-            if (distance > MAX_ASSIGNMENT_DISTANCE_KM) continue
+            if (distance > MAX_ASSIGNMENT_DISTANCE) continue
 
             const loadPenalty = driver.load * loadBalanceWeight
             const totalScore = distance + loadPenalty
@@ -638,11 +635,11 @@ export async function optimizeRoute(
         })
 
         // --- CALCULATE ROUTE DISTANCE & DURATION (with road distance & dynamic speed) ---
-        let routeDistanceKm = 0
+        let routeDistanceMi = 0
 
         // Distance from start to first order
         if (startLat && startLng && sortedDriverOrders[0]?.latitude && sortedDriverOrders[0]?.longitude) {
-            routeDistanceKm += getRoadDistance(startLat, startLng, sortedDriverOrders[0].latitude, sortedDriverOrders[0].longitude)
+            routeDistanceMi += getRoadDistance(startLat, startLng, sortedDriverOrders[0].latitude, sortedDriverOrders[0].longitude)
         }
 
         // Distance between consecutive orders
@@ -650,7 +647,7 @@ export async function optimizeRoute(
             const curr = sortedDriverOrders[i]
             const next = sortedDriverOrders[i + 1]
             if (curr.latitude && curr.longitude && next.latitude && next.longitude) {
-                routeDistanceKm += getRoadDistance(curr.latitude, curr.longitude, next.latitude, next.longitude)
+                routeDistanceMi += getRoadDistance(curr.latitude, curr.longitude, next.latitude, next.longitude)
             }
         }
 
@@ -677,13 +674,13 @@ export async function optimizeRoute(
             }
         }
 
-        grandTotalDistance += routeDistanceKm
+        grandTotalDistance += routeDistanceMi
 
         driverStats.push({
             driverId: driver.id,
             driverName: driver.name,
             orderCount: sortedDriverOrders.length,
-            totalDistanceKm: Math.round(routeDistanceKm * 10) / 10,
+            totalDistanceMi: Math.round(routeDistanceMi * 10) / 10,
             estimatedDurationMin: Math.round(estimatedDurationMin)
         })
 
