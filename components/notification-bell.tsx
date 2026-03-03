@@ -1,7 +1,7 @@
 "use client"
 
 import { Bell, Package, Truck, MapPin, AlertCircle, CheckCircle2, UserX, Check } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { useNotifications, type AppNotification } from "@/hooks/use-notifications"
 import { useRouter } from "next/navigation"
@@ -92,6 +92,7 @@ export function NotificationBell({ userId }: { userId: string | null }) {
                 <SheetHeader className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
                     <div className="flex items-center justify-between">
                         <SheetTitle className="text-lg font-black tracking-tight">Notifications</SheetTitle>
+                        <SheetDescription className="sr-only">Your recent notifications</SheetDescription>
                         {unreadCount > 0 && (
                             <Button
                                 variant="ghost"

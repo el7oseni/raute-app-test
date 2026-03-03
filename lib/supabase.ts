@@ -102,12 +102,13 @@ function createSupabaseClient() {
     // - Endless skeleton loaders
     // - "Lock busy / getSession timeout" cascades
     //
-    // Fix: Use a 2-second timeout on navigator.locks. If the lock can't be
-    // acquired within 2s (e.g. another tab is refreshing), proceed without it.
+    // Fix: Use a 4-second timeout on navigator.locks. If the lock can't be
+    // acquired within 4s (e.g. another tab is refreshing), proceed without it.
     // The risk of concurrent token refresh is low and recoverable (server rejects
     // stale refresh tokens gracefully — user just needs to refresh the page).
     const webAuth = client.auth as any
     const originalAcquireLock = webAuth._acquireLock?.bind(webAuth)
+    let lockTimeoutCount = 0
     if (originalAcquireLock) {
         webAuth._acquireLock = async function (acquireTimeout: number, fn: () => Promise<any>) {
             if (typeof navigator !== 'undefined' && navigator.locks) {
@@ -116,12 +117,15 @@ function createSupabaseClient() {
                     return await Promise.race([
                         navigator.locks.request(lockName, { mode: 'exclusive' }, async () => fn()),
                         new Promise<never>((_, reject) =>
-                            setTimeout(() => reject(new Error('lock-timeout')), 2000)
+                            setTimeout(() => reject(new Error('lock-timeout')), 4000)
                         ),
                     ])
                 } catch (err: any) {
                     if (err?.message === 'lock-timeout') {
-                        console.warn('⚠️ navigator.locks timeout — proceeding without lock')
+                        lockTimeoutCount++
+                        if (lockTimeoutCount <= 2) {
+                            console.warn('navigator.locks timeout — proceeding without lock')
+                        }
                         return await fn()
                     }
                     throw err
