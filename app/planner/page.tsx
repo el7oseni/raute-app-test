@@ -1042,16 +1042,15 @@ export default function PlannerPage() {
                         </div>
 
                         {/* Optimization Mode Toggle */}
-                        <div className="m-5 flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-[24px] shadow-sm relative overflow-hidden group">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 rounded-l-[24px]"></div>
+                        <div className="m-5 flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl shadow-sm">
                             <input
                                 type="checkbox"
                                 id="reoptimize-mode"
                                 checked={optimizationMode === 'reoptimize'}
                                 onChange={(e) => setOptimizationMode(e.target.checked ? 'reoptimize' : 'morning')}
-                                className="h-5 w-5 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500/20"
+                                className="h-5 w-5 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500/20 shrink-0"
                             />
-                            <label htmlFor="reoptimize-mode" className="text-sm cursor-pointer flex-1 user-select-none">
+                            <label htmlFor="reoptimize-mode" className="text-sm cursor-pointer flex-1 min-w-0">
                                 <span className="font-black text-slate-900 dark:text-white">Use driver current locations</span>
                                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
                                     {optimizationMode === 'reoptimize'
