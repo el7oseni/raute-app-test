@@ -1214,7 +1214,7 @@ export default function OrdersPage() {
                                                         )}
                                                         {order.was_out_of_range && (
                                                             <span className="flex items-center gap-1 text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold">
-                                                                <AlertCircle size={10} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters)}m)` : ''}
+                                                                <AlertCircle size={10} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters * 3.281)} ft)` : ''}
                                                             </span>
                                                         )}
                                                     </div>
@@ -2030,7 +2030,7 @@ export default function OrdersPage() {
                                                 </p>
                                                 {order.was_out_of_range && (
                                                     <span className="inline-flex items-center gap-1.5 text-[10px] bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-md font-bold w-fit mt-1 border border-red-100 dark:border-red-900/50">
-                                                        <AlertCircle size={10} strokeWidth={3} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters)}m)` : ''}
+                                                        <AlertCircle size={10} strokeWidth={3} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters * 3.281)} ft)` : ''}
                                                     </span>
                                                 )}
                                             </div>
@@ -2122,7 +2122,7 @@ export default function OrdersPage() {
                                             {order.was_out_of_range && (
                                                 <div className="mt-1">
                                                     <span className="flex items-center gap-1 text-[9px] bg-red-100 dark:bg-red-900/30 text-red-600 px-1.5 py-0.5 rounded font-bold w-fit">
-                                                        <AlertCircle size={9} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters)}m)` : ''}
+                                                        <AlertCircle size={9} /> Out of Range{order.delivery_distance_meters ? ` (${Math.round(order.delivery_distance_meters * 3.281)} ft)` : ''}
                                                     </span>
                                                 </div>
                                             )}
