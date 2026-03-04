@@ -23,7 +23,7 @@ export interface ParsedOrder {
   priority_level?: 'normal' | 'high' | 'critical';
   time_window_start?: string;
   time_window_end?: string;
-  weight_kg?: number | null;
+  weight_lbs?: number | null;
 }
 
 /**
@@ -101,7 +101,7 @@ Fields to extract for each order:
 - order_number (string)
 - delivery_date (string): YYYY-MM-DD.
 - notes (string)
-- weight_kg (number|null): Package weight in kilograms. Look for columns named "weight_kg", "weight", "weight (kg)". If missing, use null.
+- weight_lbs (number|null): Package weight in kilograms. Look for columns named "weight_lbs", "weight", "weight (lbs)". If missing, use null.
 - priority_level (string): 'normal', 'high', or 'critical'. Infer from keywords:
     - 'Critical', 'Emergency', 'Life Threatening' -> 'critical'
     - 'High', 'Urgent', 'ASAP', 'Rush' -> 'high'

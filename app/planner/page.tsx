@@ -283,7 +283,7 @@ export default function PlannerPage() {
         driverBreakdown: { driverId: string, driverName: string, orderCount: number }[]
         issues: { reason: string, count: number, orders: string[] }[]
         driverDiagnostics?: { name: string, valid: boolean, lat: number, lng: number, address?: string }[]
-        capacityWarnings?: { driverName: string, orderCount: number, maxOrders: number | null, totalWeightKg: number, vehicleCapacityKg: number | null }[]
+        capacityWarnings?: { driverName: string, orderCount: number, maxOrders: number | null, totalWeightLbs: number, vehicleCapacityLbs: number | null }[]
         shiftViolations?: { driverName: string, shiftEnd: string, estimatedFinish: string, orderCount: number }[]
     } | null>(null)
 
@@ -784,18 +784,18 @@ export default function PlannerPage() {
             return // Dropped somewhere invalid
         }
 
-        // 🚫 CAPACITY CHECK: Block if driver is at max capacity
+        // ⚠️ CAPACITY WARNING: Warn (but don't block) if driver is over max capacity
         if (newDriverId) {
             const targetDriver = drivers.find(d => d.id === newDriverId)
             if (targetDriver?.max_orders) {
                 const currentOrderCount = orders.filter(o => o.driver_id === newDriverId && o.id !== orderId).length
                 if (currentOrderCount >= targetDriver.max_orders) {
                     toast({
-                        title: "Driver at Capacity",
-                        description: `${targetDriver.name} already has ${currentOrderCount} orders (max ${targetDriver.max_orders}). Remove some orders first.`,
+                        title: "⚠️ Over Capacity",
+                        description: `${targetDriver.name} now has ${currentOrderCount + 1} orders (max ${targetDriver.max_orders}).`,
                         type: "error"
                     })
-                    return // Block the assignment
+                    // Continue — don't block, just warn
                 }
             }
         }
@@ -1699,9 +1699,9 @@ export default function PlannerPage() {
                                                         <p className="text-sm font-bold text-amber-800 dark:text-amber-300 leading-tight">
                                                             {warning.driverName} has {warning.orderCount} orders but max capacity is {warning.maxOrders}
                                                         </p>
-                                                        {warning.totalWeightKg > 0 && warning.vehicleCapacityKg && (
+                                                        {warning.totalWeightLbs > 0 && warning.vehicleCapacityLbs && (
                                                             <p className="text-[11px] font-medium text-amber-600/80 dark:text-amber-400/80 mt-1">
-                                                                Weight: {warning.totalWeightKg.toFixed(1)} kg / {warning.vehicleCapacityKg} kg capacity
+                                                                Weight: {warning.totalWeightLbs.toFixed(1)} lbs / {warning.vehicleCapacityLbs} lbs capacity
                                                             </p>
                                                         )}
                                                     </div>

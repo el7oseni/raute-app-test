@@ -622,7 +622,7 @@ export default function OrdersPage() {
                         priority_level: result.priority_level || 'normal',
                         time_window_start: result.time_window_start || null,
                         time_window_end: result.time_window_end || null,
-                        weight_kg: result.weight_kg ?? null,
+                        weight_lbs: result.weight_lbs ?? null,
                         latitude: null as number | null,
                         longitude: null as number | null,
                         geocoding_confidence: null as string | null,
@@ -716,7 +716,7 @@ export default function OrdersPage() {
         if (data.time_window_start) setVal('time_window_start', data.time_window_start)
         if (data.time_window_end) setVal('time_window_end', data.time_window_end)
         if (data.notes) setVal('notes', data.notes)
-        if (data.weight_kg != null) setVal('weight_kg', String(data.weight_kg))
+        if (data.weight_lbs != null) setVal('weight_lbs', String(data.weight_lbs))
     }
 
     function toggleOrderSelection(orderId: string) {
@@ -836,7 +836,7 @@ export default function OrdersPage() {
             }
 
             const customerEmail = formData.get('customer_email') as string
-            const weightKgRaw = formData.get('weight_kg') as string
+            const weightKgRaw = formData.get('weight_lbs') as string
             const weightKg = weightKgRaw ? parseFloat(weightKgRaw) : null
 
             const newOrder: any = {
@@ -859,7 +859,7 @@ export default function OrdersPage() {
                 geocoding_confidence: confidence,
                 geocoded_address: verificationResult?.foundAddress,
                 geocoding_attempted_at: new Date().toISOString(),
-                weight_kg: weightKg
+                weight_lbs: weightKg
             }
 
             const { error } = await supabase.from('orders').insert(newOrder)
@@ -1649,8 +1649,8 @@ export default function OrdersPage() {
                                                     </div>
                                                     <div className="space-y-2"><label className="text-sm font-bold text-slate-800 dark:text-slate-200">Notes</label><textarea name="notes" className="w-full min-h-[100px] rounded-xl border border-input shadow-sm bg-white dark:bg-slate-950 px-3 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-y" placeholder="Any special delivery instructions..." /></div>
                                                     <div className="space-y-2">
-                                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Weight (kg)</label>
-                                                        <Input name="weight_kg" type="number" step="0.1" min="0" placeholder="e.g., 5.5" className="bg-white dark:bg-slate-950 h-11 rounded-xl shadow-sm" />
+                                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Weight (lbs)</label>
+                                                        <Input name="weight_lbs" type="number" step="0.1" min="0" placeholder="e.g., 12" className="bg-white dark:bg-slate-950 h-11 rounded-xl shadow-sm" />
                                                     </div>
                                                 </div>
                                             </div>
