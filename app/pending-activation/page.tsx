@@ -3,20 +3,22 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Clock, Mail, Shield } from 'lucide-react'
+import { Clock, Mail, Shield, LogOut } from 'lucide-react'
+import { markIntentionalLogout } from '@/components/auth-check'
 
 export default function PendingActivationPage() {
     const [userEmail, setUserEmail] = useState('')
     const router = useRouter()
 
     useEffect(() => {
-        const checkStatus = async () => {
+        let interval: ReturnType<typeof setInterval> | null = null
+
+        async function checkStatus() {
             let userId: string | null = null
             let email: string | null = null
             let role: string | null = null
 
             try {
-                // getSession() can hang on web due to navigator.locks — add timeout
                 const { data: { session } } = await Promise.race([
                     supabase.auth.getSession(),
                     new Promise<never>((_, reject) =>
@@ -29,7 +31,6 @@ export default function PendingActivationPage() {
                     role = session.user.user_metadata?.role || null
                 }
             } catch {
-                // getSession timed out — try getUser() as fallback
                 try {
                     const { data: userData } = await supabase.auth.getUser()
                     if (userData.user) {
@@ -49,9 +50,9 @@ export default function PendingActivationPage() {
 
             setUserEmail(email || '')
 
-            // Check if user is now activated (poll every 5 seconds)
-            const interval = setInterval(async () => {
-                if (role === 'driver' || role === 'dispatcher') {
+            // Poll every 5 seconds to check activation
+            if (role === 'driver' || role === 'dispatcher') {
+                interval = setInterval(async () => {
                     const { data: driverData } = await supabase
                         .from('drivers')
                         .select('is_active')
@@ -59,17 +60,25 @@ export default function PendingActivationPage() {
                         .single()
 
                     if (driverData?.is_active) {
-                        clearInterval(interval)
+                        if (interval) clearInterval(interval)
                         router.push('/dashboard')
                     }
-                }
-            }, 5000) // Check every 5 seconds
-
-            return () => clearInterval(interval)
+                }, 5000)
+            }
         }
 
         checkStatus()
+
+        return () => {
+            if (interval) clearInterval(interval)
+        }
     }, [router])
+
+    async function handleLogout() {
+        markIntentionalLogout()
+        await supabase.auth.signOut()
+        router.push('/login')
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 safe-area-p">
@@ -124,10 +133,17 @@ export default function PendingActivationPage() {
                             </div>
                         </div>
 
-                        <div className="pt-4 border-t border-amber-200 dark:border-amber-900/50">
+                        <div className="pt-4 border-t border-amber-200 dark:border-amber-900/50 space-y-3">
                             <p className="text-xs text-center text-slate-500 dark:text-slate-400">
                                 Need help? Contact your fleet manager directly.
                             </p>
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors py-2"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                Log out
+                            </button>
                         </div>
                     </div>
                 </div>

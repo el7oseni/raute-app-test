@@ -880,26 +880,30 @@ export default function PlannerPage() {
         const { orderId, driverId } = offlineAssignConfirm
         setOfflineAssignConfirm({ show: false, orderId: '', driverId: '', driverName: '' })
 
+        // Save reference BEFORE optimistic update so we can read previous driver
+        const order = orders.find(o => o.id === orderId)
+        const previousDriverId = order?.driver_id
+
+        // Generate tracking token
+        const trackingToken = crypto.randomUUID()
+
         // Optimistic Update
         setOrders(prev => prev.map(o => {
             if (o.id === orderId) {
-                return { ...o, driver_id: driverId, status: 'assigned', is_pinned: true }
+                return { ...o, driver_id: driverId, status: 'assigned', is_pinned: true, tracking_token: trackingToken }
             }
             return o
         }))
 
         const { error } = await supabase
             .from('orders')
-            .update({ driver_id: driverId, status: 'assigned', is_pinned: true })
+            .update({ driver_id: driverId, status: 'assigned', is_pinned: true, tracking_token: trackingToken })
             .eq('id', orderId)
 
         if (error) {
             toast({ title: 'Failed to update order', description: error.message, type: 'error' })
             fetchData()
         } else {
-            const order = orders.find(o => o.id === orderId)
-            const previousDriverId = order?.driver_id
-
             if (order) {
                 NotificationService.notifyDriver(
                     driverId,
@@ -1529,50 +1533,6 @@ export default function PlannerPage() {
                         </div>
                     ) : null}
                 </DragOverlay>
-
-                {/* QUICK VIEW SHEET */}
-                <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-                    <SheetContent className="safe-area-pt">
-                        <SheetHeader>
-                            <SheetTitle>Order Details</SheetTitle>
-                            <SheetDescription>#{selectedOrder?.order_number}</SheetDescription>
-                        </SheetHeader>
-                        {selectedOrder && (
-                            <div className="space-y-4 mt-6 px-4">
-                                <div className="space-y-1">
-                                    <h3 className="text-sm font-medium text-muted-foreground">Customer</h3>
-                                    <p className="font-semibold">{selectedOrder.customer_name}</p>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400">{selectedOrder.phone}</p>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <h3 className="text-sm font-medium text-muted-foreground">Address</h3>
-                                    <p className="text-sm text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900/50 p-2 rounded">{selectedOrder.address}, {selectedOrder.city}</p>
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <div className="space-y-1">
-                                        <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                                        <span className={`inline - block px - 2 py - 1 rounded - full text - xs font - bold ${selectedOrder.status === 'assigned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'} `}>
-                                            {selectedOrder.status}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h3 className="text-sm font-medium text-muted-foreground">Assigned Driver</h3>
-                                        <p className="text-sm">{selectedOrder.driver_id ? drivers.find(d => d.id === selectedOrder.driver_id)?.name || 'Assigned' : 'Unassigned'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 border-t">
-                                    <Button className="w-full" onClick={() => router.push(`/my-editor?id=${selectedOrder.id}`)}>
-                                        <ExternalLink size={14} className="mr-2" />
-                                        Open Full Editor
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </SheetContent>
-                </Sheet>
 
                 {/* OPTIMIZATION REPORT DIALOG */}
                 <Sheet open={!!optimizationReport} onOpenChange={(open) => !open && setOptimizationReport(null)}>

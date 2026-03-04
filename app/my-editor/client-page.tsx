@@ -1092,7 +1092,11 @@ export default function ClientOrderDetails() {
                                     onChange={async (e) => {
                                         const driverId = e.target.value || null
                                         const { error } = await supabase.from('orders').update({ driver_id: driverId, status: driverId ? 'assigned' : 'pending' }).eq('id', orderId)
-                                        if (!error) fetchOrder()
+                                        if (error) {
+                                            toast({ title: 'Failed to assign driver', description: error.message, type: 'error' })
+                                        } else {
+                                            fetchOrder()
+                                        }
                                     }}
                                     className="appearance-none w-full p-4 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl text-[15px] font-bold bg-slate-50/50 dark:bg-slate-900/50 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 dark:focus:ring-purple-400/10 dark:focus:border-purple-400 cursor-pointer shadow-sm"
                                 >
@@ -1138,10 +1142,11 @@ export default function ClientOrderDetails() {
                                     setIsUpdating(true)
 
                                     // Clear proof data from DB
-                                    await supabase.from('orders').update({
+                                    const { error: clearError } = await supabase.from('orders').update({
                                         proof_url: null,
                                         signature_url: null
                                     }).eq('id', orderId)
+                                    if (clearError) throw clearError
 
                                     // Delete proof images from proof_images table
                                     if (proofImages.length > 0) {
@@ -1153,6 +1158,8 @@ export default function ClientOrderDetails() {
 
                                     // Update local state
                                     setOrder(prev => prev ? { ...prev, proof_url: null, signature_url: null } : prev)
+                                } catch (err: any) {
+                                    toast({ title: 'Undo failed', description: err.message, type: 'error' })
                                 } finally {
                                     setIsUpdating(false)
                                     setIsUndoDialogOpen(false)

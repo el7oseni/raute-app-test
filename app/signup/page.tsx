@@ -113,11 +113,13 @@ export default function SignupPage() {
                 ]) as any
 
                 if (rpcError) {
-                    // RPC error (non-fatal) - user is already created in auth, profile might create via trigger
+                    console.error('Signup RPC error:', rpcError.message)
+                    toast({ title: 'Account created but profile setup may be incomplete', description: 'Please contact support if you have issues logging in.', type: 'error' })
                 }
 
                 if (rpcData && !rpcData.success) {
-                    // RPC returned error - let trigger handle it
+                    console.error('Signup RPC failed:', rpcData.error)
+                    toast({ title: 'Account created but profile setup may be incomplete', description: 'Please contact support if you have issues logging in.', type: 'error' })
                 }
             } catch (rpcErr: any) {
                 // RPC failed (non-fatal) - user is created, trigger should handle profile
@@ -396,12 +398,6 @@ export default function SignupPage() {
                 </Button>
             </div>
 
-            <div className="mt-4 pt-4 pb-2 border-b border-[#f1f5f9] dark:border-slate-800 flex justify-center w-full">
-                <button type="button" className="text-[14px] font-medium text-[#2563eb] hover:text-[#1d4ed8] inline-flex items-center">
-                    More sign up options
-                    <svg className="ml-1.5 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </button>
-            </div>
         </form>
     )
 

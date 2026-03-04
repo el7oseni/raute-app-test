@@ -25,40 +25,47 @@ export default function UpdatePasswordPage() {
     const [isResending, setIsResending] = useState(false)
     const [resendSuccess, setResendSuccess] = useState(false)
 
-    // Check if we have a valid recovery session
+    // Listen for PASSWORD_RECOVERY event from Supabase auth
+    // This handles the race condition where the URL token hasn't been processed yet
     useEffect(() => {
-        checkRecoverySession()
-    }, [])
+        let timeout: ReturnType<typeof setTimeout>
 
-    async function checkRecoverySession() {
-        let hasSession = false
-
-        try {
-            const { data: { session } } = await Promise.race([
-                supabase.auth.getSession(),
-                new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('getSession timeout')), 5000)
-                ),
-            ])
-            hasSession = !!session
-        } catch {
-            try {
-                const { data: userData } = await supabase.auth.getUser()
-                hasSession = !!userData.user
-            } catch {
-                hasSession = false
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                // Token was valid, user has a recovery session — show the form
+                setLinkExpired(false)
+                if (timeout) clearTimeout(timeout)
             }
-        }
+        })
 
-        // No valid session = link expired or invalid
-        if (!hasSession) {
-            // Try to get email from URL params (some Supabase flows include it)
-            const params = new URLSearchParams(window.location.search)
-            const emailFromUrl = params.get('email') || ''
-            setExpiredEmail(emailFromUrl)
-            setLinkExpired(true)
+        // Give Supabase time to process the URL token, then check session
+        timeout = setTimeout(async () => {
+            let hasSession = false
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
+                hasSession = !!session
+            } catch {
+                try {
+                    const { data: userData } = await supabase.auth.getUser()
+                    hasSession = !!userData.user
+                } catch {
+                    hasSession = false
+                }
+            }
+
+            if (!hasSession) {
+                const params = new URLSearchParams(window.location.search)
+                const emailFromUrl = params.get('email') || ''
+                setExpiredEmail(emailFromUrl)
+                setLinkExpired(true)
+            }
+        }, 2000) // Wait 2s for token processing
+
+        return () => {
+            subscription.unsubscribe()
+            if (timeout) clearTimeout(timeout)
         }
-    }
+    }, [])
 
     async function handleResendLink() {
         if (!expiredEmail) return

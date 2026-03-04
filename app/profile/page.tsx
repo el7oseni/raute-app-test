@@ -545,6 +545,90 @@ export default function ProfilePage() {
                         </Sheet>
                     </div>
 
+                    {/* Change Password Button */}
+                    <div>
+                        <Sheet open={isPasswordSheetOpen} onOpenChange={setIsPasswordSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button className="w-full h-20 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl hover:bg-white/80 dark:hover:bg-slate-800/80 text-foreground border border-white/50 dark:border-slate-700/50 shadow-sm shadow-blue-500/5 rounded-3xl transition-all active:scale-[0.98] group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 bg-gradient-to-br from-amber-500/10 to-orange-500/10 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <Lock size={22} strokeWidth={2.5} />
+                                        </div>
+                                        <div className="flex flex-col items-start gap-0.5">
+                                            <span className="font-bold text-[17px] text-slate-800 dark:text-white">Change Password</span>
+                                            <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Update your login credentials</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-full bg-slate-100/50 dark:bg-slate-800/50 flex items-center justify-center">
+                                        <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                        </span>
+                                    </div>
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="bottom" className="h-[60vh] overflow-y-auto rounded-t-[32px] safe-area-pt bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border-t border-slate-200/50 dark:border-slate-800/50 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+                                <SheetHeader className="mb-8">
+                                    <SheetTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-2">Change Password</SheetTitle>
+                                </SheetHeader>
+                                <div className="space-y-6 px-2 pb-12">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">New Password</label>
+                                        <Input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            placeholder="Min. 8 characters"
+                                            className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-[16px] shadow-sm"
+                                            minLength={8}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Confirm Password</label>
+                                        <Input
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="Re-enter password"
+                                            className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-[16px] shadow-sm"
+                                            minLength={8}
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={handleChangePassword}
+                                        disabled={changingPassword || newPassword.length < 8 || newPassword !== confirmPassword}
+                                        className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-bold text-lg rounded-2xl shadow-md shadow-amber-500/20 mt-8"
+                                    >
+                                        <Lock size={20} className="mr-2" />
+                                        {changingPassword ? 'Changing...' : 'Update Password'}
+                                    </Button>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
+                    </div>
+
+                    {/* Logout Button */}
+                    <div>
+                        <Button
+                            onClick={handleLogout}
+                            className="w-full h-20 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl hover:bg-white/80 dark:hover:bg-slate-800/80 text-foreground border border-white/50 dark:border-slate-700/50 shadow-sm rounded-3xl transition-all active:scale-[0.98] group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 bg-gradient-to-br from-slate-500/10 to-slate-600/10 text-slate-600 dark:text-slate-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <LogOut size={22} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex flex-col items-start gap-0.5">
+                                    <span className="font-bold text-[17px] text-slate-800 dark:text-white">Log Out</span>
+                                    <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Sign out of your account</span>
+                                </div>
+                            </div>
+                            <div className="h-8 w-8 rounded-full bg-slate-100/50 dark:bg-slate-800/50 flex items-center justify-center">
+                                <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                </span>
+                            </div>
+                        </Button>
+                    </div>
+
                     {/* DANGER ZONE */}
                     <div className="pt-12 pb-4">
                         <div className="flex flex-col items-center">

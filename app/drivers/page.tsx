@@ -60,6 +60,7 @@ export default function DriversPage() {
     const [editingDriver, setEditingDriver] = useState<any | null>(null)
     const [deletingDriver, setDeleteingDriver] = useState<any | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [isSavingEdit, setIsSavingEdit] = useState(false)
     const [locationMode, setLocationMode] = useState<'address' | 'map' | 'hub'>('hub')
     const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
     const [manualLocation, setManualLocation] = useState<{ lat: number, lng: number, address: string } | null>(null)
@@ -498,8 +499,10 @@ export default function DriversPage() {
     }
 
     async function handleEditDriver(formData: FormData) {
-        if (!editingDriver) return
+        if (!editingDriver || isSavingEdit) return
+        setIsSavingEdit(true)
 
+        try {
         const name = formData.get('name') as string
         const email = formData.get('email') as string
         const phone = editPhoneValue
@@ -617,10 +620,19 @@ export default function DriversPage() {
         toast({ title: '✅ Driver updated successfully!', type: 'success' })
         setEditingDriver(null)
         fetchDrivers()
+        } catch (error: any) {
+            toast({ title: 'Error updating driver', description: error.message, type: 'error' })
+        } finally {
+            setIsSavingEdit(false)
+        }
     }
 
     async function handleDeleteDriver() {
         if (!deletingDriver) return
+        if (!deletingDriver.user_id) {
+            toast({ title: 'Cannot delete driver', description: 'Driver has no linked user account. Please contact support.', type: 'error' })
+            return
+        }
         setIsDeleting(true)
 
         try {
@@ -1490,7 +1502,7 @@ export default function DriversPage() {
                                 <input type="hidden" name="map_lng" value={defaultStartLoc?.lng || ''} />
 
                                 <div className="pt-4 pb-32">
-                                    <Button type="submit" className="w-full h-12">Update Changes</Button>
+                                    <Button type="submit" className="w-full h-12" disabled={isSavingEdit}>{isSavingEdit ? 'Saving...' : 'Update Changes'}</Button>
                                 </div>
                             </form>
                         )}
