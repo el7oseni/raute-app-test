@@ -722,7 +722,7 @@ export default function PlannerPage() {
             if (error?.details) msg += ` Details: ${error.details} `
             if (error?.hint) msg += ` Hint: ${error.hint} `
 
-            alert(`Optimization Failed: ${msg} `)
+            toast({ title: 'Optimization Failed', description: msg, type: 'error' })
         } finally {
             setIsLoading(false)
         }

@@ -343,8 +343,8 @@ export default function DashboardPage() {
             if (hubsData) {
                 setHasHubs(hubsData.length > 0)
             }
-        } catch (error) {
-            console.error('Error refreshing dashboard data:', error)
+        } catch (error: any) {
+            toast({ title: 'Refresh failed', description: error?.message, type: 'error' })
         }
     }
 

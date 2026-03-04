@@ -332,6 +332,8 @@ export default function ClientOrderDetails() {
                 delivery_distance_meters: dist || prev.delivery_distance_meters,
             } : null)
 
+            toast({ title: `Status updated to ${newStatus.replace('_', ' ')}`, type: 'success' })
+
             // Notify managers about delivery
             if (newStatus === 'delivered' && currentCompanyId) {
                 const notifType = isOutOfRange ? 'out_of_range' : 'delivery_completed'
@@ -679,10 +681,14 @@ export default function ClientOrderDetails() {
                                         </p>
                                         <button
                                             onClick={async () => {
-                                                const url = `${window.location.origin}/track/${order.tracking_token}`
-                                                await navigator.clipboard.writeText(url)
-                                                setTrackingLinkCopied(true)
-                                                setTimeout(() => setTrackingLinkCopied(false), 2000)
+                                                try {
+                                                    const url = `${window.location.origin}/track/${order.tracking_token}`
+                                                    await navigator.clipboard.writeText(url)
+                                                    setTrackingLinkCopied(true)
+                                                    setTimeout(() => setTrackingLinkCopied(false), 2000)
+                                                } catch {
+                                                    toast({ title: 'Failed to copy', description: 'Clipboard access denied', type: 'error' })
+                                                }
                                             }}
                                             className="inline-flex items-center gap-1.5 bg-violet-50 dark:bg-violet-900/30 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shrink-0"
                                         >

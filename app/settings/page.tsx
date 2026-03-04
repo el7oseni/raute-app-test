@@ -44,6 +44,23 @@ export default function SettingsPage() {
     const [newHubAddress, setNewHubAddress] = useState("")
     const [newHubLoc, setNewHubLoc] = useState<{ lat: number, lng: number } | null>(null)
 
+    // Debounced auto-geocode when hub address changes
+    useEffect(() => {
+        if (!newHubAddress || newHubAddress.length < 5) return
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newHubAddress)}`)
+                const data = await res.json()
+                if (data && data[0]) {
+                    setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+                }
+            } catch {
+                // Silent fail for geocode
+            }
+        }, 1000)
+        return () => clearTimeout(timer)
+    }, [newHubAddress])
+
     useEffect(() => {
         fetchHubs()
     }, [])
@@ -284,25 +301,9 @@ export default function SettingsPage() {
                                                 <Input
                                                     placeholder="123 Industrial Blvd, City, State"
                                                     value={newHubAddress}
-                                                    onChange={async (e) => {
-                                                        setNewHubAddress(e.target.value)
-                                                        // Auto-geocode after user stops typing (debounce)
+                                                    onChange={(e) => {
                                                         const address = e.target.value
-                                                        if (!address) return
-
-                                                        // Use timeout to debounce
-                                                        setTimeout(async () => {
-                                                            if (address !== newHubAddress) return // User kept typing
-                                                            try {
-                                                                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-                                                                const data = await res.json()
-                                                                if (data && data[0]) {
-                                                                    setNewHubLoc({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
-                                                                }
-                                                            } catch (e) {
-                                                                // Silent fail
-                                                            }
-                                                        }, 1000) // Wait 1 second after user stops typing
+                                                        setNewHubAddress(address)
                                                     }}
                                                 />
                                                 <Button

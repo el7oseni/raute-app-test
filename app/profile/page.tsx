@@ -47,6 +47,7 @@ export default function ProfilePage() {
     // Password Change
     const [newPassword, setNewPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
     useEffect(() => {
         fetchProfile()
@@ -660,21 +661,15 @@ export default function ProfilePage() {
                                                 Please type <span className="font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded text-rose-600 select-all border border-rose-200 dark:border-rose-800">DELETE</span> to confirm
                                             </label>
                                             <Input
-                                                id="delete-confirm-input"
                                                 placeholder="Type DELETE here..."
                                                 className="h-14 rounded-xl bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-800 text-[16px] shadow-sm text-center font-bold focus-visible:ring-rose-500 font-mono tracking-widest uppercase"
-                                                onChange={(e) => {
-                                                    const btn = document.getElementById('confirm-delete-btn') as HTMLButtonElement;
-                                                    if (btn) {
-                                                        btn.disabled = e.target.value !== 'DELETE';
-                                                    }
-                                                }}
+                                                value={deleteConfirmText}
+                                                onChange={(e) => setDeleteConfirmText(e.target.value)}
                                             />
                                         </div>
 
                                         <Button
-                                            id="confirm-delete-btn"
-                                            disabled={true}
+                                            disabled={deleteConfirmText !== 'DELETE'}
                                             onClick={async () => {
                                                 try {
                                                     setLoading(true);

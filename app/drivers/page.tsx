@@ -69,9 +69,6 @@ export default function DriversPage() {
     const [maxDrivers, setMaxDrivers] = useState(1)
     const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-    const [isPasswordOpen, setIsPasswordOpen] = useState(false)
-    const [passDriver, setPassDriver] = useState<any>(null)
-    const [isUpdatePassLoading, setIsUpdatePassLoading] = useState(false)
 
     // Form states
     const [phoneValue, setPhoneValue] = useState<string | undefined>(undefined)
@@ -85,7 +82,6 @@ export default function DriversPage() {
     const [driverForm, setDriverForm] = useState({
         name: '',
         email: '',
-        password: '',
         vehicleType: '',
         maxOrders: '',
         vehicleCapacityKg: '',
@@ -157,7 +153,7 @@ export default function DriversPage() {
     // Reset form when dialog closes
     useEffect(() => {
         if (!isAddDriverOpen) {
-            setDriverForm({ name: '', email: '', password: '', vehicleType: '', maxOrders: '', vehicleCapacityKg: '', shiftStart: '', shiftEnd: '' })
+            setDriverForm({ name: '', email: '', vehicleType: '', maxOrders: '', vehicleCapacityKg: '', shiftStart: '', shiftEnd: '' })
             setPhoneValue(undefined)
             setDefaultStartLoc(null)
             setSelectedHubId('')
@@ -454,7 +450,7 @@ export default function DriversPage() {
 
             // Reset form state
             setIsAddDriverOpen(false)
-            setDriverForm({ name: '', email: '', password: '', vehicleType: '', maxOrders: '', vehicleCapacityKg: '', shiftStart: '', shiftEnd: '' })
+            setDriverForm({ name: '', email: '', vehicleType: '', maxOrders: '', vehicleCapacityKg: '', shiftStart: '', shiftEnd: '' })
             setPhoneValue(undefined)
             setDefaultStartLoc(null)
             setSelectedHubId("")
@@ -469,23 +465,24 @@ export default function DriversPage() {
         }
     }
 
+    const [isResendingEmail, setIsResendingEmail] = useState(false)
+
     async function handleResendSetupEmail(driver?: any) {
-        const target = driver || passDriver
-        if (!target) return
-        setIsUpdatePassLoading(true)
+        if (!driver) return
+        setIsResendingEmail(true)
 
         try {
-            if (!target.user_id) {
+            if (!driver.user_id) {
                 toast({ title: "Configuration Error", description: "This account is not linked to a user properly.", type: "error" })
                 return
             }
 
-            const { error } = await supabase.auth.resetPasswordForEmail(target.email || '', {
+            const { error } = await supabase.auth.resetPasswordForEmail(driver.email || '', {
                 redirectTo: window.location.origin + '/update-password'
             })
 
             if (!error) {
-                toast({ title: "Setup email sent!", description: `${target.name} will receive an email at ${target.email} to set their password.`, type: "success" })
+                toast({ title: "Setup email sent!", description: `${driver.name} will receive an email at ${driver.email} to set their password.`, type: "success" })
             } else {
                 toast({ title: "Failed to send setup email", description: error.message, type: "error" })
             }
@@ -493,8 +490,7 @@ export default function DriversPage() {
         } catch (error) {
             toast({ title: "Failed to send setup email.", type: "error" })
         } finally {
-            setIsUpdatePassLoading(false)
-            setIsPasswordOpen(false)
+            setIsResendingEmail(false)
         }
     }
 
@@ -859,7 +855,7 @@ export default function DriversPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="vehicle_capacity_lbs">Vehicle Capacity (kg)</Label>
+                                        <Label htmlFor="vehicle_capacity_lbs">Vehicle Capacity (lbs)</Label>
                                         <Input
                                             id="vehicle_capacity_lbs"
                                             name="vehicle_capacity_lbs"
@@ -1257,7 +1253,7 @@ export default function DriversPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Vehicle Capacity (kg)</Label>
+                                        <Label>Vehicle Capacity (lbs)</Label>
                                         <Input
                                             name="vehicle_capacity_lbs"
                                             type="number"
@@ -1341,10 +1337,10 @@ export default function DriversPage() {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => handleResendSetupEmail(editingDriver)}
-                                            disabled={isUpdatePassLoading}
+                                            disabled={isResendingEmail}
                                         >
                                             <Send size={14} className="mr-2" />
-                                            {isUpdatePassLoading ? 'Sending...' : 'Send Setup Email'}
+                                            {isResendingEmail ? 'Sending...' : 'Send Setup Email'}
                                         </Button>
                                     </div>
                                 </div>
@@ -1508,28 +1504,6 @@ export default function DriversPage() {
                         )}
                     </SheetContent>
                 </Sheet>
-
-                {/* Password Update Dialog */}
-                <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Resend Setup Email</DialogTitle>
-                        </DialogHeader>
-                        <div className="py-4 space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                Send a new account setup email to <strong>{passDriver?.email}</strong>.
-                                They will receive a link to set their password.
-                            </p>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsPasswordOpen(false)}>Cancel</Button>
-                                <Button onClick={() => handleResendSetupEmail()} disabled={isUpdatePassLoading}>
-                                    <Send size={16} className="mr-2" />
-                                    {isUpdatePassLoading ? 'Sending...' : 'Send Setup Email'}
-                                </Button>
-                            </DialogFooter>
-                        </div>
-                    </DialogContent>
-                </Dialog>
 
                 {/* Delete Confirmation */}
                 <Dialog open={!!deletingDriver} onOpenChange={(open) => !open && setDeleteingDriver(null)}>

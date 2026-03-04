@@ -335,8 +335,7 @@ export default function SignupPage() {
                                 await Browser.open({ url: data.url, windowName: '_system' })
                             }
                         } catch (err: any) {
-                            const errorMsg = err instanceof Error ? err.message : String(err)
-                            setError(errorMsg)
+                            toast({ title: "Sign up failed", description: err.message, type: "error" })
                             setIsLoading(false)
                         }
                     }}

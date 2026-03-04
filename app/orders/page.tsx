@@ -380,8 +380,8 @@ export default function OrdersPage() {
                 setOrders(prev => [...prev, ...data])
                 setHasMore(data.length === PAGE_SIZE)
             }
-        } catch (e) {
-            console.error('Load more error:', e)
+        } catch (e: any) {
+            toast({ title: 'Failed to load more orders', description: e?.message, type: 'error' })
         } finally {
             setLoadingMore(false)
         }
