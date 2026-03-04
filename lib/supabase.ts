@@ -195,7 +195,7 @@ export type Driver = {
     current_lng?: number | null
     last_location_update?: string | null
     max_orders?: number | null
-    vehicle_capacity_kg?: number | null
+    vehicle_capacity_lbs?: number | null
     shift_start?: string | null  // HH:MM:SS
     shift_end?: string | null    // HH:MM:SS
     created_at: string
@@ -263,7 +263,7 @@ export type Order = {
     cancellation_note?: string | null
     cancelled_by?: string | null
     cancelled_at?: string | null
-    weight_kg?: number | null
+    weight_lbs?: number | null
     customer_email?: string | null
     tracking_token?: string | null
 }

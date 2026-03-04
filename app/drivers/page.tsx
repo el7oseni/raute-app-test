@@ -347,7 +347,7 @@ export default function DriversPage() {
             const phone = phoneValue
             const vehicleType = formData.get('vehicle_type') as string
             const maxOrdersRaw = formData.get('max_orders') as string
-            const vehicleCapacityKgRaw = formData.get('vehicle_capacity_kg') as string
+            const vehicleCapacityKgRaw = formData.get('vehicle_capacity_lbs') as string
             const shiftStartRaw = formData.get('shift_start') as string
             const shiftEndRaw = formData.get('shift_end') as string
 
@@ -431,7 +431,7 @@ export default function DriversPage() {
                     .from('drivers')
                     .update({
                         max_orders: maxOrdersRaw ? parseInt(maxOrdersRaw, 10) : null,
-                        vehicle_capacity_kg: vehicleCapacityKgRaw ? parseFloat(vehicleCapacityKgRaw) : null,
+                        vehicle_capacity_lbs: vehicleCapacityKgRaw ? parseFloat(vehicleCapacityKgRaw) : null,
                         shift_start: shiftStartRaw ? shiftStartRaw + ':00' : null,
                         shift_end: shiftEndRaw ? shiftEndRaw + ':00' : null
                     })
@@ -507,7 +507,7 @@ export default function DriversPage() {
         const vehicleType = formData.get('vehicle_type') as string
         const status = formData.get('status') as string
         const maxOrdersRaw = formData.get('max_orders') as string
-        const vehicleCapacityKgRaw = formData.get('vehicle_capacity_kg') as string
+        const vehicleCapacityKgRaw = formData.get('vehicle_capacity_lbs') as string
         const shiftStartRaw = formData.get('shift_start') as string
         const shiftEndRaw = formData.get('shift_end') as string
         const maxOrders = maxOrdersRaw ? parseInt(maxOrdersRaw, 10) : null
@@ -604,7 +604,7 @@ export default function DriversPage() {
                 starting_point_lng: manualLng ? parseFloat(manualLng.toString()) : null,
                 starting_point_address: manualAddress,
                 max_orders: maxOrders,
-                vehicle_capacity_kg: vehicleCapacityKg,
+                vehicle_capacity_lbs: vehicleCapacityKg,
                 shift_start: shiftStart,
                 shift_end: shiftEnd
             })
@@ -849,16 +849,16 @@ export default function DriversPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="vehicle_capacity_kg">Vehicle Capacity (kg)</Label>
+                                        <Label htmlFor="vehicle_capacity_lbs">Vehicle Capacity (kg)</Label>
                                         <Input
-                                            id="vehicle_capacity_kg"
-                                            name="vehicle_capacity_kg"
+                                            id="vehicle_capacity_lbs"
+                                            name="vehicle_capacity_lbs"
                                             type="number"
                                             min="0"
                                             step="any"
                                             value={driverForm.vehicleCapacityKg}
                                             onChange={(e) => setDriverForm(prev => ({ ...prev, vehicleCapacityKg: e.target.value }))}
-                                            placeholder="e.g., 500 (leave blank for no limit)"
+                                            placeholder="e.g., 100 (leave blank for no limit)"
                                             className="h-11 bg-muted/30 border-input/50 focus:bg-background transition-all"
                                         />
                                     </div>
@@ -1241,12 +1241,12 @@ export default function DriversPage() {
                                     <div className="space-y-2">
                                         <Label>Vehicle Capacity (kg)</Label>
                                         <Input
-                                            name="vehicle_capacity_kg"
+                                            name="vehicle_capacity_lbs"
                                             type="number"
                                             min="0"
                                             step="any"
-                                            defaultValue={editingDriver.vehicle_capacity_kg ?? ''}
-                                            placeholder="e.g., 500 (leave blank for no limit)"
+                                            defaultValue={editingDriver.vehicle_capacity_lbs ?? ''}
+                                            placeholder="e.g., 100 (leave blank for no limit)"
                                         />
                                     </div>
                                 </div>

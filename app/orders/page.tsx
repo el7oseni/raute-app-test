@@ -457,40 +457,36 @@ export default function OrdersPage() {
         setFilteredOrders(filtered)
     }
 
-    const [isTogglingStatus, setIsTogglingStatus] = useState(false)
-
     async function toggleOnlineStatus() {
-        if (!driverId || isTogglingStatus) {
-            if (!driverId) toast({ title: "Error", description: "Driver profile not found.", type: "error" })
+        if (!driverId) {
+            toast({ title: "Error", description: "Driver profile not found.", type: "error" })
             return
         }
-        setIsTogglingStatus(true)
 
-        const newStatus = !isOnline
+        const currentStatus = isOnline
+        const newStatus = !currentStatus
+
+        // 1. Optimistic Update
+        setIsOnline(newStatus)
+        // Save to localStorage for persistence across refreshes
+        localStorage.setItem('driver_online_status', String(newStatus))
 
         try {
-            // Update DB first — also set last_location_update so isDriverOnline() works immediately
-            const updatePayload: Record<string, any> = { is_online: newStatus }
-            if (newStatus) {
-                updatePayload.last_location_update = new Date().toISOString()
-            }
-            const { error } = await supabase
+            // 2. Perform DB Update
+            const { data, error } = await supabase
                 .from('drivers')
-                .update(updatePayload)
+                .update({ is_online: newStatus })
                 .eq('id', driverId)
+                .select()
 
             if (error) throw error
 
-            // Only update UI after DB succeeds
-            setIsOnline(newStatus)
-            localStorage.setItem('driver_online_status', String(newStatus))
-
-            // Log Activity (non-blocking)
-            Promise.resolve(supabase.from('driver_activity_logs').insert({
+            // 3. Log Activity
+            await supabase.from('driver_activity_logs').insert({
                 driver_id: driverId,
                 status: newStatus ? 'online' : 'offline',
                 timestamp: new Date().toISOString()
-            })).catch(() => {})
+            })
 
             // 4. Notify managers when driver goes offline
             if (!newStatus && companyId) {
@@ -506,13 +502,12 @@ export default function OrdersPage() {
             toast({ title: newStatus ? "You are ONLINE 🟢" : "You are OFFLINE ⚫", type: "success" })
 
         } catch (error: any) {
+            setIsOnline(currentStatus) // Revert UI
             toast({
                 title: "Failed to update status",
-                description: error?.message || "Database permission denied",
+                description: error.message || "Database permission denied",
                 type: "error"
             })
-        } finally {
-            setIsTogglingStatus(false)
         }
     }
 
@@ -627,7 +622,7 @@ export default function OrdersPage() {
                         priority_level: result.priority_level || 'normal',
                         time_window_start: result.time_window_start || null,
                         time_window_end: result.time_window_end || null,
-                        weight_kg: result.weight_kg ?? null,
+                        weight_lbs: result.weight_lbs ?? null,
                         latitude: null as number | null,
                         longitude: null as number | null,
                         geocoding_confidence: null as string | null,
@@ -721,7 +716,7 @@ export default function OrdersPage() {
         if (data.time_window_start) setVal('time_window_start', data.time_window_start)
         if (data.time_window_end) setVal('time_window_end', data.time_window_end)
         if (data.notes) setVal('notes', data.notes)
-        if (data.weight_kg != null) setVal('weight_kg', String(data.weight_kg))
+        if (data.weight_lbs != null) setVal('weight_lbs', String(data.weight_lbs))
     }
 
     function toggleOrderSelection(orderId: string) {
@@ -841,7 +836,7 @@ export default function OrdersPage() {
             }
 
             const customerEmail = formData.get('customer_email') as string
-            const weightKgRaw = formData.get('weight_kg') as string
+            const weightKgRaw = formData.get('weight_lbs') as string
             const weightKg = weightKgRaw ? parseFloat(weightKgRaw) : null
 
             const newOrder: any = {
@@ -864,7 +859,7 @@ export default function OrdersPage() {
                 geocoding_confidence: confidence,
                 geocoded_address: verificationResult?.foundAddress,
                 geocoding_attempted_at: new Date().toISOString(),
-                weight_kg: weightKg
+                weight_lbs: weightKg
             }
 
             const { error } = await supabase.from('orders').insert(newOrder)
@@ -971,17 +966,15 @@ export default function OrdersPage() {
 
                             <button
                                 onClick={toggleOnlineStatus}
-                                disabled={isTogglingStatus}
                                 className={cn(
                                     "flex items-center gap-2 px-4 py-2 rounded-full shadow-sm border transition-all text-sm font-bold",
-                                    isTogglingStatus && "opacity-50 cursor-not-allowed",
                                     isOnline
                                         ? "bg-green-500/10 text-green-600 border-green-200 dark:border-green-900"
                                         : "bg-muted text-muted-foreground border-border"
                                 )}
                             >
                                 <div className={cn("w-2 h-2 rounded-full transition-colors", isOnline ? "bg-green-500 animate-pulse" : "bg-slate-400")} />
-                                {isTogglingStatus ? "..." : isOnline ? "ONLINE" : "OFFLINE"}
+                                {isOnline ? "ONLINE" : "OFFLINE"}
                             </button>
                         </div>
                     </div>
@@ -1656,8 +1649,8 @@ export default function OrdersPage() {
                                                     </div>
                                                     <div className="space-y-2"><label className="text-sm font-bold text-slate-800 dark:text-slate-200">Notes</label><textarea name="notes" className="w-full min-h-[100px] rounded-xl border border-input shadow-sm bg-white dark:bg-slate-950 px-3 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-y" placeholder="Any special delivery instructions..." /></div>
                                                     <div className="space-y-2">
-                                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Weight (kg)</label>
-                                                        <Input name="weight_kg" type="number" step="0.1" min="0" placeholder="e.g., 5.5" className="bg-white dark:bg-slate-950 h-11 rounded-xl shadow-sm" />
+                                                        <label className="text-sm font-bold text-slate-800 dark:text-slate-200">Weight (lbs)</label>
+                                                        <Input name="weight_lbs" type="number" step="0.1" min="0" placeholder="e.g., 12" className="bg-white dark:bg-slate-950 h-11 rounded-xl shadow-sm" />
                                                     </div>
                                                 </div>
                                             </div>

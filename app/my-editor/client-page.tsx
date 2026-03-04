@@ -152,7 +152,7 @@ export default function ClientOrderDetails() {
                 longitude: order.longitude,
                 priority_level: order.priority_level || 'normal',
                 geocoding_confidence: order.geocoding_confidence,
-                weight_kg: order.weight_kg
+                weight_lbs: order.weight_lbs
             })
         }
     }, [order, isEditSheetOpen])
@@ -514,7 +514,7 @@ export default function ClientOrderDetails() {
                 longitude: finalLng,
                 priority_level: formData.priority_level,
                 geocoding_confidence: formData.geocoding_confidence,
-                weight_kg: formData.weight_kg ?? null
+                weight_lbs: formData.weight_lbs ?? null
             }
 
             const { error } = await supabase.from('orders').update(updatedPayload).eq('id', effectiveOrderId)
@@ -1291,7 +1291,7 @@ export default function ClientOrderDetails() {
                         <Input value={formData.customer_email || ''} onChange={e => setFormData(prev => ({ ...prev, customer_email: e.target.value }))} type="email" placeholder="Customer Email" />
                         <Input value={formData.delivery_date ? new Date(formData.delivery_date).toISOString().split('T')[0] : ''} onChange={e => setFormData(prev => ({ ...prev, delivery_date: e.target.value }))} type="date" />
                         <textarea value={formData.notes || ''} onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} className="w-full p-2 border rounded-md" placeholder="Notes" />
-                        <Input value={formData.weight_kg != null ? String(formData.weight_kg) : ''} onChange={e => setFormData(prev => ({ ...prev, weight_kg: e.target.value ? parseFloat(e.target.value) : null }))} type="number" step="0.1" min="0" placeholder="Weight (kg)" />
+                        <Input value={formData.weight_lbs != null ? String(formData.weight_lbs) : ''} onChange={e => setFormData(prev => ({ ...prev, weight_lbs: e.target.value ? parseFloat(e.target.value) : null }))} type="number" step="0.1" min="0" placeholder="Weight (kg)" />
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Priority Level</label>

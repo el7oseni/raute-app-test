@@ -75,8 +75,8 @@ interface CapacityWarning {
     driverName: string
     orderCount: number
     maxOrders: number | null
-    totalWeightKg: number
-    vehicleCapacityKg: number | null
+    totalWeightLbs: number
+    vehicleCapacityLbs: number | null
 }
 
 interface ShiftViolation {
@@ -510,8 +510,8 @@ export async function optimizeRoute(
 
         // Calculate initial weight from pinned orders
         const pinnedWeight = pinnedOrders
-            .filter(o => o.driver_id === d.id && o.weight_kg)
-            .reduce((sum, o) => sum + (o.weight_kg || 0), 0)
+            .filter(o => o.driver_id === d.id && o.weight_lbs)
+            .reduce((sum, o) => sum + (o.weight_lbs || 0), 0)
 
         return {
             id: d.id,
@@ -526,8 +526,8 @@ export async function optimizeRoute(
             depotLng: d.default_start_lng,
             // Capacity fields
             maxOrders: d.max_orders ?? null,
-            vehicleCapacityKg: d.vehicle_capacity_kg ?? null,
-            currentWeightKg: pinnedWeight,
+            vehicleCapacityLbs: d.vehicle_capacity_lbs ?? null,
+            currentWeightLbs: pinnedWeight,
             // Shift fields
             shiftStartMin: d.shift_start ? timeToMinutes(d.shift_start) : null,
             shiftEndMin: d.shift_end ? timeToMinutes(d.shift_end) : null,
@@ -558,8 +558,8 @@ export async function optimizeRoute(
             if (driver.maxOrders !== null && driver.load >= driver.maxOrders) continue
 
             // Weight gate: skip if adding this order exceeds vehicle weight capacity
-            if (driver.vehicleCapacityKg !== null && order.weight_kg) {
-                if (driver.currentWeightKg + order.weight_kg > driver.vehicleCapacityKg) continue
+            if (driver.vehicleCapacityLbs !== null && order.weight_lbs) {
+                if (driver.currentWeightLbs + order.weight_lbs > driver.vehicleCapacityLbs) continue
             }
 
             // Shift gate: skip if driver's shift has ended
@@ -587,7 +587,7 @@ export async function optimizeRoute(
                 const driverPos = driverPositions.find(d => d.id === bestDriverId)
                 if (driverPos) {
                     driverPos.load++
-                    if (order.weight_kg) driverPos.currentWeightKg += order.weight_kg
+                    if (order.weight_lbs) driverPos.currentWeightLbs += order.weight_lbs
                 }
             }
         }
@@ -785,25 +785,25 @@ export async function optimizeRoute(
 
         // --- CAPACITY WARNING ---
         const driverMaxOrders = driverPos?.maxOrders ?? null
-        const driverCapacityKg = driverPos?.vehicleCapacityKg ?? null
-        const totalWeightKg = sortedDriverOrders.reduce((sum, o) => sum + (o.weight_kg || 0), 0)
+        const driverCapacityKg = driverPos?.vehicleCapacityLbs ?? null
+        const totalWeightLbs = sortedDriverOrders.reduce((sum, o) => sum + (o.weight_lbs || 0), 0)
 
         if (driverMaxOrders !== null && sortedDriverOrders.length > driverMaxOrders) {
             warnings.capacityWarnings.push({
                 driverName: driver.name,
                 orderCount: sortedDriverOrders.length,
                 maxOrders: driverMaxOrders,
-                totalWeightKg,
-                vehicleCapacityKg: driverCapacityKg
+                totalWeightLbs,
+                vehicleCapacityLbs: driverCapacityKg
             })
         }
-        if (driverCapacityKg !== null && totalWeightKg > driverCapacityKg) {
+        if (driverCapacityKg !== null && totalWeightLbs > driverCapacityKg) {
             warnings.capacityWarnings.push({
                 driverName: driver.name,
                 orderCount: sortedDriverOrders.length,
                 maxOrders: driverMaxOrders,
-                totalWeightKg,
-                vehicleCapacityKg: driverCapacityKg
+                totalWeightLbs,
+                vehicleCapacityLbs: driverCapacityKg
             })
         }
 
@@ -819,9 +819,8 @@ export async function optimizeRoute(
             }
         }
 
-        // --- OVERLOAD WARNING (fallback for drivers without max_orders) ---
-        const effectiveThreshold = driverMaxOrders ?? OVERLOAD_THRESHOLD
-        if (sortedDriverOrders.length > effectiveThreshold) {
+        // --- OVERLOAD WARNING (only if max_orders is explicitly set) ---
+        if (driverMaxOrders !== null && sortedDriverOrders.length > driverMaxOrders) {
             warnings.overloadedDrivers.push({
                 driverName: driver.name,
                 orderCount: sortedDriverOrders.length,
