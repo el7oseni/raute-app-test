@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/api-auth'
+import { checkRateLimit } from '@/lib/api-rate-limit'
 
 /**
  * Check if an email has been verified in Supabase Auth.
@@ -10,6 +11,10 @@ import { getSupabaseAdmin } from '@/lib/api-auth'
  */
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit: 10 requests per 60 seconds
+        const rateLimited = checkRateLimit(request, { windowSeconds: 60, maxRequests: 10 })
+        if (rateLimited) return rateLimited
+
         const { email } = await request.json()
 
         if (!email || typeof email !== 'string') {

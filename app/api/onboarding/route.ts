@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { checkRateLimit } from '@/lib/api-rate-limit'
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limit: 5 requests per 60 seconds
+        const rateLimited = checkRateLimit(request, { windowSeconds: 60, maxRequests: 5 })
+        if (rateLimited) return rateLimited
+
         const cookieStore = await cookies()
 
         const supabase = createServerClient(

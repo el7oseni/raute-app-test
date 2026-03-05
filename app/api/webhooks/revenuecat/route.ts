@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/api-rate-limit'
 
 /**
  * RevenueCat Webhook Handler
  * Processes subscription events and updates driver_limit
- * 
+ *
  * Webhook URL: https://your-domain.com/api/webhooks/revenuecat
  * Configure in RevenueCat Dashboard → Integrations → Webhooks
  */
 
 export async function POST(request: Request) {
     try {
+        // Rate limit: 50 requests per 60 seconds
+        const rateLimited = checkRateLimit(request, { windowSeconds: 60, maxRequests: 50 })
+        if (rateLimited) return rateLimited
+
         // Verify webhook authorization token
         const authHeader = request.headers.get('authorization')
         const expectedToken = process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN
