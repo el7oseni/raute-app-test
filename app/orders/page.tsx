@@ -10,6 +10,7 @@ import { cacheData, getCachedData, getLastSyncTime } from "@/lib/offline-cache"
 import { waitForSession } from "@/lib/wait-for-session"
 import { parseOrderAI, type ParsedOrder } from "@/lib/grok"
 import { smartGeocode, batchSmartGeocode } from "@/lib/smart-geocoder"
+import { authenticatedFetch } from "@/lib/authenticated-fetch"
 import { reverseGeocode } from "@/lib/geocoding"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import LocationPicker from "@/components/location-picker"
@@ -515,65 +516,51 @@ export default function OrdersPage() {
         if (!fullAddress.trim()) return null
 
         try {
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-            if (!apiKey) {
-                // Fallback silently if key is missing
-                throw new Error("Missing API Key");
-            }
+            // Use server-side proxy — API key never exposed to browser
+            const response = await authenticatedFetch('/api/geocode', {
+                method: 'POST',
+                body: JSON.stringify({ address: fullAddress }),
+            })
 
+            if (response.ok) {
+                const data = await response.json()
+                return {
+                    lat: data.lat,
+                    lng: data.lng,
+                    confidence: data.confidence,
+                    foundAddress: data.foundAddress,
+                }
+            }
+        } catch {
+            // Google proxy failed, try Nominatim fallback
+        }
+
+        // Fallback to Nominatim (OpenStreetMap) — free, no API key needed
+        try {
             const response = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1&addressdetails=1`,
+                { headers: { 'User-Agent': 'Raute Delivery App' } }
             )
             const data = await response.json()
+            if (data && data.length > 0) {
+                const result = data[0]
+                const addressDetails = result.address || {}
 
-            if (data.status === 'OK' && data.results && data.results.length > 0) {
-                const result = data.results[0]
-                const location = result.geometry.location
-                const locationType = result.geometry.location_type
-
-                let confidence: 'exact' | 'approximate' | 'low' = 'low'
-                if (locationType === 'ROOFTOP') confidence = 'exact'
-                else if (locationType === 'RANGE_INTERPOLATED') confidence = 'approximate'
-                else confidence = 'low'
+                let confidence: 'exact' | 'approximate' | 'low' = 'low';
+                if (addressDetails.house_number) confidence = 'exact';
+                else if (addressDetails.road || addressDetails.street) confidence = 'approximate';
 
                 return {
-                    lat: location.lat,
-                    lng: location.lng,
+                    lat: parseFloat(result.lat),
+                    lng: parseFloat(result.lon),
                     confidence,
-                    foundAddress: result.formatted_address
+                    foundAddress: result.display_name
                 }
-            } else {
-                return null;
             }
-        } catch (error) {
-            // Fallback to Nominatim (OpenStreetMap)
-            try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1&addressdetails=1`,
-                    { headers: { 'User-Agent': 'Raute Delivery App' } }
-                )
-                const data = await response.json()
-                if (data && data.length > 0) {
-                    const result = data[0]
-                    const addressDetails = result.address || {}
-
-                    // Calculate Confidence
-                    let confidence: 'exact' | 'approximate' | 'low' = 'low';
-                    if (addressDetails.house_number) confidence = 'exact';
-                    else if (addressDetails.road || addressDetails.street) confidence = 'approximate';
-
-                    return {
-                        lat: parseFloat(result.lat),
-                        lng: parseFloat(result.lon),
-                        confidence,
-                        foundAddress: result.display_name
-                    }
-                }
-            } catch (err) {
-                // Silent fail
-            }
-            return null
+        } catch {
+            // Silent fail
         }
+        return null
     }
 
     async function handleAIParse(input: string | File | File[]) {
@@ -664,13 +651,15 @@ export default function OrdersPage() {
                             if (geo.correctedAddress) {
                                 updates.address = geo.correctedAddress
                             }
-                            await supabase.from('orders').update(updates).eq('id', orderIds[i])
-                            geocodedCount++
+                            const { error: geoUpdateErr } = await supabase.from('orders').update(updates).eq('id', orderIds[i])
+                            if (geoUpdateErr) console.error(`Failed to save geocode for order ${orderIds[i]}:`, geoUpdateErr.message)
+                            else geocodedCount++
                         } else if (orderIds[i]) {
-                            await supabase.from('orders').update({
+                            const { error: geoFailErr } = await supabase.from('orders').update({
                                 geocoding_confidence: 'failed',
                                 geocoding_attempted_at: new Date().toISOString()
                             }).eq('id', orderIds[i])
+                            if (geoFailErr) console.error(`Failed to mark geocode failure for order ${orderIds[i]}:`, geoFailErr.message)
                         }
                     }
                     console.log(`✅ Background geocoding complete: ${geocodedCount}/${orderIds.length} orders geocoded`)
@@ -820,13 +809,15 @@ export default function OrdersPage() {
                     if (geo.correctedAddress) {
                         updates.address = geo.correctedAddress
                     }
-                    await supabase.from('orders').update(updates).eq('id', failedOrders[i].id)
-                    fixed++
+                    const { error: retryErr } = await supabase.from('orders').update(updates).eq('id', failedOrders[i].id)
+                    if (retryErr) console.error(`Retry geocode save failed for order ${failedOrders[i].id}:`, retryErr.message)
+                    else fixed++
                 } else {
-                    await supabase.from('orders').update({
+                    const { error: retryFailErr } = await supabase.from('orders').update({
                         geocoding_confidence: 'failed',
                         geocoding_attempted_at: new Date().toISOString()
                     }).eq('id', failedOrders[i].id)
+                    if (retryFailErr) console.error(`Retry geocode failure mark failed:`, retryFailErr.message)
                 }
             }
 

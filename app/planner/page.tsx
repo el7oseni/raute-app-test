@@ -724,14 +724,16 @@ export default function PlannerPage() {
                         if (result.correctedAddress) {
                             updates.address = result.correctedAddress
                         }
-                        await supabase.from('orders').update(updates).eq('id', order.id)
-                        fixed++
+                        const { error: planGeoErr } = await supabase.from('orders').update(updates).eq('id', order.id)
+                        if (planGeoErr) console.error(`Planner geocode save failed for order ${order.id}:`, planGeoErr.message)
+                        else fixed++
                     } else {
-                        await supabase.from('orders').update({
+                        const { error: planFailErr } = await supabase.from('orders').update({
                             geocoding_confidence: 'failed',
                             geocoding_attempted_at: new Date().toISOString(),
                             geocoded_address: 'All geocoding strategies failed'
                         }).eq('id', order.id)
+                        if (planFailErr) console.error(`Planner geocode failure mark failed:`, planFailErr.message)
                     }
                 } catch {
                     // Continue with next order

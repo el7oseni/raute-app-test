@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, getSupabaseAdmin } from '@/lib/api-auth'
+import { checkRateLimit } from '@/lib/api-rate-limit'
 
 /**
  * POST /api/push/send
@@ -19,7 +20,7 @@ import { getAuthenticatedUser, getSupabaseAdmin } from '@/lib/api-auth'
  *   FIREBASE_PRIVATE_KEY   — Firebase service account private key (PEM)
  */
 
-const FIREBASE_PROJECT_ID = 'raute-app'
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'raute-app'
 const FCM_URL = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`
 
 // ─── JWT / OAuth2 helpers ────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ async function sendFcmNotification(
   title: string,
   body: string,
   data?: Record<string, string>
-): Promise<{ success: boolean; error?: string; messageName?: string }> {
+): Promise<{ success: boolean; error?: string; messageName?: string; invalidToken?: boolean }> {
   const message = {
     message: {
       token: pushToken,
@@ -165,9 +166,16 @@ async function sendFcmNotification(
   const result = await resp.json()
 
   if (!resp.ok) {
+    // Detect invalid/expired push tokens so caller can clean them up
+    const errorCode = result.error?.details?.[0]?.errorCode || result.error?.code || ''
+    const isInvalidToken = errorCode === 'UNREGISTERED' ||
+      errorCode === 'INVALID_ARGUMENT' ||
+      resp.status === 404
+
     return {
       success: false,
       error: result.error?.message || `FCM error ${resp.status}`,
+      invalidToken: isInvalidToken,
     }
   }
 
@@ -177,6 +185,10 @@ async function sendFcmNotification(
 // ─── Route handler ───────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 10 req/60s per IP
+  const rateLimited = checkRateLimit(request, { windowSeconds: 60, maxRequests: 10 })
+  if (rateLimited) return rateLimited
+
   try {
     // 1. Authenticate
     const authUser = await getAuthenticatedUser(request)
@@ -218,6 +230,14 @@ export async function POST(request: NextRequest) {
     if (!title || !body) {
       return NextResponse.json(
         { error: 'Missing required fields: title, body' },
+        { status: 400 }
+      )
+    }
+
+    // Validate title/body length
+    if (String(title).length > 500 || String(body).length > 500) {
+      return NextResponse.json(
+        { error: 'title and body must be under 500 characters' },
         { status: 400 }
       )
     }
@@ -296,7 +316,24 @@ export async function POST(request: NextRequest) {
       return { success: false, error: String(r.reason) }
     })
 
-    const successCount = notifications.filter((n) => n.success).length
+    // 9. Clean up invalid/expired push tokens (fire-and-forget)
+    const invalidTokenDriverIds = notifications
+      .filter((n: any) => n.invalidToken && n.driver_id)
+      .map((n: any) => n.driver_id)
+
+    if (invalidTokenDriverIds.length > 0) {
+      // Clean up stale push tokens (fire-and-forget)
+      ;(supabaseAdmin
+        .from('drivers') as any)
+        .update({ push_token: null })
+        .in('id', invalidTokenDriverIds)
+        .then(({ error }: any) => {
+          if (error) console.error('Failed to clean stale push tokens:', error)
+          else console.log(`Cleaned ${invalidTokenDriverIds.length} stale push token(s)`)
+        })
+    }
+
+    const successCount = notifications.filter((n: any) => n.success).length
     const failCount = notifications.length - successCount
 
     return NextResponse.json({

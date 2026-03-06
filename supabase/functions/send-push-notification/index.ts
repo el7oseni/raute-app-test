@@ -15,7 +15,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  *   SUPABASE_SERVICE_ROLE_KEY — auto-injected by Supabase
  */
 
-const FIREBASE_PROJECT_ID = "raute-app";
+const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") || "raute-app";
 const FCM_URL = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`;
 
 // ─── JWT helper: create a signed JWT for Google OAuth2 ───────────────────────

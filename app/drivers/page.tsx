@@ -56,7 +56,7 @@ export default function DriversPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isAddDriverOpen, setIsAddDriverOpen] = useState(false)
     const [editingDriver, setEditingDriver] = useState<any | null>(null)
-    const [deletingDriver, setDeleteingDriver] = useState<any | null>(null)
+    const [deletingDriver, setDeletingDriver] = useState<any | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
     const [locationMode, setLocationMode] = useState<'address' | 'map' | 'hub'>('hub')
     const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
@@ -601,7 +601,7 @@ export default function DriversPage() {
 
             // Optionally delete from public.users / auth.users via RPC if strict cleanup is needed
 
-            setDeleteingDriver(null)
+            setDeletingDriver(null)
             fetchDrivers()
         } catch (error: any) {
             toast({ title: 'Error deleting driver', description: error.message, type: 'error' })
@@ -1082,7 +1082,7 @@ export default function DriversPage() {
 
                                         <button
                                             className="h-11 w-11 flex items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors border border-rose-100/50 dark:border-rose-900/50"
-                                            onClick={() => setDeleteingDriver(driver)}
+                                            onClick={() => setDeletingDriver(driver)}
                                             title="Delete Driver"
                                         >
                                             <Trash2 size={18} strokeWidth={2} />
@@ -1355,7 +1355,7 @@ export default function DriversPage() {
                 </Dialog>
 
                 {/* Delete Confirmation */}
-                <Dialog open={!!deletingDriver} onOpenChange={(open) => !open && setDeleteingDriver(null)}>
+                <Dialog open={!!deletingDriver} onOpenChange={(open) => !open && setDeletingDriver(null)}>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Delete Driver?</DialogTitle>
@@ -1364,7 +1364,7 @@ export default function DriversPage() {
                             <p>Are you sure you want to delete <strong>{deletingDriver?.name}</strong>? This action cannot be undone.</p>
                         </div>
                         <DialogFooter className="gap-2 sm:gap-0">
-                            <Button variant="outline" onClick={() => setDeleteingDriver(null)}>Cancel</Button>
+                            <Button variant="outline" onClick={() => setDeletingDriver(null)}>Cancel</Button>
                             <Button variant="destructive" onClick={handleDeleteDriver} disabled={isDeleting}>
                                 {isDeleting ? 'Deleting...' : 'Delete Driver'}
                             </Button>
