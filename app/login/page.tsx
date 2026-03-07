@@ -189,33 +189,47 @@ export default function LoginPage() {
         setIsLoading(true)
         try {
             const isNative = typeof window !== 'undefined' && (window as unknown as { Capacitor?: any }).Capacitor?.isNativePlatform()
-            const { capacitorStorage } = await import('@/lib/capacitor-storage')
-            const { Browser } = await import('@capacitor/browser')
-            const { backupCodeVerifier } = await import('@/lib/pkce-backup')
 
             if (isNative) {
+                // Native: Use Google Sign-In SDK for native account picker
+                const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
+                const { capacitorStorage } = await import('@/lib/capacitor-storage')
+
                 await supabase.auth.signOut({ scope: 'local' })
                 await capacitorStorage.clearAllAuthData()
                 await new Promise(resolve => setTimeout(resolve, 300))
-            }
 
-            const redirectUrl = isNative
-                ? 'io.raute.app://auth/callback'
-                : `${window.location.origin}/auth/callback`
+                await GoogleAuth.initialize({
+                    clientId: '825364238291-e8volfitrt9rnjmcm2bqfbkcac82frur.apps.googleusercontent.com',
+                    scopes: ['profile', 'email'],
+                    grantOfflineAccess: true,
+                })
 
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectUrl,
-                    skipBrowserRedirect: isNative,
-                    queryParams: { prompt: 'select_account' }
-                }
-            })
-            if (error) throw error
+                const googleUser = await GoogleAuth.signIn()
+                const idToken = googleUser.authentication?.idToken
 
-            if (isNative && data?.url) {
-                await backupCodeVerifier()
-                await Browser.open({ url: data.url })
+                if (!idToken) throw new Error('No ID token received from Google')
+
+                // Exchange Google ID token for Supabase session
+                const { error } = await supabase.auth.signInWithIdToken({
+                    provider: 'google',
+                    token: idToken,
+                })
+                if (error) throw error
+
+                router.push('/dashboard')
+            } else {
+                // Web: Use Supabase OAuth redirect flow
+                const redirectUrl = `${window.location.origin}/auth/callback`
+
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: redirectUrl,
+                        queryParams: { prompt: 'select_account' }
+                    }
+                })
+                if (error) throw error
             }
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err)

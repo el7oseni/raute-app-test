@@ -312,25 +312,42 @@ export default function SignupPage() {
                         setIsLoading(true)
                         try {
                             const isNative = Capacitor.isNativePlatform()
-                            const redirectUrl = isNative
-                                ? 'io.raute.app://auth/callback'
-                                : `${window.location.origin}/auth/callback`
 
-                            const { data, error } = await supabase.auth.signInWithOAuth({
-                                provider: 'google',
-                                options: {
-                                    redirectTo: redirectUrl,
-                                    skipBrowserRedirect: isNative,
-                                    queryParams: {
-                                        access_type: 'offline',
-                                        prompt: 'consent',
+                            if (isNative) {
+                                // Native: Use Google Sign-In SDK for native account picker
+                                const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
+
+                                await GoogleAuth.initialize({
+                                    clientId: '825364238291-e8volfitrt9rnjmcm2bqfbkcac82frur.apps.googleusercontent.com',
+                                    scopes: ['profile', 'email'],
+                                    grantOfflineAccess: true,
+                                })
+
+                                const googleUser = await GoogleAuth.signIn()
+                                const idToken = googleUser.authentication?.idToken
+
+                                if (!idToken) throw new Error('No ID token received from Google')
+
+                                const { error } = await supabase.auth.signInWithIdToken({
+                                    provider: 'google',
+                                    token: idToken,
+                                })
+                                if (error) throw error
+                            } else {
+                                // Web: Use Supabase OAuth redirect flow
+                                const redirectUrl = `${window.location.origin}/auth/callback`
+
+                                const { data, error } = await supabase.auth.signInWithOAuth({
+                                    provider: 'google',
+                                    options: {
+                                        redirectTo: redirectUrl,
+                                        queryParams: {
+                                            access_type: 'offline',
+                                            prompt: 'consent',
+                                        }
                                     }
-                                }
-                            })
-                            if (error) throw error
-
-                            if (isNative && data?.url) {
-                                await Browser.open({ url: data.url, windowName: '_system' })
+                                })
+                                if (error) throw error
                             }
                         } catch (err: any) {
                             const errorMsg = err instanceof Error ? err.message : String(err)
