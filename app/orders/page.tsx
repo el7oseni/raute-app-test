@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Plus, Search, Filter, Package, MapPin, Calendar, User as UserIcon, Truck, Navigation2, CheckCircle2, Power, Sparkles, Camera, Loader2, ArrowRight, Edit, Settings, List, Clock, X, AlertTriangle, AlertCircle, WifiOff, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -105,6 +105,7 @@ export default function OrdersPage() {
     const [formTab, setFormTab] = useState("ai")
     const [viewMode, setViewMode] = useState("list")
     const formRef = React.useRef<HTMLFormElement>(null)
+    const fetchAbortRef = useRef<AbortController | null>(null)
     const { toast } = useToast()
     const [aiInputText, setAiInputText] = useState("")
 
@@ -124,6 +125,11 @@ export default function OrdersPage() {
     useEffect(() => {
         setDateRange({ from: new Date(), to: new Date() })
         fetchData()
+
+        return () => {
+            // Abort any in-flight fetch when component unmounts
+            fetchAbortRef.current?.abort()
+        }
     }, [])
 
     useEffect(() => {
@@ -222,6 +228,11 @@ export default function OrdersPage() {
     }, [pickedLocation, verificationResult, formTab])
 
     async function fetchData() {
+        // Abort any previous in-flight fetch to prevent race conditions
+        fetchAbortRef.current?.abort()
+        const abortController = new AbortController()
+        fetchAbortRef.current = abortController
+
         setIsLoading(true)
         try {
             // Use waitForSession to handle Capacitor async storage lag
@@ -241,6 +252,9 @@ export default function OrdersPage() {
 
             if (!currentUserId) return
 
+            // Check if this fetch was aborted before continuing
+            if (abortController.signal.aborted) return
+
             // ⚡ QUICK LOAD: Try to load from cache immediately for instant UI
             if (typeof window !== 'undefined') {
                 const cachedOrders = localStorage.getItem('cached_orders')
@@ -259,6 +273,9 @@ export default function OrdersPage() {
                 .maybeSingle()
 
             if (!userProfile) return
+
+            // Abort guard: don't update state if a newer fetch has started
+            if (abortController.signal.aborted) return
 
             // Store user details
             setUserRole(userProfile.role)
@@ -300,6 +317,7 @@ export default function OrdersPage() {
                     .order('created_at', { ascending: false }) // Fallback
 
                 if (error) throw error
+                if (abortController.signal.aborted) return
 
                 // ✅ SUCCESS: Update State & Cache
                 fetchedOrders = data || []
@@ -318,6 +336,7 @@ export default function OrdersPage() {
                     .range(0, PAGE_SIZE - 1)
 
                 if (error) throw error
+                if (abortController.signal.aborted) return
 
                 setHasMore((data?.length || 0) === PAGE_SIZE)
 

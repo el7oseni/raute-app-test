@@ -23,6 +23,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 })
         }
 
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(email.trim())) {
+            return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (getSupabaseAdmin() as any).rpc(
             'check_email_verification',

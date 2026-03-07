@@ -147,12 +147,24 @@ export const supabaseAdmin = supabaseServiceRoleKey
         }
     })
     : (() => {
-        // Log error on server-side if service role key is missing — prevents silent RLS bypass
+        // On the server, missing SERVICE_ROLE_KEY means admin operations would silently
+        // use the anon client and bypass RLS — throw to fail fast instead.
         if (typeof window === 'undefined') {
-            console.error('SUPABASE_SERVICE_ROLE_KEY is not set! Admin operations will fail.')
+            throw new Error(
+                'SUPABASE_SERVICE_ROLE_KEY is not set! Cannot create supabaseAdmin client. ' +
+                'Admin operations require the service role key to bypass RLS safely.'
+            )
         }
-        // Return anon client as fallback for client-side imports (unused there)
-        return supabase
+        // Client-side: supabaseAdmin should never be used in the browser.
+        // Return a proxy that throws on any property access to catch misuse early.
+        return new Proxy({} as any, {
+            get(_, prop) {
+                if (prop === 'then' || prop === Symbol.toPrimitive || prop === Symbol.toStringTag) {
+                    return undefined
+                }
+                throw new Error('supabaseAdmin is not available on the client side.')
+            }
+        })
     })()
 
 // Database Types (for TypeScript)

@@ -19,6 +19,7 @@ const STORAGE_KEY = 'offline_queue';
 class OfflineManager {
     private queue: OfflineAction[] = [];
     private isOnline: boolean = true;
+    private networkListenerHandle: { remove: () => void } | null = null;
 
     constructor() {
         this.init();
@@ -28,7 +29,7 @@ class OfflineManager {
         const status = await Network.getStatus();
         this.isOnline = status.connected;
 
-        Network.addListener('networkStatusChange', status => {
+        this.networkListenerHandle = await Network.addListener('networkStatusChange', status => {
             this.isOnline = status.connected;
             if (this.isOnline) {
                 this.processQueue();
@@ -36,6 +37,13 @@ class OfflineManager {
         });
 
         this.loadQueue();
+    }
+
+    public async destroy() {
+        if (this.networkListenerHandle) {
+            this.networkListenerHandle.remove();
+            this.networkListenerHandle = null;
+        }
     }
 
     private async loadQueue() {

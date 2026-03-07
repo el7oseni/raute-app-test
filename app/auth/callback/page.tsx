@@ -7,6 +7,39 @@ import { authenticatedFetch } from '@/lib/authenticated-fetch'
 import { Capacitor } from '@capacitor/core'
 import { App } from '@capacitor/app'
 
+/**
+ * Validate that a redirect URL is safe (relative path or raute.io domain only).
+ * Returns the URL if valid, or the fallback otherwise.
+ */
+function validateRedirectUrl(url: string, fallback: string = '/dashboard'): string {
+  // Allow relative URLs (must start with /)
+  if (url.startsWith('/') && !url.startsWith('//')) {
+    return url
+  }
+
+  // Allow raute.io domain
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === 'raute.io' || parsed.hostname.endsWith('.raute.io')) {
+      return url
+    }
+  } catch {
+    // Invalid URL — use fallback
+  }
+
+  return fallback
+}
+
+/**
+ * Sanitize a URL parameter for safe display.
+ * Strips HTML tags and limits length to prevent abuse.
+ */
+function sanitizeDisplayParam(value: string, maxLength: number = 200): string {
+  return String(value)
+    .replace(/[<>"'&]/g, '') // Strip characters that could break out of HTML context
+    .slice(0, maxLength)
+}
+
 export default function AuthCallback() {
   const router = useRouter()
   const hasRedirected = useRef(false)
@@ -25,7 +58,7 @@ export default function AuthCallback() {
       // Check email verification
       if (!emailConfirmedAt) {
         hasRedirected.current = true
-        window.location.href = '/verify-email'
+        window.location.href = validateRedirectUrl('/verify-email', '/verify-email')
         return
       }
 
@@ -126,18 +159,18 @@ export default function AuthCallback() {
           // Detect expired/invalid email verification links
           if (oauthError === 'access_denied' && decodedDesc.toLowerCase().includes('expired')) {
             hasRedirected.current = true
-            setExpiredLinkError(decodedDesc)
+            setExpiredLinkError(sanitizeDisplayParam(decodedDesc))
             setShowExpiredLink(true)
             return
           }
 
-          setStatus(`Sign in failed: ${decodedDesc || oauthError}`)
+          setStatus(`Sign in failed: ${sanitizeDisplayParam(decodedDesc || oauthError)}`)
           setTimeout(() => {
             if (!hasRedirected.current) {
               hasRedirected.current = true
               // Sanitize URL params to prevent XSS / open redirect
               const safeError = encodeURIComponent(String(oauthError).slice(0, 100))
-              window.location.href = `/login?error=${safeError}`
+              window.location.href = validateRedirectUrl(`/login?error=${safeError}`, '/login')
             }
           }, 5000)
           return
