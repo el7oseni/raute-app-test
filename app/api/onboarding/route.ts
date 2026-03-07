@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Company Name is required' }, { status: 400 })
         }
 
+        if (String(companyName).length > 100) {
+            return NextResponse.json({ error: 'Company name must be under 100 characters' }, { status: 400 })
+        }
+
         // 2. Create Company
         // We generate ID here to avoid RLS select issues (user can't see company yet)
         const newCompanyId = crypto.randomUUID()
