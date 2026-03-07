@@ -168,6 +168,7 @@ export default function AuthCallback() {
           setTimeout(() => {
             if (!hasRedirected.current) {
               hasRedirected.current = true
+              // Sanitize URL params to prevent XSS / open redirect
               const safeError = encodeURIComponent(String(oauthError).slice(0, 100))
               window.location.href = validateRedirectUrl(`/login?error=${safeError}`, '/login')
             }
